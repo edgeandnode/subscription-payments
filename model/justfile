@@ -1,0 +1,17 @@
+jvm_args := "JVM_ARGS='-Xmx4G'"
+
+check:
+  {{jvm_args}} apalache-mc check \
+    --no-deadlock --length=5 \
+    --inv=Safety subscriptions.tla
+
+simulate:
+  {{jvm_args}} apalache-mc simulate \
+    --no-deadlock --length=7 --max-run=10 \
+    --inv=Safety subscriptions.tla
+
+typecheck:
+  apalache-mc typecheck subscriptions.tla
+
+clean:
+  rm -rf _apalache-out
