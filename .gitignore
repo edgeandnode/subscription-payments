@@ -4,8 +4,9 @@ coverage.json
 node_modules
 typechain
 
-#Hardhat files
 cache
 artifacts
 
 /model/_apalache-out
+
+/contract-deployment.json
