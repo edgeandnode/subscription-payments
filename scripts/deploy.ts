@@ -10,14 +10,20 @@ async function main() {
     await ethers.getContractFactory('Subscriptions')
   ).deploy(token.address);
 
-  console.log({
-    signer: signer.address,
-    initialBalance: initialBalance.toString(),
-    token: token.address,
-    contract: contract.address,
-  });
-
   await network.provider.send('evm_mine');
+
+  console.log(
+    JSON.stringify(
+      {
+        signer: signer.address,
+        initialBalance: initialBalance.toString(),
+        token: token.address,
+        contract: contract.address,
+      },
+      undefined,
+      2
+    )
+  );
 }
 
 main().catch(error => {
