@@ -1,0 +1,26 @@
+type Subscribe @entity(immutable: true) {
+  id: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  subscriber: Bytes! # address
+  startBlock: BigInt! # uint64
+  endBlock: BigInt! # uint64
+  pricePerBlock: BigInt! # uint128
+}
+
+type Unsubscribe @entity(immutable: true) {
+  id: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  subscriber: Bytes! # address
+}
+
+type Subscription @entity {
+  id: Bytes!
+  subscriber: Bytes! # address
+  startBlock: BigInt! # uint64
+  endBlock: BigInt! # uint64
+  pricePerBlock: BigInt! # uint128
+}
