@@ -2,142 +2,152 @@
 
 // Reference: https://ethereum.org/en/developers/docs/evm/opcodes/
 
-pragma solidity ^0.8.14;
+pragma solidity ^0.8.17;
 pragma abicoder v2;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+
+library Prelude {
+    function min(int256 a, int256 b) internal pure returns (int256) {
+        return a <= b ? a : b;
+    }
+
+    function max(int256 a, int256 b) internal pure returns (int256) {
+        return a >= b ? a : b;
+    }
+
+    function clamp(
+        uint64 x,
+        uint64 a,
+        uint64 b
+    ) internal pure returns (uint64) {
+        return uint64(int64(max(int64(a), min(int64(b), int64(x)))));
+    }
+}
 
 contract Subscriptions {
     struct Subscription {
-        uint64 firstBlock;
-        uint64 lastBlock;
+        uint64 startBlock;
+        uint64 endBlock;
         uint128 pricePerBlock;
     }
-    struct Epoch {
-        uint32 bin;
-        int32 delta;
-    }
 
-    event Subscribe(address indexed subscriber, uint64 lastBlock, uint128 pricePerBlock);
+    event Subscribe(
+        address indexed subscriber,
+        uint64 startBlock,
+        uint64 endBlock,
+        uint128 pricePerBlock
+    );
     event Unsubscribe(address indexed subscriber);
 
-    address public owner;
     IERC20 public token;
-    uint128 public minValue;
-    uint128 public pricePerBlock;
-    uint128 public unlockedTokens;
-    uint8 private _epochShift;
-    uint64 private _firstEpoch;
-    uint128 private _incomePerBlock;
-    mapping (address => Subscription[]) private _subscriptions;
-    mapping (uint64 => Epoch[4]) private _epochs;
+    address public owner;
+    uint128 private _uncollected;
+    mapping(address => Subscription) private _subscriptions;
+    // TODO: use epochs for more efficient collection.
+    address[] private _subscribers;
 
-    constructor(address tokenAddress, uint128 _minValue, uint8 epochShift, uint128 _pricePerBlock) {
-        owner = msg.sender;
+    constructor(address tokenAddress) {
         token = IERC20(tokenAddress);
-        minValue = _minValue;
-        _epochShift = epochShift;
-        pricePerBlock = _pricePerBlock;
-        _firstEpoch = _blockToEpoch(uint64(block.number));
+        owner = msg.sender;
     }
 
-    function _blockToEpoch(uint64 _block) private view returns (uint64) {
-        return _block >> _epochShift;
+    function subscription(
+        address subscriber
+    ) public view returns (Subscription memory) {
+        return _subscriptions[subscriber];
     }
 
-    function _blockToEpochRemainder(uint64 _block) private view returns (uint64) {
-        return _block & ~(uint64(0xffffffffffffffff) << _epochShift);
+    function locked(Subscription storage sub) private view returns (uint128) {
+        uint64 currentBlock = uint64(block.number);
+        int256 len = Prelude.max(
+            0,
+            Prelude.min(int64(currentBlock), int64(sub.endBlock)) -
+                int64(sub.startBlock)
+        );
+        return sub.pricePerBlock * uint128(uint256(len));
     }
 
-    function _epochToBlock(uint64 _epoch) private view returns (uint64) {
-        return _epoch << _epochShift;
-    }
-
-    function _addEpochValue(uint64 epoch, uint128 value) private {
-        uint32 packed = uint32(value / minValue);
-        _epochs[epoch / 4][epoch % 4].bin += packed;
-    }
-
-    function _addEpochDelta(uint64 epoch, int128 delta) private {
-        int32 packed = int32(delta / int128(minValue));
-        _epochs[epoch / 4][epoch % 4].delta += packed;
-    }
-
-    function isSubscribed(address subscriber) public view returns (bool) {
-        Subscription[] storage subscriptions = _subscriptions[subscriber];
-        for (uint256 i = 1; i <= subscriptions.length; i++) {
-            Subscription memory sub = subscriptions[subscriptions.length - i];
-            if ((sub.firstBlock <= block.number) && (block.number <= sub.lastBlock)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function setPricePerBlock(uint128 _pricePerBlock) public {
-        require(tx.origin == owner);
-        require(pricePerBlock >= minValue);
-        pricePerBlock = _pricePerBlock;
-    }
-
-    function subscribe(address subscriber, uint64 lastBlock) public {
-        require(subscriber != address(0));
-        uint64 firstBlock = uint64(block.number);
-        require(lastBlock > firstBlock, "subscription must end after it begins");
-        Subscription memory sub = Subscription(firstBlock, lastBlock, pricePerBlock);
-        _subscriptions[subscriber].push(sub);
-        _updateEpochs(firstBlock, lastBlock);
-        token.transferFrom(msg.sender, address(this), (lastBlock - firstBlock + 1) * pricePerBlock);
-        emit Subscribe(subscriber, lastBlock, pricePerBlock);
-    }
-
-    function _updateEpochs(uint64 firstBlock, uint64 lastBlock) private {
-        uint64 firstEpoch = _blockToEpoch(firstBlock);
-        uint64 lastEpoch = _blockToEpoch(lastBlock);
-        if (firstEpoch == lastEpoch) {
-            _addEpochValue(firstEpoch, pricePerBlock * (lastBlock - firstBlock + 1));
-            return;
-        }
-        if (firstBlock > _epochToBlock(firstEpoch)) {
-            _addEpochValue(firstEpoch, pricePerBlock * (_epochToBlock(firstEpoch + 1) - firstBlock));
-            firstEpoch += 1;
-        }
-        if (lastBlock < (_epochToBlock(lastEpoch + 1) - 1)) {
-            _addEpochValue(lastEpoch, pricePerBlock * (lastBlock - _epochToBlock(lastEpoch) + 1));
-            lastEpoch -= 1;
-        }
-        if (firstEpoch > lastEpoch) {
-            return;
-        }
-        if (firstEpoch == lastEpoch) {
-            _addEpochValue(firstEpoch, pricePerBlock << _epochShift);
-            return;
-        }
-        _addEpochDelta(firstEpoch, int128(pricePerBlock));
-        _addEpochDelta(lastEpoch + 1, -int128(pricePerBlock));
-    }
-
-    function unsubscribe(address subscriber) public {
-        require(subscriber != address(0));
-        uint64 firstBlock = uint64(block.number);
-        assert(false); // TODO
-        emit Unsubscribe(subscriber);
+    function unlocked(Subscription storage sub) private view returns (uint128) {
+        uint64 currentBlock = uint64(block.number);
+        int256 len = Prelude.max(
+            0,
+            int64(sub.endBlock) -
+                Prelude.max(int64(currentBlock), int64(sub.startBlock))
+        );
+        return sub.pricePerBlock * uint128(uint256(len));
     }
 
     function collect() public {
-        uint64 currentEpoch = _blockToEpoch(uint64(block.number));
-        for (uint64 i = _firstEpoch; i < currentEpoch; i++) {
-            Epoch storage epoch = _epochs[i / 4][i % 4];
-            uint128 value = uint128(epoch.bin) * minValue;
-            unlockedTokens += value;
-            int128 delta = epoch.delta * int128(minValue);
-            _incomePerBlock = uint128(int128(_incomePerBlock) + delta);
-            unlockedTokens += _incomePerBlock << _epochShift;
-            if ((i % 4) == 3) {
-                delete _epochs[i / 4];
+        require(msg.sender == owner);
+
+        uint64 currentBlock = uint64(block.number);
+        uint i = 0;
+        while (i < _subscribers.length) {
+            Subscription storage sub = _subscriptions[_subscribers[i]];
+            _uncollected += locked(sub);
+            if (sub.endBlock <= currentBlock) {
+                delete _subscriptions[_subscribers[i]];
+                uint last = _subscribers.length - 1;
+                _subscribers[i] = _subscribers[last];
+                _subscribers.pop();
+            } else {
+                _subscriptions[_subscribers[i]] = Subscription({
+                    startBlock: Prelude.clamp(
+                        currentBlock,
+                        sub.startBlock,
+                        sub.endBlock
+                    ),
+                    endBlock: sub.endBlock,
+                    pricePerBlock: sub.pricePerBlock
+                });
+                i += 1;
             }
         }
-        _firstEpoch = currentEpoch;
-        // TODO: Limit withdrawal to `unlockedTokens`
+
+        token.transfer(owner, _uncollected);
+        _uncollected = 0;
+    }
+
+    function subscribe(
+        address subscriber,
+        uint64 startBlock,
+        uint64 endBlock,
+        uint128 pricePerBlock
+    ) public {
+        require(subscriber != address(0));
+        startBlock = uint64(
+            uint256(Prelude.max(int64(startBlock), int64(uint64(block.number))))
+        );
+        require(startBlock < endBlock);
+        require(_subscriptions[subscriber].endBlock <= startBlock);
+
+        uint128 subTotal = pricePerBlock * (endBlock - startBlock);
+        token.transferFrom(msg.sender, address(this), subTotal);
+
+        Subscription storage prev = _subscriptions[subscriber];
+        _uncollected += prev.pricePerBlock * (prev.endBlock - prev.startBlock);
+
+        _subscriptions[subscriber] = Subscription({
+            startBlock: startBlock,
+            endBlock: endBlock,
+            pricePerBlock: pricePerBlock
+        });
+        _subscribers.push(subscriber);
+
+        emit Subscribe(subscriber, startBlock, endBlock, pricePerBlock);
+    }
+
+    function unsubscribe() public {
+        address subscriber = msg.sender;
+        uint64 endBlock = uint64(block.number);
+        Subscription storage sub = _subscriptions[subscriber];
+        require(sub.endBlock < endBlock);
+
+        token.transfer(subscriber, unlocked(sub));
+        _uncollected += locked(sub);
+        delete _subscriptions[subscriber];
+
+        emit Unsubscribe(subscriber);
     }
 }

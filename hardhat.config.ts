@@ -10,7 +10,7 @@ task('accounts', 'Print a list of accounts', async (_, hre) => {
 });
 
 export default {
-  solidity: '0.8.14',
+  solidity: '0.8.17',
   networks: {
     hardhat: {
       mining: {
