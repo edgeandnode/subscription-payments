@@ -10,23 +10,36 @@ task('accounts', 'Print a list of accounts', async (_, hre) => {
 });
 
 export default {
-  solidity: {
-    version: '0.8.17',
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-    },
-  },
+  defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
+      chainId: 1337,
       mining: {
         auto: false,
         interval: 0,
         mempool: {
           order: 'fifo',
         },
+      },
+    },
+    localhost: {
+      url: 'http://localhost:8545',
+      chainId: 1337,
+      mining: {
+        auto: false,
+        interval: 0,
+        mempool: {
+          order: 'fifo',
+        },
+      },
+    },
+  },
+  solidity: {
+    version: '0.8.17',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
       },
     },
   },

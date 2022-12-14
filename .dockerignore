@@ -1,5 +1,6 @@
+/cli/target/
 /contract/artifacts/
 /contract/cache/
-/data/
 /model/
 node_modules/
+/subgraph/
