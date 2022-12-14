@@ -79,7 +79,7 @@ contract Subscriptions {
     }
 
     function collect() public {
-        require(msg.sender == owner);
+        require(msg.sender == owner, 'must be called by owner');
 
         uint64 currentBlock = uint64(block.number);
         uint i = 0;
@@ -115,12 +115,15 @@ contract Subscriptions {
         uint64 endBlock,
         uint128 pricePerBlock
     ) public {
-        require(subscriber != address(0));
+        require(subscriber != address(0), 'subscriber is null');
         startBlock = uint64(
             uint256(Prelude.max(int64(startBlock), int64(uint64(block.number))))
         );
-        require(startBlock < endBlock);
-        require(_subscriptions[subscriber].endBlock <= startBlock);
+        require(startBlock < endBlock, 'startBlock must be less than endBlock');
+        require(
+            _subscriptions[subscriber].endBlock <= startBlock,
+            'overlapping subscription requested'
+        );
 
         uint128 subTotal = pricePerBlock * (endBlock - startBlock);
         token.transferFrom(msg.sender, address(this), subTotal);
@@ -140,9 +143,7 @@ contract Subscriptions {
 
     function unsubscribe() public {
         address subscriber = msg.sender;
-        uint64 endBlock = uint64(block.number);
         Subscription storage sub = _subscriptions[subscriber];
-        require(sub.endBlock < endBlock);
 
         token.transfer(subscriber, unlocked(sub));
         _uncollected += locked(sub);

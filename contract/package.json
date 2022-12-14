@@ -1,10 +1,13 @@
 {
   "name": "subscription-payments",
   "version": "0.1.0",
-  "main": "index.ts",
+  "private": true,
   "author": "Theo Butler <theodusbutler@gmail.com>",
   "license": "MIT",
-  "private": true,
+  "scripts": {
+    "test": "npx hardhat test",
+    "deploy-local": "npx hardhat run --network localhost scripts/deploy.ts | tee contract-deployment.json"
+  },
   "dependencies": {},
   "devDependencies": {
     "@ethersproject/bytes": "^5.6.1",

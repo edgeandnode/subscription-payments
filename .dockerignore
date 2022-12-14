@@ -1,5 +1,5 @@
-/artifacts/
-/cache/
+/contract/artifacts/
+/contract/cache/
 /data/
 /model/
-/node_modules/
+node_modules/
