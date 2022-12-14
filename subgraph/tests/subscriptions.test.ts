@@ -47,12 +47,17 @@ describe('Describe entity assertions', () => {
     assert.fieldEquals('Subscribe', id, 'endBlock', '5000');
     assert.fieldEquals('Subscribe', id, 'pricePerBlock', '2000000000000000000');
 
-    assert.entityCount('Subscription', 1);
-    assert.fieldEquals('Subscription', subscriber, 'subscriber', subscriber);
-    assert.fieldEquals('Subscription', subscriber, 'startBlock', '2000');
-    assert.fieldEquals('Subscription', subscriber, 'endBlock', '5000');
+    assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals(
-      'Subscription',
+      'ActiveSubscription',
+      subscriber,
+      'subscriber',
+      subscriber
+    );
+    assert.fieldEquals('ActiveSubscription', subscriber, 'startBlock', '2000');
+    assert.fieldEquals('ActiveSubscription', subscriber, 'endBlock', '5000');
+    assert.fieldEquals(
+      'ActiveSubscription',
       subscriber,
       'pricePerBlock',
       '2000000000000000000'
@@ -65,7 +70,7 @@ describe('Describe entity assertions', () => {
 
     assert.entityCount('Subscribe', 1);
     assert.entityCount('Unsubscribe', 1);
-    assert.entityCount('Subscription', 0);
+    assert.entityCount('ActiveSubscription', 0);
   });
 
   test('update Subscription', () => {
@@ -83,12 +88,17 @@ describe('Describe entity assertions', () => {
     assert.entityCount('Subscribe', 2);
     assert.entityCount('Unsubscribe', 1);
 
-    assert.entityCount('Subscription', 1);
-    assert.fieldEquals('Subscription', subscriber, 'subscriber', subscriber);
-    assert.fieldEquals('Subscription', subscriber, 'startBlock', '3000');
-    assert.fieldEquals('Subscription', subscriber, 'endBlock', '8000');
+    assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals(
-      'Subscription',
+      'ActiveSubscription',
+      subscriber,
+      'subscriber',
+      subscriber
+    );
+    assert.fieldEquals('ActiveSubscription', subscriber, 'startBlock', '3000');
+    assert.fieldEquals('ActiveSubscription', subscriber, 'endBlock', '8000');
+    assert.fieldEquals(
+      'ActiveSubscription',
       subscriber,
       'pricePerBlock',
       '3000000000000000000'

@@ -1,18 +1,19 @@
 {
   "name": "edgeandnode-subscriptions",
-  "license": "UNLICENSED",
+  "private": true,
+  "author": "Theo Butler <theodusbutler@gmail.com>",
+  "license": "MIT",
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
+    "test": "graph test",
     "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ edgeandnode-subscriptions",
     "create-local": "graph create --node http://localhost:8020/ edgeandnode-subscriptions",
     "remove-local": "graph remove --node http://localhost:8020/ edgeandnode-subscriptions",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 edgeandnode-subscriptions",
-    "test": "graph test"
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 edgeandnode-subscriptions -l v0.0.1"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.37.0",
     "@graphprotocol/graph-ts": "0.28.1"
-  },
-  "devDependencies": { "matchstick-as": "0.5.0" }
+  }
 }
