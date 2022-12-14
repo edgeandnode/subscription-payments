@@ -17,7 +17,7 @@ type Unsubscribe @entity(immutable: true) {
   subscriber: Bytes! # address
 }
 
-type Subscription @entity {
+type ActiveSubscription @entity {
   id: Bytes!
   subscriber: Bytes! # address
   startBlock: BigInt! # uint64

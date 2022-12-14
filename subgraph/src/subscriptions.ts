@@ -2,7 +2,7 @@ import {
   Subscribe as SubscribeEvent,
   Unsubscribe as UnsubscribeEvent,
 } from '../generated/Subscriptions/Subscriptions';
-import {Subscribe, Unsubscribe, Subscription} from '../generated/schema';
+import {Subscribe, Unsubscribe, ActiveSubscription} from '../generated/schema';
 import {store} from '@graphprotocol/graph-ts';
 
 export function handleSubscribe(event: SubscribeEvent): void {
@@ -18,12 +18,12 @@ export function handleSubscribe(event: SubscribeEvent): void {
   entity.pricePerBlock = event.params.pricePerBlock;
   entity.save();
 
-  let subscription = new Subscription(event.params.subscriber);
-  subscription.subscriber = event.params.subscriber;
-  subscription.startBlock = event.params.startBlock;
-  subscription.endBlock = event.params.endBlock;
-  subscription.pricePerBlock = event.params.pricePerBlock;
-  subscription.save();
+  let sub = new ActiveSubscription(event.params.subscriber);
+  sub.subscriber = event.params.subscriber;
+  sub.startBlock = event.params.startBlock;
+  sub.endBlock = event.params.endBlock;
+  sub.pricePerBlock = event.params.pricePerBlock;
+  sub.save();
 }
 
 export function handleUnsubscribe(event: UnsubscribeEvent): void {
@@ -36,5 +36,5 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.subscriber = event.params.subscriber;
   entity.save();
 
-  store.remove('Subscription', event.params.subscriber.toHexString());
+  store.remove('ActiveSubscription', event.params.subscriber.toHexString());
 }
