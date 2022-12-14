@@ -3,12 +3,10 @@ services:
   ipfs:
     image: ipfs/kubo:latest
     ports: ['5001:5001']
-    volumes: ['./data/ipfs:/data/ipfs']
 
   postgres:
     image: postgres
     ports: ['5432:5432']
-    volumes: [./data/postgres:/var/lib/postgresql/data]
     command: ['postgres', '-cshared_preload_libraries=pg_stat_statements']
     environment:
       POSTGRES_INITDB_ARGS: '--encoding UTF8 --locale=C'
@@ -17,19 +15,28 @@ services:
       POSTGRES_PASSWORD: let-me-in
 
   chain:
-    build:
-      dockerfile: Dockerfile.chain
+    build: {dockerfile: Dockerfile.chain}
     ports: ['8545:8545']
+    healthcheck:
+      interval: 2s
+      timeout: 2s
+      retries: 10000
+      test: |
+        curl -sf localhost:8545 \
+          -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+          | jq -rs '.[].result // "0x0"' \
+          | (read input; [ "$$input" != '0x0' ])
 
   graph-node:
-    depends_on: [ipfs, postgres, chain]
+    depends_on: {chain: {condition: service_healthy}}
     image: graphprotocol/graph-node
     ports: ['8000:8000', '8001:8001', '8020:8020', '8030:8030', '8040:8040']
     environment:
-      GRAPH_LOG: info
+      GRAPH_LOG: debug
       ipfs: 'http://ipfs:5001'
-      ethereum: 'mainnet:http://chain:8545'
+      ethereum: 'hardhat:http://chain:8545'
       postgres_db: graph-node
       postgres_host: postgres
       postgres_user: graph-node
       postgres_pass: let-me-in
+      GRAPH_EXPERIMENTAL_SUBGRAPH_VERSION_SWITCHING_MODE: synced

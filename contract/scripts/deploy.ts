@@ -9,12 +9,15 @@ async function main() {
   const contract = await (
     await ethers.getContractFactory('Subscriptions')
   ).deploy(token.address);
+  await network.provider.send('evm_mine');
 
+  await token.transfer(signer.address, BigNumber.from(10).pow(18 + 6));
   await network.provider.send('evm_mine');
 
   console.log(
     JSON.stringify(
       {
+        chainId: network.config.chainId,
         signer: signer.address,
         initialBalance: initialBalance.toString(),
         token: token.address,

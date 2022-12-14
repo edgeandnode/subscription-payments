@@ -5,8 +5,9 @@
   "author": "Theo Butler <theodusbutler@gmail.com>",
   "license": "MIT",
   "scripts": {
+    "build": "npx hardhat compile && bash extract-abis.bash",
     "test": "npx hardhat test",
-    "deploy-local": "npx hardhat run --network localhost scripts/deploy.ts | tee contract-deployment.json"
+    "deploy-local": "npx hardhat run scripts/deploy.ts --network localhost | tee contract-deployment.json"
   },
   "dependencies": {},
   "devDependencies": {
