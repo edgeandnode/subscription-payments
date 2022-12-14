@@ -1,9 +1,10 @@
-/artifacts/
-/cache/
-/contract-deployment.json
+/contract/artifacts/
+/contract/cache/
+/contract/contract-deployment.json
 /data/
 /model/_apalache-out/
-/node_modules/
+/model/states/
+node_modules/
 /subgraph/build/
 /subgraph/node_modules/
 /subgraph/tests/.bin/
