@@ -44,8 +44,11 @@ SubTotal(sub) == sub.price * (sub.end - sub.start)
 \* @type: ($subscription) => Int;
 Locked(sub) == sub.price * Max2(0, Min2(block, sub.end) - sub.start)
 
+\* @type: ($subscription, Int) => Int;
+UnlockedAt(sub, block_) == sub.price * Max2(0, sub.end - Max2(block_, sub.start))
+
 \* @type: ($subscription) => Int;
-Unlocked(sub) == sub.price * Max2(0, sub.end - Max2(block, sub.start))
+Unlocked(sub) == UnlockedAt(sub, block)
 
 \* @type: Int;
 Collectable == uncollected + ApaFoldSet(LAMBDA sum, user: sum + Locked(subs[user]), 0, Users)
@@ -75,7 +78,7 @@ Subscribe(user) ==
     /\ UNCHANGED <<block, uncollected>>
     /\ \E start \in Blocks: \E end \in Blocks: \E price \in Prices: LET sub == Sub(start, end, price) IN
         /\ (block <= start) /\ (start < end)
-        /\ subs[user].end <= start
+        /\ subs[user].end <= block
         /\ Transfer(user, Contract, SubTotal(sub))
         /\ subs' := [subs EXCEPT ![user] = sub]
 
@@ -127,5 +130,10 @@ Safety ==
     /\ CollectEffect
     /\ SubEffect
     /\ UnsubEffect
+    \* The balance and recoverable (unlocked) value for a user can't drop by more than the
+    \* subscription price per step.
+    /\ \A user \in Users:
+        (balances'[user] + UnlockedAt(subs'[user], block')) >=
+        (balances[user] + (Unlocked(subs[user]) - subs[user].price))
 
 ====

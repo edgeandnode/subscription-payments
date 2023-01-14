@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-// Reference: https://ethereum.org/en/developers/docs/evm/opcodes/
+/* TODO: turn this into a more coherent set of docs
+
+- This contract is designed to allow users of the Graph Protocol to pay gateways
+for their services with limited risk of losing funds.
+
+- This contract makes no assumptions about how the subscription price per block is
+interpreted by the gateway.
+
+*/
 
 pragma solidity ^0.8.17;
 pragma abicoder v2;
@@ -115,14 +123,18 @@ contract Subscriptions {
         uint64 endBlock,
         uint128 pricePerBlock
     ) public {
+        // This can be called by any account for a given subscriber, because it
+        // requires that the subscription's startBlock is less than the current
+        // block.
+
         require(subscriber != address(0), 'subscriber is null');
         startBlock = uint64(
             uint256(Prelude.max(int64(startBlock), int64(uint64(block.number))))
         );
         require(startBlock < endBlock, 'startBlock must be less than endBlock');
         require(
-            _subscriptions[subscriber].endBlock <= startBlock,
-            'overlapping subscription requested'
+            _subscriptions[subscriber].endBlock <= uint64(block.number),
+            'active subscription must have ended'
         );
 
         uint128 subTotal = pricePerBlock * (endBlock - startBlock);
