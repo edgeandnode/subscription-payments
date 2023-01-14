@@ -36,7 +36,7 @@ EndSub(sub) == Sub(Min2(block, sub.start), block, sub.price)
 TruncateSub(sub) == Sub(Clamp(block, sub.start, sub.end), sub.end, sub.price)
 
 \* @type: (Int) => Bool;
-Subscribed(user) == (subs[user].start <= block) /\ (subs[user].end <= block)
+Subscribed(user) == (subs[user].start <= block) /\ (block < subs[user].end)
 
 \* @type: ($subscription) => Int;
 SubTotal(sub) == sub.price * (sub.end - sub.start)
@@ -121,6 +121,7 @@ UnsubEffect == \A user \in Users: Unsubscribe(user) =>
 
 Safety ==
     /\ TypeOK
+    /\ \A user \in Users: Subscribed(user) => subs[user] /= NullSub
     /\ \A sub \in Range(subs): SubTotal(sub) = (Locked(sub) + Unlocked(sub))
     /\ Total(balances) = Total(balances')
     /\ CollectEffect
