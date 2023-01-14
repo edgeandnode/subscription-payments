@@ -3,7 +3,7 @@ EXTENDS Apalache, Integers, Sequences, TLC, prelude
 
 Contract == 0
 Owner == 1
-Users == 2..5
+Users == 2..5 \* TODO: check if Contract & Owner can be users
 Addrs == {Contract, Owner} \union Users
 
 MaxBlock == 11
@@ -35,14 +35,17 @@ EndSub(sub) == Sub(Min2(block, sub.start), block, sub.price)
 \* @type: ($subscription) => $subscription;
 TruncateSub(sub) == Sub(Clamp(block, sub.start, sub.end), sub.end, sub.price)
 
-\* @type: (Int) => Bool;
-Subscribed(user) == (subs[user].start <= block) /\ (block < subs[user].end)
+\* @type: ($subscription, Int) => $subscription;
+ExtendSub(sub, end) == Sub(sub.start, Max2(end, sub.end), sub.price)
 
 \* @type: ($subscription) => Int;
 SubTotal(sub) == sub.price * (sub.end - sub.start)
 
+\* @type: ($subscription, Int) => Int;
+LockedAt(sub, block_) == sub.price * Max2(0, Min2(block_, sub.end) - sub.start)
+
 \* @type: ($subscription) => Int;
-Locked(sub) == sub.price * Max2(0, Min2(block, sub.end) - sub.start)
+Locked(sub) == LockedAt(sub, block)
 
 \* @type: ($subscription, Int) => Int;
 UnlockedAt(sub, block_) == sub.price * Max2(0, sub.end - Max2(block_, sub.start))
@@ -58,7 +61,7 @@ Transfer(from, to, amount) ==
     /\ balances' := [balances EXCEPT ![from] = @ - amount, ![to] = @ + amount]
 
 Init ==
-    /\ block := 0
+    /\ block := Gen(1) /\ block \in Blocks
     /\ balances := [addr \in Addrs |-> Gen(1)] /\ \A b \in Range(balances): b \in Nat
     /\ subs := [user \in Users |-> NullSub]
     /\ uncollected := 0
@@ -84,12 +87,16 @@ Subscribe(user) ==
 
 Unsubscribe(user) ==
     /\ UNCHANGED <<block>>
-    /\ Subscribed(user)
     /\ Transfer(Contract, user, Unlocked(subs[user]))
     /\ uncollected' := uncollected + Locked(subs[user])
     /\ subs' := [subs EXCEPT ![user] = NullSub]
 
-\* TODO: Resub
+Extend(user) ==
+    /\ UNCHANGED <<block, uncollected>>
+    /\ \E end \in Blocks: LET sub == ExtendSub(subs[user], end) IN
+        /\ (subs[user].start <= block) /\ (block < subs[user].end)
+        /\ Transfer(user, Contract, SubTotal(sub) - SubTotal(subs[user]))
+        /\ subs' := [subs EXCEPT ![user] = sub]
 
 Next ==
     \/ NextBlock
@@ -97,15 +104,17 @@ Next ==
     \/ \E user \in Users:
         \/ Subscribe(user)
         \/ Unsubscribe(user)
+        \/ Extend(user)
 
 \* @type: (Int -> Int) => Int;
 Total(bs) == ApaFoldSet(LAMBDA sum, addr: sum + bs[addr], 0, Addrs)
 
 TypeOK ==
-    /\ block \in Nat
+    /\ block \in Blocks
     /\ \A b \in Range(balances): b \in Nat
-    /\ \A sub \in Range(subs):
-        (sub.start \in Nat) /\ (sub.end \in Nat) /\ (sub.start <= sub.end) /\ (sub.price \in Nat)
+    /\ \A sub \in Range(subs): (sub = NullSub) \/
+        /\ (sub.start \in Blocks) /\ (sub.end \in Blocks) /\ sub.start <= sub.end
+        /\ sub.price \in Prices
     /\ uncollected \in Nat
 
 CollectEffect == Collect =>
@@ -122,14 +131,18 @@ UnsubEffect == \A user \in Users: Unsubscribe(user) =>
     /\ balances'[user] = balances[user] + Unlocked(subs[user])
     /\ subs'[user].end <= block
 
+ExtendEffect == \A user \in Users: Extend(user) =>
+    /\ UnlockedAt(subs'[user], block') >= Unlocked(subs[user])
+    /\ LockedAt(subs'[user], block') = Locked(subs[user])
+
 Safety ==
     /\ TypeOK
-    /\ \A user \in Users: Subscribed(user) => subs[user] /= NullSub
     /\ \A sub \in Range(subs): SubTotal(sub) = (Locked(sub) + Unlocked(sub))
     /\ Total(balances) = Total(balances')
     /\ CollectEffect
     /\ SubEffect
     /\ UnsubEffect
+    /\ ExtendEffect
     \* The balance and recoverable (unlocked) value for a user can't drop by more than the
     \* subscription price per step.
     /\ \A user \in Users:
