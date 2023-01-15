@@ -3,8 +3,7 @@ EXTENDS Apalache, Integers, Sequences, TLC, prelude
 
 Contract == 0
 Owner == 1
-Users == 2..5 \* TODO: check if Contract & Owner can be users
-Addrs == {Contract, Owner} \union Users
+Addrs == {Contract, Owner} \union (2..5)
 
 MaxBlock == 11
 Blocks == 0..MaxBlock
@@ -54,7 +53,7 @@ UnlockedAt(sub, block_) == sub.price * Max2(0, sub.end - Max2(block_, sub.start)
 Unlocked(sub) == UnlockedAt(sub, block)
 
 \* @type: Int;
-Collectable == uncollected + ApaFoldSet(LAMBDA sum, user: sum + Locked(subs[user]), 0, Users)
+Collectable == uncollected + ApaFoldSet(LAMBDA sum, addr: sum + Locked(subs[addr]), 0, Addrs)
 
 Transfer(from, to, amount) ==
     /\ balances[from] > amount
@@ -63,7 +62,7 @@ Transfer(from, to, amount) ==
 Init ==
     /\ block := Gen(1) /\ block \in Blocks
     /\ balances := [addr \in Addrs |-> Gen(1)] /\ \A b \in Range(balances): b \in Nat
-    /\ subs := [user \in Users |-> NullSub]
+    /\ subs := [addr \in Addrs |-> NullSub]
     /\ uncollected := 0
 
 NextBlock ==
@@ -75,39 +74,42 @@ Collect ==
     /\ UNCHANGED <<block>>
     /\ Transfer(Contract, Owner, Collectable)
     /\ uncollected' := 0
-    /\ subs' := [user \in Users |-> TruncateSub(subs[user])]
+    /\ subs' := [addr \in Addrs |-> TruncateSub(subs[addr])]
 
-Subscribe(user) ==
+Subscribe(addr) ==
     /\ UNCHANGED <<block, uncollected>>
+    /\ addr /= Contract
     /\ \E start \in Blocks: \E end \in Blocks: \E price \in Prices: LET sub == Sub(start, end, price) IN
         /\ (block <= start) /\ (start < end)
-        /\ subs[user].end <= block
-        /\ Transfer(user, Contract, SubTotal(sub))
-        /\ subs' := [subs EXCEPT ![user] = sub]
+        /\ subs[addr].end <= block
+        /\ Transfer(addr, Contract, SubTotal(sub))
+        /\ subs' := [subs EXCEPT ![addr] = sub]
 
-Unsubscribe(user) ==
+Unsubscribe(addr) ==
     /\ UNCHANGED <<block>>
-    /\ Transfer(Contract, user, Unlocked(subs[user]))
-    /\ uncollected' := uncollected + Locked(subs[user])
-    /\ subs' := [subs EXCEPT ![user] = NullSub]
+    /\ Transfer(Contract, addr, Unlocked(subs[addr]))
+    /\ uncollected' := uncollected + Locked(subs[addr])
+    /\ subs' := [subs EXCEPT ![addr] = NullSub]
 
-Extend(user) ==
+Extend(addr) ==
     /\ UNCHANGED <<block, uncollected>>
-    /\ \E end \in Blocks: LET sub == ExtendSub(subs[user], end) IN
-        /\ (subs[user].start <= block) /\ (block < subs[user].end)
-        /\ Transfer(user, Contract, SubTotal(sub) - SubTotal(subs[user]))
-        /\ subs' := [subs EXCEPT ![user] = sub]
+    /\ \E end \in Blocks: LET sub == ExtendSub(subs[addr], end) IN
+        /\ (subs[addr].start <= block) /\ (block < subs[addr].end)
+        /\ Transfer(addr, Contract, SubTotal(sub) - SubTotal(subs[addr]))
+        /\ subs' := [subs EXCEPT ![addr] = sub]
 
 Next ==
-    \/ NextBlock
-    \/ Collect
-    \/ \E user \in Users:
-        \/ Subscribe(user)
-        \/ Unsubscribe(user)
-        \/ Extend(user)
+    \* \/ NextBlock
+    \* \/ Collect
+    \/ \E addr \in Addrs:
+        \/ Subscribe(addr)
+        \/ Unsubscribe(addr)
+        \* \/ Extend(addr)
 
 \* @type: (Int -> Int) => Int;
 Total(bs) == ApaFoldSet(LAMBDA sum, addr: sum + bs[addr], 0, Addrs)
+
+Users == Addrs \ {Contract}
 
 TypeOK ==
     /\ block \in Blocks
@@ -121,22 +123,23 @@ CollectEffect == Collect =>
     /\ balances'[Owner] = balances[Owner] + Collectable
     /\ uncollected' = 0 /\ \A sub \in Range(subs'): Locked(sub) = 0
 
-SubEffect == \A user \in Users: Subscribe(user) =>
-    /\ balances'[Contract] = balances[Contract] + SubTotal(subs'[user])
-    /\ subs'[user] /= NullSub
-    /\ subs'[user].start >= block
-    /\ subs'[user].end > block
+SubEffect == \A addr \in Addrs: Subscribe(addr) =>
+    /\ balances'[Contract] = balances[Contract] + SubTotal(subs'[addr])
+    /\ subs'[addr] /= NullSub
+    /\ subs'[addr].start >= block
+    /\ subs'[addr].end > block
 
-UnsubEffect == \A user \in Users: Unsubscribe(user) =>
-    /\ balances'[user] = balances[user] + Unlocked(subs[user])
-    /\ subs'[user].end <= block
+UnsubEffect == \A addr \in Addrs: Unsubscribe(addr) =>
+    /\ balances'[addr] = balances[addr] + Unlocked(subs[addr])
+    /\ subs'[addr].end <= block
 
-ExtendEffect == \A user \in Users: Extend(user) =>
-    /\ UnlockedAt(subs'[user], block') >= Unlocked(subs[user])
-    /\ LockedAt(subs'[user], block') = Locked(subs[user])
+ExtendEffect == \A addr \in Addrs: Extend(addr) =>
+    /\ UnlockedAt(subs'[addr], block') >= Unlocked(subs[addr])
+    /\ LockedAt(subs'[addr], block') = Locked(subs[addr])
 
 Safety ==
     /\ TypeOK
+    /\ subs[Contract] = NullSub
     /\ \A sub \in Range(subs): SubTotal(sub) = (Locked(sub) + Unlocked(sub))
     /\ Total(balances) = Total(balances')
     /\ CollectEffect

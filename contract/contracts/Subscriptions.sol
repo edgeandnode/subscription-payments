@@ -129,6 +129,7 @@ contract Subscriptions {
         // block.
 
         require(subscriber != address(0), 'subscriber is null');
+        require(subscriber != address(this), 'invalid subscriber');
         startBlock = uint64(
             uint256(Prelude.max(int64(startBlock), int64(uint64(block.number))))
         );
