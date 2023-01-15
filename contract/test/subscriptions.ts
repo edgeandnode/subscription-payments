@@ -18,7 +18,7 @@ const genInt = (rng: () => number, min: number, max: number): number =>
   Math.floor(rng() * (max - min + 1) + min);
 
 function genOp(rng: () => number, users: number): any {
-  switch (genInt(rng, 0, 3)) {
+  switch (genInt(rng, 0, 4)) {
     case 0:
       return {opcode: 'nextBlock'};
     case 1:
@@ -31,6 +31,12 @@ function genOp(rng: () => number, users: number): any {
       };
     case 3:
       return {opcode: 'unsubscribe', user: genInt(rng, 0, users - 1)};
+    case 4:
+      return {
+        opcode: 'extend',
+        user: genInt(rng, 0, users - 1),
+        endBlock: genSub(rng).endBlock,
+      };
     default:
       throw 'unreachable';
   }
@@ -165,6 +171,24 @@ class Model {
     await this.contract.connect(user).unsubscribe();
   }
 
+  async extend(user: SignerWithAddress, endBlock: number) {
+    const sub = this.subs.get(user.address)!;
+    if (
+      sub.endBlock >= endBlock ||
+      this.block < sub.startBlock ||
+      sub.endBlock <= this.block
+    ) {
+      console.log('extend', 'skip');
+      return;
+    }
+    console.log('extend', {user: user.address, endBlock});
+    const addition = sub.pricePerBlock.mul(endBlock - sub.endBlock);
+    this.transfer(user.address, this.contract.address, addition);
+    sub.endBlock = endBlock;
+    await this.token.connect(user).approve(this.contract.address, addition);
+    await this.contract.connect(user).extend(user.address, endBlock);
+  }
+
   async exec(op: any) {
     switch (op.opcode) {
       case 'nextBlock':
@@ -180,6 +204,9 @@ class Model {
         break;
       case 'unsubscribe':
         await this.unsubscribe(await this.user(op.user));
+        break;
+      case 'extend':
+        await this.extend(await this.user(op.user), op.endBlock);
         break;
       default:
         throw 'unreachable';
@@ -207,7 +234,7 @@ it('Model Test', async () => {
 
   const seed = hexDataSlice(randomBytes(32), 0);
   // const seed =
-  //   '0xc72fd53b513f15f62a85eb36ca6547451f650c72ce89788763c3e5589ac94437';
+  //   '0x933e88d323c04591b7655d49f81b34b7d2461697de4909a560bfec2b1d84a54a';
   const rng = xoshiro128ss(seed);
   let steps = Array.from(Array(16).keys()).map(_ => genOp(rng, users.length));
   console.log({

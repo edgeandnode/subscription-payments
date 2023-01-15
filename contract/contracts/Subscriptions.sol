@@ -5,8 +5,8 @@
 - This contract is designed to allow users of the Graph Protocol to pay gateways
 for their services with limited risk of losing funds.
 
-- This contract makes no assumptions about how the subscription price per block is
-interpreted by the gateway.
+- This contract makes no assumptions about how the subscription price per block
+is interpreted by the gateway.
 
 */
 
@@ -47,6 +47,7 @@ contract Subscriptions {
         uint128 pricePerBlock
     );
     event Unsubscribe(address indexed subscriber);
+    event Extend(address indexed subscriber, uint64 endBlock);
 
     IERC20 public token;
     address public owner;
@@ -162,5 +163,26 @@ contract Subscriptions {
         delete _subscriptions[subscriber];
 
         emit Unsubscribe(subscriber);
+    }
+
+    function extend(address subscriber, uint64 endBlock) public {
+        require(subscriber != address(0), 'subscriber is null');
+        uint64 currentBlock = uint64(block.number);
+        Subscription storage sub = _subscriptions[subscriber];
+        require(
+            (sub.startBlock <= currentBlock) && (currentBlock < sub.endBlock),
+            'current subscription must be active'
+        );
+        require(
+            sub.endBlock < endBlock,
+            'endBlock must be after that of the current subscription'
+        );
+
+        uint128 addition = sub.pricePerBlock * (endBlock - sub.endBlock);
+        token.transferFrom(msg.sender, address(this), addition);
+
+        _subscriptions[subscriber].endBlock = endBlock;
+
+        emit Extend(subscriber, endBlock);
     }
 }
