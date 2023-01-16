@@ -15,7 +15,7 @@ services:
       POSTGRES_PASSWORD: let-me-in
 
   chain:
-    build: {dockerfile: Dockerfile.chain}
+    build: {dockerfile: chain.dockerfile}
     ports: ['8545:8545']
     healthcheck:
       interval: 2s
