@@ -10,6 +10,28 @@ import {
   BigInt
 } from "@graphprotocol/graph-ts";
 
+export class Extend extends ethereum.Event {
+  get params(): Extend__Params {
+    return new Extend__Params(this);
+  }
+}
+
+export class Extend__Params {
+  _event: Extend;
+
+  constructor(event: Extend) {
+    this._event = event;
+  }
+
+  get subscriber(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get endBlock(): BigInt {
+    return this._event.parameters[1].value.toBigInt();
+  }
+}
+
 export class Subscribe extends ethereum.Event {
   get params(): Subscribe__Params {
     return new Subscribe__Params(this);
@@ -193,6 +215,40 @@ export class CollectCall__Outputs {
   _call: CollectCall;
 
   constructor(call: CollectCall) {
+    this._call = call;
+  }
+}
+
+export class ExtendCall extends ethereum.Call {
+  get inputs(): ExtendCall__Inputs {
+    return new ExtendCall__Inputs(this);
+  }
+
+  get outputs(): ExtendCall__Outputs {
+    return new ExtendCall__Outputs(this);
+  }
+}
+
+export class ExtendCall__Inputs {
+  _call: ExtendCall;
+
+  constructor(call: ExtendCall) {
+    this._call = call;
+  }
+
+  get subscriber(): Address {
+    return this._call.inputValues[0].value.toAddress();
+  }
+
+  get endBlock(): BigInt {
+    return this._call.inputValues[1].value.toBigInt();
+  }
+}
+
+export class ExtendCall__Outputs {
+  _call: ExtendCall;
+
+  constructor(call: ExtendCall) {
     this._call = call;
   }
 }

@@ -1,10 +1,33 @@
 [
   {
     "inputs": [
-      { "internalType": "address", "name": "tokenAddress", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "tokenAddress",
+        "type": "address"
+      }
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "subscriber",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "endBlock",
+        "type": "uint64"
+      }
+    ],
+    "name": "Extend",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -58,18 +81,58 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "subscriber",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "endBlock",
+        "type": "uint64"
+      }
+    ],
+    "name": "extend",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "owner",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "subscriber", "type": "address" },
-      { "internalType": "uint64", "name": "startBlock", "type": "uint64" },
-      { "internalType": "uint64", "name": "endBlock", "type": "uint64" },
-      { "internalType": "uint128", "name": "pricePerBlock", "type": "uint128" }
+      {
+        "internalType": "address",
+        "name": "subscriber",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "startBlock",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "endBlock",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint128",
+        "name": "pricePerBlock",
+        "type": "uint128"
+      }
     ],
     "name": "subscribe",
     "outputs": [],
@@ -78,14 +141,26 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "subscriber", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "subscriber",
+        "type": "address"
+      }
     ],
     "name": "subscription",
     "outputs": [
       {
         "components": [
-          { "internalType": "uint64", "name": "startBlock", "type": "uint64" },
-          { "internalType": "uint64", "name": "endBlock", "type": "uint64" },
+          {
+            "internalType": "uint64",
+            "name": "startBlock",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "endBlock",
+            "type": "uint64"
+          },
           {
             "internalType": "uint128",
             "name": "pricePerBlock",
@@ -104,7 +179,11 @@
     "inputs": [],
     "name": "token",
     "outputs": [
-      { "internalType": "contract IERC20", "name": "", "type": "address" }
+      {
+        "internalType": "contract IERC20",
+        "name": "",
+        "type": "address"
+      }
     ],
     "stateMutability": "view",
     "type": "function"

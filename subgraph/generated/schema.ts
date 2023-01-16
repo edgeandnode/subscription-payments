@@ -178,6 +178,83 @@ export class Unsubscribe extends Entity {
   }
 }
 
+export class Extend extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save Extend entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type Extend must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set("Extend", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static load(id: Bytes): Extend | null {
+    return changetype<Extend | null>(store.get("Extend", id.toHexString()));
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    return value!.toBytes();
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get subscriber(): Bytes {
+    let value = this.get("subscriber");
+    return value!.toBytes();
+  }
+
+  set subscriber(value: Bytes) {
+    this.set("subscriber", Value.fromBytes(value));
+  }
+
+  get endBlock(): BigInt {
+    let value = this.get("endBlock");
+    return value!.toBigInt();
+  }
+
+  set endBlock(value: BigInt) {
+    this.set("endBlock", Value.fromBigInt(value));
+  }
+}
+
 export class ActiveSubscription extends Entity {
   constructor(id: Bytes) {
     super();

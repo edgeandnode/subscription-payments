@@ -23,4 +23,6 @@ dataSources:
           handler: handleSubscribe
         - event: Unsubscribe(indexed address)
           handler: handleUnsubscribe
+        - event: Extend(indexed address,uint64)
+          handler: handleExtend
       file: ./src/subscriptions.ts

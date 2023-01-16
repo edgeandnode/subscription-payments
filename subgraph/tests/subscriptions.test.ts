@@ -7,10 +7,13 @@ import {
   afterAll,
 } from 'matchstick-as/assembly/index';
 import {Address, BigInt} from '@graphprotocol/graph-ts';
-import {Subscribe} from '../generated/schema';
-import {Subscribe as SubscribeEvent} from '../generated/Subscriptions/Subscriptions';
-import {handleSubscribe, handleUnsubscribe} from '../src/subscriptions';
 import {
+  handleExtend,
+  handleSubscribe,
+  handleUnsubscribe,
+} from '../src/subscriptions';
+import {
+  createExtendEvent,
   createSubscribeEvent,
   createUnsubscribeEvent,
 } from './subscriptions-utils';
@@ -97,6 +100,35 @@ describe('Describe entity assertions', () => {
     );
     assert.fieldEquals('ActiveSubscription', subscriber, 'startBlock', '3000');
     assert.fieldEquals('ActiveSubscription', subscriber, 'endBlock', '8000');
+    assert.fieldEquals(
+      'ActiveSubscription',
+      subscriber,
+      'pricePerBlock',
+      '3000000000000000000'
+    );
+  });
+
+  test('extend Subscription', () => {
+    let event = createExtendEvent(
+      Address.fromString(subscriber),
+      BigInt.fromU32(10000)
+    );
+    event.logIndex = BigInt.fromU32(3);
+    handleExtend(event);
+
+    assert.entityCount('Extend', 1);
+    assert.entityCount('Subscribe', 2);
+    assert.entityCount('Unsubscribe', 1);
+
+    assert.entityCount('ActiveSubscription', 1);
+    assert.fieldEquals(
+      'ActiveSubscription',
+      subscriber,
+      'subscriber',
+      subscriber
+    );
+    assert.fieldEquals('ActiveSubscription', subscriber, 'startBlock', '3000');
+    assert.fieldEquals('ActiveSubscription', subscriber, 'endBlock', '10000');
     assert.fieldEquals(
       'ActiveSubscription',
       subscriber,

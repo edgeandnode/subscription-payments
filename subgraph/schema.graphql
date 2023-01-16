@@ -17,6 +17,15 @@ type Unsubscribe @entity(immutable: true) {
   subscriber: Bytes! # address
 }
 
+type Extend @entity(immutable: true) {
+  id: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  subscriber: Bytes! # address
+  endBlock: BigInt! # uint64
+}
+
 type ActiveSubscription @entity {
   id: Bytes!
   subscriber: Bytes! # address
