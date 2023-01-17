@@ -1,15 +1,15 @@
 [package]
-name = "graph-subscriptions"
+name = "graph-subscriptions-cli"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.1", features = ["derive"] }
-ethers = { version = "1.0", default-features = false, features = ['abigen'] }
-eip-712-derive = { git = "https://github.com/graphprotocol/eip-712-derive" }
+graph-subscriptions = { path = "../graph-subscriptions-rs" }
+ethers = { version = "1.0", default-features = false}
 hex = "0.4.3"
 rand = "0.8"
 serde = { version = "1.0" }
+serde_json = "1.0"
 tokio = { version = "1.24", features = ["macros", "rt"] }
-url = "2.3"

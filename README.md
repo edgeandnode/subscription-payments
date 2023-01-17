@@ -10,9 +10,9 @@ Prototype Contract for Subscription Payments
 ```bash
 (cd contract && npx hardhat compile && yarn deploy-local)
 yq ".dataSources[0].source.address |= \"$(jq <contract/contract-deployment.json '.contract' -r)\"" \
-  -i subgraph/subgraph.yaml
+  subgraph/subgraph.yaml -iy
 yq ".dataSources[0].network |= \"hardhat\"" \
-  -i subgraph/subgraph.yaml
+  subgraph/subgraph.yaml -iy
 ```
 
 ```bash

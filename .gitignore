@@ -9,3 +9,5 @@ node_modules/
 /subgraph/node_modules/
 /subgraph/tests/.bin/
 /subgraph/tests/.latest.json
+target/
+/graph-subscriptions-rs/Cargo.lock

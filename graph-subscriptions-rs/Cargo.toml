@@ -1,0 +1,10 @@
+[package]
+name = "graph-subscriptions"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ethers = { version = "1.0", default-features = false, features = ['abigen'] }
+eip-712-derive = { git = "https://github.com/graphprotocol/eip-712-derive" }
+serde = { version = "1.0" }
+url = "2.3"

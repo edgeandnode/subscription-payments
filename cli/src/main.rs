@@ -1,15 +1,10 @@
 use anyhow::{ensure, Result};
 use clap::{Parser, Subcommand};
-use eip712::Eip712Domain;
-use eip_712_derive as eip712;
 use ethers::{abi::Address, contract::abigen, prelude::*};
+use graph_subscriptions::{eip712, Ticket, Url};
 use rand::{thread_rng, RngCore as _};
-use std::{
-    fmt::{self, Debug},
-    io::{stdin, Cursor, Write},
-    str::FromStr,
-    sync::Arc,
-};
+use serde_json::json;
+use std::{io::stdin, str::FromStr as _, sync::Arc};
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -58,19 +53,6 @@ abigen!(
     "../contract/build/IERC20.abi",
     event_derives(serde::Deserialize, serde::Serialize);
 );
-
-pub struct Ticket {
-    user: eip_712_derive::Bytes20,
-    nonce: eip_712_derive::Bytes8,
-}
-
-impl eip712::StructType for Ticket {
-    const TYPE_NAME: &'static str = "Ticket";
-    fn visit_members<T: eip712::MemberVisitor>(&self, visitor: &mut T) {
-        visitor.visit("user", &self.user);
-        visitor.visit("nonce", &self.nonce);
-    }
-}
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -148,15 +130,7 @@ async fn main() -> Result<()> {
         }
 
         Commands::Ticket { nonce } => {
-            let mut chain_id = [0_u8; 32];
-            chain_id[24..].clone_from_slice(&opt.chain_id.to_be_bytes());
-            let domain = Eip712Domain {
-                name: "Graph Subscriptions".to_string(),
-                version: "0".to_string(),
-                chain_id: eip712::U256(chain_id),
-                verifying_contract: eip712::Address(subscriptions.address().0),
-                salt: [42_u8; 32],
-            };
+            let domain = Ticket::eip712_domain(opt.chain_id, subscriptions.address());
             let domain_separator = eip712::DomainSeparator::new(&domain);
 
             let ticket = Ticket {
@@ -166,7 +140,7 @@ async fn main() -> Result<()> {
                     .to_be_bytes(),
             };
 
-            let (rs, v) = eip_712_derive::sign_typed(
+            let (rs, v) = eip712::sign_typed(
                 &domain_separator,
                 &ticket,
                 &wallet.signer().to_bytes().as_slice().try_into().unwrap(),
@@ -180,31 +154,18 @@ async fn main() -> Result<()> {
             let sign_hash = eip712::sign_hash(&domain_separator, &ticket);
             ensure!(wallet.address() == signature.recover(sign_hash)?);
 
-            let mut cursor = Cursor::new([0_u8; 28 + 65]);
-            cursor.write_all(&ticket.user)?;
-            cursor.write_all(&ticket.nonce)?;
-            cursor.write_all(&signature.to_vec())?;
-            ensure!(cursor.position() == cursor.get_ref().len() as u64);
-            println!("0x{}", hex::encode(cursor.into_inner()))
+            println!(
+                "{}",
+                json!({
+                    "r": signature.r,
+                    "s": signature.s,
+                    "v": signature.v,
+                    "user": format!("0x{}", hex::encode(ticket.user)),
+                    "nonce": format!("0x{}",hex::encode(ticket.nonce)),
+                })
+            );
         }
     }
 
     Ok(())
-}
-
-#[derive(Clone)]
-struct Url(pub url::Url);
-
-impl FromStr for Url {
-    type Err = url::ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        url::Url::from_str(s).map(Self)
-    }
-}
-
-impl Debug for Url {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0.as_str())
-    }
 }
