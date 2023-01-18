@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-/* TODO: turn this into a more coherent set of docs
+/* TODO: turn this into a more coherent set of docs before internal review.
 
 - This contract is designed to allow users of the Graph Protocol to pay gateways
 for their services with limited risk of losing funds.
@@ -8,6 +8,15 @@ for their services with limited risk of losing funds.
 - This contract makes no assumptions about how the subscription price per block
 is interpreted by the gateway.
 
+*/
+
+/* TODO:
+- Should we have an authorized signer, separate from the user? Why would we need
+  both? Note: we want to support multi-sigs, etc.
+- Daily epochs seem to be desireable, based on block timestamps. To what extent
+  can this stand-in for the intended collect optimization?
+- Implement resubscribe (update subscription) operation to reduce user friction.
+  Maybe the contract team can implement this?
 */
 
 pragma solidity ^0.8.17;
