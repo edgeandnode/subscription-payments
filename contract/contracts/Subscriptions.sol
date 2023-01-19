@@ -106,19 +106,17 @@ contract Subscriptions {
             _uncollected += locked(sub);
             if (sub.endBlock <= currentBlock) {
                 delete _subscriptions[_subscribers[i]];
-                uint last = _subscribers.length - 1;
-                _subscribers[i] = _subscribers[last];
+                _subscribers[i] = _subscribers[_subscribers.length - 1];
                 _subscribers.pop();
             } else {
-                _subscriptions[_subscribers[i]] = Subscription({
-                    startBlock: Prelude.clamp(
-                        currentBlock,
-                        sub.startBlock,
-                        sub.endBlock
-                    ),
-                    endBlock: sub.endBlock,
-                    pricePerBlock: sub.pricePerBlock
-                });
+                uint64 startBlock = Prelude.clamp(
+                    currentBlock,
+                    sub.startBlock,
+                    sub.endBlock
+                );
+                assert(startBlock < sub.endBlock);
+                _subscriptions[_subscribers[i]].startBlock = startBlock;
+
                 i += 1;
             }
         }

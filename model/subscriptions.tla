@@ -3,7 +3,7 @@ EXTENDS Apalache, Integers, Sequences, TLC, prelude
 
 Contract == 0
 Owner == 1
-Addrs == {Contract, Owner} \union (2..5)
+Addrs == {Contract, Owner} \union (2..4)
 
 MaxBlock == 11
 Blocks == 0..MaxBlock
@@ -32,7 +32,8 @@ NullSub == Sub(0, 0, 0)
 EndSub(sub) == Sub(Min2(block, sub.start), block, sub.price)
 
 \* @type: ($subscription) => $subscription;
-TruncateSub(sub) == Sub(Clamp(block, sub.start, sub.end), sub.end, sub.price)
+TruncateSub(sub) == LET start == Clamp(block, sub.start, sub.end) IN
+    IF start = sub.end THEN NullSub ELSE Sub(start, sub.end, sub.price)
 
 \* @type: ($subscription, Int) => $subscription;
 ExtendSub(sub, end) == Sub(sub.start, Max2(end, sub.end), sub.price)
@@ -99,12 +100,12 @@ Extend(addr) ==
         /\ subs' := [subs EXCEPT ![addr] = sub]
 
 Next ==
-    \* \/ NextBlock
-    \* \/ Collect
+    \/ NextBlock
+    \/ Collect
     \/ \E addr \in Addrs:
         \/ Subscribe(addr)
         \/ Unsubscribe(addr)
-        \* \/ Extend(addr)
+        \/ Extend(addr)
 
 \* @type: (Int -> Int) => Int;
 Total(bs) == ApaFoldSet(LAMBDA sum, addr: sum + bs[addr], 0, Addrs)
@@ -115,7 +116,7 @@ TypeOK ==
     /\ block \in Blocks
     /\ \A b \in Range(balances): b \in Nat
     /\ \A sub \in Range(subs): (sub = NullSub) \/
-        /\ (sub.start \in Blocks) /\ (sub.end \in Blocks) /\ sub.start <= sub.end
+        /\ (sub.start \in Blocks) /\ (sub.end \in Blocks) /\ sub.start < sub.end
         /\ sub.price \in Prices
     /\ uncollected \in Nat
 
