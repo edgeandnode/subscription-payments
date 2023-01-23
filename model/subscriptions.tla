@@ -8,47 +8,47 @@ Addrs == {Contract, Owner} \union (2..4)
 MaxBlock == 11
 Blocks == 0..MaxBlock
 
-MaxPrice == 3
-Prices == 1..MaxPrice
+MaxRate == 3
+Rates == 1..MaxRate
 
 VARIABLES
     \* @type: Int;
     block,
     \* @type: Int -> Int;
     balances,
-    \* @typeAlias: subscription = { start: Int, end: Int, price: Int };
+    \* @typeAlias: subscription = { start: Int, end: Int, rate: Int };
     \* @type: Int -> $subscription;
     subs,
     \* @type: Int;
     uncollected
 
 \* @type: (Int, Int, Int) => $subscription;
-Sub(start, end, price) == [start |-> start, end |-> end, price |-> price]
+Sub(start, end, rate) == [start |-> start, end |-> end, rate |-> rate]
 
 \* @type: () => $subscription;
 NullSub == Sub(0, 0, 0)
 
 \* @type: ($subscription) => $subscription;
-EndSub(sub) == Sub(Min2(block, sub.start), block, sub.price)
+EndSub(sub) == Sub(Min2(block, sub.start), block, sub.rate)
 
 \* @type: ($subscription) => $subscription;
 TruncateSub(sub) == LET start == Clamp(block, sub.start, sub.end) IN
-    IF start = sub.end THEN NullSub ELSE Sub(start, sub.end, sub.price)
+    IF start = sub.end THEN NullSub ELSE Sub(start, sub.end, sub.rate)
 
 \* @type: ($subscription, Int) => $subscription;
-ExtendSub(sub, end) == Sub(sub.start, Max2(end, sub.end), sub.price)
+ExtendSub(sub, end) == Sub(sub.start, Max2(end, sub.end), sub.rate)
 
 \* @type: ($subscription) => Int;
-SubTotal(sub) == sub.price * (sub.end - sub.start)
+SubTotal(sub) == sub.rate * (sub.end - sub.start)
 
 \* @type: ($subscription, Int) => Int;
-LockedAt(sub, block_) == sub.price * Max2(0, Min2(block_, sub.end) - sub.start)
+LockedAt(sub, block_) == sub.rate * Max2(0, Min2(block_, sub.end) - sub.start)
 
 \* @type: ($subscription) => Int;
 Locked(sub) == LockedAt(sub, block)
 
 \* @type: ($subscription, Int) => Int;
-UnlockedAt(sub, block_) == sub.price * Max2(0, sub.end - Max2(block_, sub.start))
+UnlockedAt(sub, block_) == sub.rate * Max2(0, sub.end - Max2(block_, sub.start))
 
 \* @type: ($subscription) => Int;
 Unlocked(sub) == UnlockedAt(sub, block)
@@ -80,7 +80,7 @@ Collect ==
 Subscribe(addr) ==
     /\ UNCHANGED <<block, uncollected>>
     /\ addr /= Contract
-    /\ \E start \in Blocks: \E end \in Blocks: \E price \in Prices: LET sub == Sub(start, end, price) IN
+    /\ \E start \in Blocks: \E end \in Blocks: \E rate \in Rates: LET sub == Sub(start, end, rate) IN
         /\ (block <= start) /\ (start < end)
         /\ subs[addr].end <= block
         /\ Transfer(addr, Contract, SubTotal(sub))
@@ -117,7 +117,7 @@ TypeOK ==
     /\ \A b \in Range(balances): b \in Nat
     /\ \A sub \in Range(subs): (sub = NullSub) \/
         /\ (sub.start \in Blocks) /\ (sub.end \in Blocks) /\ sub.start < sub.end
-        /\ sub.price \in Prices
+        /\ sub.rate \in Rates
     /\ uncollected \in Nat
 
 CollectEffect == Collect =>
@@ -148,9 +148,9 @@ Safety ==
     /\ UnsubEffect
     /\ ExtendEffect
     \* The balance and recoverable (unlocked) value for a user can't drop by more than the
-    \* subscription price per step.
+    \* subscription rate per step.
     /\ \A user \in Users:
         (balances'[user] + UnlockedAt(subs'[user], block')) >=
-        (balances[user] + (Unlocked(subs[user]) - subs[user].price))
+        (balances[user] + (Unlocked(subs[user]) - subs[user].rate))
 
 ====
