@@ -46,6 +46,7 @@ contract Subscriptions {
         int128 extra;
     }
 
+    event Init(address token);
     event Subscribe(
         address indexed user,
         uint64 start,
@@ -70,11 +71,13 @@ contract Subscriptions {
     // The epoch cursor value
     int128 private _collectPerEpoch;
 
-    constructor(address tokenAddress, uint64 epochBlocks_) {
-        token = IERC20(tokenAddress);
+    constructor(address token_, uint64 epochBlocks_) {
+        token = IERC20(token_);
         owner = msg.sender;
         epochBlocks = epochBlocks_;
         _uncollectedEpoch = uint64(block.number) / epochBlocks_;
+
+        emit Init(token_);
     }
 
     // Convert block number to epoch number, rounding up to the next epoch
