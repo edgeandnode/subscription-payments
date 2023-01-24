@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 
-/* TODO: turn this into a more coherent set of docs
-
+/* TODO: turn this into a more coherent set of docs.
 - This contract is designed to allow users of the Graph Protocol to pay gateways
-for their services with limited risk of losing funds.
-
+for their services with limited risk of losing tokens.
 - This contract makes no assumptions about how the subscription price per block
 is interpreted by the gateway.
+*/
 
+/* TODO:
+- Add constructor event for subgraph
+- Make sure we can support multi-sigs, etc.
+- Re-implement extend with epochs
+- Implement resubscribe (update subscription) operation to reduce user friction.
 */
 
 pragma solidity ^0.8.17;
@@ -23,167 +27,217 @@ library Prelude {
     function max(int256 a, int256 b) internal pure returns (int256) {
         return a >= b ? a : b;
     }
-
-    function clamp(
-        uint64 x,
-        uint64 a,
-        uint64 b
-    ) internal pure returns (uint64) {
-        return uint64(int64(max(int64(a), min(int64(b), int64(x)))));
-    }
 }
 
 contract Subscriptions {
+    // A Subscription represents a lockup of `rate` tokens per block for the
+    // half-open block range [start, end).
     struct Subscription {
-        uint64 startBlock;
-        uint64 endBlock;
-        uint128 pricePerBlock;
+        uint64 start;
+        uint64 end;
+        uint128 rate;
+    }
+    // An epoch defines the end of a span of blocks, the length of which is
+    // defined by `epochBlocks`. These exist to facilitate a relatively
+    // efficient `collect` implementation while allowing users to recover
+    // unlocked tokens at a block granularity.
+    struct Epoch {
+        int128 delta;
+        int128 extra;
     }
 
     event Subscribe(
-        address indexed subscriber,
-        uint64 startBlock,
-        uint64 endBlock,
-        uint128 pricePerBlock
+        address indexed user,
+        uint64 start,
+        uint64 end,
+        uint128 rate
     );
-    event Unsubscribe(address indexed subscriber);
-    event Extend(address indexed subscriber, uint64 endBlock);
+    event Unsubscribe(address indexed user);
+    // event Extend(address indexed user, uint64 end);
 
+    // The ERC-20 token held by this contract
     IERC20 public token;
+    // The owner of the contract, which has the authority to call collect
     address public owner;
-    uint128 private _uncollected;
+    // The block length of each epoch
+    uint64 public epochBlocks;
+    // Mapping of users to their most recent subscription
     mapping(address => Subscription) private _subscriptions;
-    // TODO: use epochs for more efficient collection.
-    address[] private _subscribers;
+    // Mapping of epoch numbers to their payloads
+    mapping(uint64 => Epoch) private _epochs;
+    // The epoch cursor position
+    uint64 private _uncollectedEpoch;
+    // The epoch cursor value
+    int128 private _collectPerEpoch;
 
-    constructor(address tokenAddress) {
+    constructor(address tokenAddress, uint64 epochBlocks_) {
         token = IERC20(tokenAddress);
         owner = msg.sender;
+        epochBlocks = epochBlocks_;
+        _uncollectedEpoch = uint64(block.number) / epochBlocks_;
     }
 
+    // Convert block number to epoch number, rounding up to the next epoch
+    // boundry.
+    function blockToEpoch(uint64 b) private view returns (uint64) {
+        int256 value = Prelude.max(
+            1,
+            int64(b / epochBlocks) + Prelude.min(1, int64(b % epochBlocks))
+        );
+        return uint64(int64(value));
+    }
+
+    // Get the user's most recent subscription.
     function subscription(
-        address subscriber
+        address user
     ) public view returns (Subscription memory) {
-        return _subscriptions[subscriber];
+        return _subscriptions[user];
     }
 
+    // Locked tokens for a subscription are collectable by the contract owner
+    // and cannot be recovered by the user.
+    // Defined as `rate * max(0, min(block, end) - start)`
     function locked(Subscription storage sub) private view returns (uint128) {
         uint64 currentBlock = uint64(block.number);
         int256 len = Prelude.max(
             0,
-            Prelude.min(int64(currentBlock), int64(sub.endBlock)) -
-                int64(sub.startBlock)
+            Prelude.min(int64(currentBlock), int64(sub.end)) - int64(sub.start)
         );
-        return sub.pricePerBlock * uint128(uint256(len));
+        return sub.rate * uint128(uint256(len));
     }
 
+    // Unlocked tokens for a subscription are not collectable by the contract
+    // owner and can be recovered by the user.
+    // Defined as `rate * max(0, end - max(block, start))`
     function unlocked(Subscription storage sub) private view returns (uint128) {
         uint64 currentBlock = uint64(block.number);
         int256 len = Prelude.max(
             0,
-            int64(sub.endBlock) -
-                Prelude.max(int64(currentBlock), int64(sub.startBlock))
+            int64(sub.end) - Prelude.max(int64(currentBlock), int64(sub.start))
         );
-        return sub.pricePerBlock * uint128(uint256(len));
+        return sub.rate * uint128(uint256(len));
     }
 
+    // Collect a subset of the locked tokens held by this contract.
     function collect() public {
         require(msg.sender == owner, 'must be called by owner');
 
-        uint64 currentBlock = uint64(block.number);
-        uint i = 0;
-        while (i < _subscribers.length) {
-            Subscription storage sub = _subscriptions[_subscribers[i]];
-            _uncollected += locked(sub);
-            if (sub.endBlock <= currentBlock) {
-                delete _subscriptions[_subscribers[i]];
-                uint last = _subscribers.length - 1;
-                _subscribers[i] = _subscribers[last];
-                _subscribers.pop();
-            } else {
-                _subscriptions[_subscribers[i]] = Subscription({
-                    startBlock: Prelude.clamp(
-                        currentBlock,
-                        sub.startBlock,
-                        sub.endBlock
-                    ),
-                    endBlock: sub.endBlock,
-                    pricePerBlock: sub.pricePerBlock
-                });
-                i += 1;
-            }
+        uint64 currentEpoch = blockToEpoch(uint64(block.number));
+        int128 total = 0;
+        for (; _uncollectedEpoch < currentEpoch; _uncollectedEpoch++) {
+            Epoch storage epoch = _epochs[_uncollectedEpoch];
+            _collectPerEpoch += epoch.delta;
+            total += _collectPerEpoch + epoch.extra;
+            delete _epochs[_uncollectedEpoch];
         }
 
-        token.transfer(owner, _uncollected);
-        _uncollected = 0;
+        token.transfer(owner, uint128(total));
     }
 
+    function setEpochs(uint64 start, uint64 end, int128 rate) private {
+        /*
+        Example subscription layout using
+            epochBlocks = 6
+            sub = {start: 2, end: 9, rate: 1}
+
+        blocks: |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10|11|
+                                      ^ currentBlock
+                       ^start               ^end
+        epochs: |                1|                2|
+                               e1^               e2^
+        */
+
+        uint64 e = blockToEpoch(uint64(block.number));
+        uint64 e1 = blockToEpoch(start);
+        if (e <= e1) {
+            _epochs[e1].delta += rate * int64(epochBlocks);
+            _epochs[e1].extra -= rate * int64(start - ((e1 - 1) * epochBlocks));
+        }
+        uint64 e2 = blockToEpoch(end);
+        if (e <= e2) {
+            _epochs[e1].delta -= rate * int64(epochBlocks);
+            _epochs[e1].extra += rate * int64(end - ((e2 - 1) * epochBlocks));
+        }
+    }
+
+    // Set the subscription for a user.
     function subscribe(
-        address subscriber,
-        uint64 startBlock,
-        uint64 endBlock,
-        uint128 pricePerBlock
+        address user,
+        uint64 start,
+        uint64 end,
+        uint128 rate
     ) public {
-        // This can be called by any account for a given subscriber, because it
-        // requires that the subscription's startBlock is less than the current
+        // This can be called by any account for a given user, because it
+        // requires that the subscription's start is less than the current
         // block.
 
-        require(subscriber != address(0), 'subscriber is null');
-        require(subscriber != address(this), 'invalid subscriber');
-        startBlock = uint64(
-            uint256(Prelude.max(int64(startBlock), int64(uint64(block.number))))
+        require(user != address(0), 'user is null');
+        require(user != address(this), 'invalid user');
+        start = uint64(
+            uint256(Prelude.max(int64(start), int64(uint64(block.number))))
         );
-        require(startBlock < endBlock, 'startBlock must be less than endBlock');
+        require(start < end, 'start must be less than end');
         require(
-            _subscriptions[subscriber].endBlock <= uint64(block.number),
+            _subscriptions[user].end <= uint64(block.number),
             'active subscription must have ended'
         );
 
-        uint128 subTotal = pricePerBlock * (endBlock - startBlock);
+        uint128 subTotal = rate * (end - start);
         token.transferFrom(msg.sender, address(this), subTotal);
 
-        Subscription storage prev = _subscriptions[subscriber];
-        _uncollected += prev.pricePerBlock * (prev.endBlock - prev.startBlock);
-
-        _subscriptions[subscriber] = Subscription({
-            startBlock: startBlock,
-            endBlock: endBlock,
-            pricePerBlock: pricePerBlock
+        _subscriptions[user] = Subscription({
+            start: start,
+            end: end,
+            rate: rate
         });
-        _subscribers.push(subscriber);
+        setEpochs(start, end, int128(rate));
 
-        emit Subscribe(subscriber, startBlock, endBlock, pricePerBlock);
+        emit Subscribe(user, start, end, rate);
     }
 
+    // Remove a user's subscription.
     function unsubscribe() public {
-        address subscriber = msg.sender;
-        Subscription storage sub = _subscriptions[subscriber];
+        address user = msg.sender;
+        require(user != address(0), 'user is null');
 
-        token.transfer(subscriber, unlocked(sub));
-        _uncollected += locked(sub);
-        delete _subscriptions[subscriber];
-
-        emit Unsubscribe(subscriber);
-    }
-
-    function extend(address subscriber, uint64 endBlock) public {
-        require(subscriber != address(0), 'subscriber is null');
+        Subscription storage sub = _subscriptions[user];
         uint64 currentBlock = uint64(block.number);
-        Subscription storage sub = _subscriptions[subscriber];
-        require(
-            (sub.startBlock <= currentBlock) && (currentBlock < sub.endBlock),
-            'current subscription must be active'
-        );
-        require(
-            sub.endBlock < endBlock,
-            'endBlock must be after that of the current subscription'
-        );
 
-        uint128 addition = sub.pricePerBlock * (endBlock - sub.endBlock);
-        token.transferFrom(msg.sender, address(this), addition);
+        token.transfer(user, unlocked(sub));
 
-        _subscriptions[subscriber].endBlock = endBlock;
+        if ((sub.start <= currentBlock) && (currentBlock < sub.end)) {
+            setEpochs(sub.start, sub.end, -int128(sub.rate));
+            setEpochs(sub.start, currentBlock, int128(sub.rate));
+            _subscriptions[user].end = currentBlock;
+        } else if (currentBlock < sub.start) {
+            setEpochs(sub.start, sub.end, -int128(sub.rate));
+            delete _subscriptions[user];
+        } else {
+            // sub.end <= currentBlock
+            delete _subscriptions[user];
+        }
 
-        emit Extend(subscriber, endBlock);
+        emit Unsubscribe(user);
     }
+
+    // function extend(address user, uint64 end) public {
+    //     require(user != address(0), 'user is null');
+    //     uint64 currentBlock = uint64(block.number);
+    //     Subscription storage sub = _subscriptions[user];
+    //     require(
+    //         (sub.start <= currentBlock) && (currentBlock < sub.end),
+    //         'current subscription must be active'
+    //     );
+    //     require(
+    //         sub.end < end,
+    //         'end must be after that of the current subscription'
+    //     );
+
+    //     uint128 addition = sub.rate * (end - sub.end);
+    //     token.transferFrom(msg.sender, address(this), addition);
+
+    //     _subscriptions[user].end = end;
+
+    //     emit Extend(user, end);
+    // }
 }
