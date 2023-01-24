@@ -11,6 +11,74 @@ import {
   BigDecimal
 } from "@graphprotocol/graph-ts";
 
+export class Init extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save Init entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type Init must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set("Init", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static load(id: Bytes): Init | null {
+    return changetype<Init | null>(store.get("Init", id.toHexString()));
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    return value!.toBytes();
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get token(): Bytes {
+    let value = this.get("token");
+    return value!.toBytes();
+  }
+
+  set token(value: Bytes) {
+    this.set("token", Value.fromBytes(value));
+  }
+}
+
 export class Subscribe extends Entity {
   constructor(id: Bytes) {
     super();
@@ -71,40 +139,40 @@ export class Subscribe extends Entity {
     this.set("transactionHash", Value.fromBytes(value));
   }
 
-  get subscriber(): Bytes {
-    let value = this.get("subscriber");
+  get user(): Bytes {
+    let value = this.get("user");
     return value!.toBytes();
   }
 
-  set subscriber(value: Bytes) {
-    this.set("subscriber", Value.fromBytes(value));
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
   }
 
-  get startBlock(): BigInt {
-    let value = this.get("startBlock");
+  get start(): BigInt {
+    let value = this.get("start");
     return value!.toBigInt();
   }
 
-  set startBlock(value: BigInt) {
-    this.set("startBlock", Value.fromBigInt(value));
+  set start(value: BigInt) {
+    this.set("start", Value.fromBigInt(value));
   }
 
-  get endBlock(): BigInt {
-    let value = this.get("endBlock");
+  get end(): BigInt {
+    let value = this.get("end");
     return value!.toBigInt();
   }
 
-  set endBlock(value: BigInt) {
-    this.set("endBlock", Value.fromBigInt(value));
+  set end(value: BigInt) {
+    this.set("end", Value.fromBigInt(value));
   }
 
-  get pricePerBlock(): BigInt {
-    let value = this.get("pricePerBlock");
+  get rate(): BigInt {
+    let value = this.get("rate");
     return value!.toBigInt();
   }
 
-  set pricePerBlock(value: BigInt) {
-    this.set("pricePerBlock", Value.fromBigInt(value));
+  set rate(value: BigInt) {
+    this.set("rate", Value.fromBigInt(value));
   }
 }
 
@@ -168,13 +236,13 @@ export class Unsubscribe extends Entity {
     this.set("transactionHash", Value.fromBytes(value));
   }
 
-  get subscriber(): Bytes {
-    let value = this.get("subscriber");
+  get user(): Bytes {
+    let value = this.get("user");
     return value!.toBytes();
   }
 
-  set subscriber(value: Bytes) {
-    this.set("subscriber", Value.fromBytes(value));
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
   }
 }
 
@@ -236,22 +304,22 @@ export class Extend extends Entity {
     this.set("transactionHash", Value.fromBytes(value));
   }
 
-  get subscriber(): Bytes {
-    let value = this.get("subscriber");
+  get user(): Bytes {
+    let value = this.get("user");
     return value!.toBytes();
   }
 
-  set subscriber(value: Bytes) {
-    this.set("subscriber", Value.fromBytes(value));
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
   }
 
-  get endBlock(): BigInt {
-    let value = this.get("endBlock");
+  get end(): BigInt {
+    let value = this.get("end");
     return value!.toBigInt();
   }
 
-  set endBlock(value: BigInt) {
-    this.set("endBlock", Value.fromBigInt(value));
+  set end(value: BigInt) {
+    this.set("end", Value.fromBigInt(value));
   }
 }
 
@@ -288,39 +356,39 @@ export class ActiveSubscription extends Entity {
     this.set("id", Value.fromBytes(value));
   }
 
-  get subscriber(): Bytes {
-    let value = this.get("subscriber");
+  get user(): Bytes {
+    let value = this.get("user");
     return value!.toBytes();
   }
 
-  set subscriber(value: Bytes) {
-    this.set("subscriber", Value.fromBytes(value));
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
   }
 
-  get startBlock(): BigInt {
-    let value = this.get("startBlock");
+  get start(): BigInt {
+    let value = this.get("start");
     return value!.toBigInt();
   }
 
-  set startBlock(value: BigInt) {
-    this.set("startBlock", Value.fromBigInt(value));
+  set start(value: BigInt) {
+    this.set("start", Value.fromBigInt(value));
   }
 
-  get endBlock(): BigInt {
-    let value = this.get("endBlock");
+  get end(): BigInt {
+    let value = this.get("end");
     return value!.toBigInt();
   }
 
-  set endBlock(value: BigInt) {
-    this.set("endBlock", Value.fromBigInt(value));
+  set end(value: BigInt) {
+    this.set("end", Value.fromBigInt(value));
   }
 
-  get pricePerBlock(): BigInt {
-    let value = this.get("pricePerBlock");
+  get rate(): BigInt {
+    let value = this.get("rate");
     return value!.toBigInt();
   }
 
-  set pricePerBlock(value: BigInt) {
-    this.set("pricePerBlock", Value.fromBigInt(value));
+  set rate(value: BigInt) {
+    this.set("rate", Value.fromBigInt(value));
   }
 }

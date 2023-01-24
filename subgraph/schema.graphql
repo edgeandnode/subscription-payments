@@ -1,12 +1,20 @@
+type Init @entity(immutable: true) {
+  id: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  token: Bytes! # address
+}
+
 type Subscribe @entity(immutable: true) {
   id: Bytes!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  subscriber: Bytes! # address
-  startBlock: BigInt! # uint64
-  endBlock: BigInt! # uint64
-  pricePerBlock: BigInt! # uint128
+  user: Bytes! # address
+  start: BigInt! # uint64
+  end: BigInt! # uint64
+  rate: BigInt! # uint128
 }
 
 type Unsubscribe @entity(immutable: true) {
@@ -14,7 +22,7 @@ type Unsubscribe @entity(immutable: true) {
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  subscriber: Bytes! # address
+  user: Bytes! # address
 }
 
 type Extend @entity(immutable: true) {
@@ -22,14 +30,14 @@ type Extend @entity(immutable: true) {
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  subscriber: Bytes! # address
-  endBlock: BigInt! # uint64
+  user: Bytes! # address
+  end: BigInt! # uint64
 }
 
 type ActiveSubscription @entity {
   id: Bytes!
-  subscriber: Bytes! # address
-  startBlock: BigInt! # uint64
-  endBlock: BigInt! # uint64
-  pricePerBlock: BigInt! # uint128
+  user: Bytes! # address
+  start: BigInt! # uint64
+  end: BigInt! # uint64
+  rate: BigInt! # uint128
 }

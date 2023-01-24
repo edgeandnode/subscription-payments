@@ -10,25 +10,21 @@ import {
   BigInt
 } from "@graphprotocol/graph-ts";
 
-export class Extend extends ethereum.Event {
-  get params(): Extend__Params {
-    return new Extend__Params(this);
+export class Init extends ethereum.Event {
+  get params(): Init__Params {
+    return new Init__Params(this);
   }
 }
 
-export class Extend__Params {
-  _event: Extend;
+export class Init__Params {
+  _event: Init;
 
-  constructor(event: Extend) {
+  constructor(event: Init) {
     this._event = event;
   }
 
-  get subscriber(): Address {
+  get token(): Address {
     return this._event.parameters[0].value.toAddress();
-  }
-
-  get endBlock(): BigInt {
-    return this._event.parameters[1].value.toBigInt();
   }
 }
 
@@ -45,19 +41,19 @@ export class Subscribe__Params {
     this._event = event;
   }
 
-  get subscriber(): Address {
+  get user(): Address {
     return this._event.parameters[0].value.toAddress();
   }
 
-  get startBlock(): BigInt {
+  get start(): BigInt {
     return this._event.parameters[1].value.toBigInt();
   }
 
-  get endBlock(): BigInt {
+  get end(): BigInt {
     return this._event.parameters[2].value.toBigInt();
   }
 
-  get pricePerBlock(): BigInt {
+  get rate(): BigInt {
     return this._event.parameters[3].value.toBigInt();
   }
 }
@@ -75,21 +71,21 @@ export class Unsubscribe__Params {
     this._event = event;
   }
 
-  get subscriber(): Address {
+  get user(): Address {
     return this._event.parameters[0].value.toAddress();
   }
 }
 
 export class Subscriptions__subscriptionResultValue0Struct extends ethereum.Tuple {
-  get startBlock(): BigInt {
+  get start(): BigInt {
     return this[0].toBigInt();
   }
 
-  get endBlock(): BigInt {
+  get end(): BigInt {
     return this[1].toBigInt();
   }
 
-  get pricePerBlock(): BigInt {
+  get rate(): BigInt {
     return this[2].toBigInt();
   }
 }
@@ -97,6 +93,21 @@ export class Subscriptions__subscriptionResultValue0Struct extends ethereum.Tupl
 export class Subscriptions extends ethereum.SmartContract {
   static bind(address: Address): Subscriptions {
     return new Subscriptions("Subscriptions", address);
+  }
+
+  epochBlocks(): BigInt {
+    let result = super.call("epochBlocks", "epochBlocks():(uint64)", []);
+
+    return result[0].toBigInt();
+  }
+
+  try_epochBlocks(): ethereum.CallResult<BigInt> {
+    let result = super.tryCall("epochBlocks", "epochBlocks():(uint64)", []);
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(value[0].toBigInt());
   }
 
   owner(): Address {
@@ -114,13 +125,11 @@ export class Subscriptions extends ethereum.SmartContract {
     return ethereum.CallResult.fromValue(value[0].toAddress());
   }
 
-  subscription(
-    subscriber: Address
-  ): Subscriptions__subscriptionResultValue0Struct {
+  subscription(user: Address): Subscriptions__subscriptionResultValue0Struct {
     let result = super.call(
       "subscription",
       "subscription(address):((uint64,uint64,uint128))",
-      [ethereum.Value.fromAddress(subscriber)]
+      [ethereum.Value.fromAddress(user)]
     );
 
     return changetype<Subscriptions__subscriptionResultValue0Struct>(
@@ -129,12 +138,12 @@ export class Subscriptions extends ethereum.SmartContract {
   }
 
   try_subscription(
-    subscriber: Address
+    user: Address
   ): ethereum.CallResult<Subscriptions__subscriptionResultValue0Struct> {
     let result = super.tryCall(
       "subscription",
       "subscription(address):((uint64,uint64,uint128))",
-      [ethereum.Value.fromAddress(subscriber)]
+      [ethereum.Value.fromAddress(user)]
     );
     if (result.reverted) {
       return new ethereum.CallResult();
@@ -180,8 +189,12 @@ export class ConstructorCall__Inputs {
     this._call = call;
   }
 
-  get tokenAddress(): Address {
+  get token_(): Address {
     return this._call.inputValues[0].value.toAddress();
+  }
+
+  get epochBlocks_(): BigInt {
+    return this._call.inputValues[1].value.toBigInt();
   }
 }
 
@@ -219,40 +232,6 @@ export class CollectCall__Outputs {
   }
 }
 
-export class ExtendCall extends ethereum.Call {
-  get inputs(): ExtendCall__Inputs {
-    return new ExtendCall__Inputs(this);
-  }
-
-  get outputs(): ExtendCall__Outputs {
-    return new ExtendCall__Outputs(this);
-  }
-}
-
-export class ExtendCall__Inputs {
-  _call: ExtendCall;
-
-  constructor(call: ExtendCall) {
-    this._call = call;
-  }
-
-  get subscriber(): Address {
-    return this._call.inputValues[0].value.toAddress();
-  }
-
-  get endBlock(): BigInt {
-    return this._call.inputValues[1].value.toBigInt();
-  }
-}
-
-export class ExtendCall__Outputs {
-  _call: ExtendCall;
-
-  constructor(call: ExtendCall) {
-    this._call = call;
-  }
-}
-
 export class SubscribeCall extends ethereum.Call {
   get inputs(): SubscribeCall__Inputs {
     return new SubscribeCall__Inputs(this);
@@ -270,19 +249,19 @@ export class SubscribeCall__Inputs {
     this._call = call;
   }
 
-  get subscriber(): Address {
+  get user(): Address {
     return this._call.inputValues[0].value.toAddress();
   }
 
-  get startBlock(): BigInt {
+  get start(): BigInt {
     return this._call.inputValues[1].value.toBigInt();
   }
 
-  get endBlock(): BigInt {
+  get end(): BigInt {
     return this._call.inputValues[2].value.toBigInt();
   }
 
-  get pricePerBlock(): BigInt {
+  get rate(): BigInt {
     return this._call.inputValues[3].value.toBigInt();
   }
 }

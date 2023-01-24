@@ -1,7 +1,7 @@
 import {newMockEvent} from 'matchstick-as';
 import {ethereum, Address, BigInt} from '@graphprotocol/graph-ts';
 import {
-  Extend,
+  // Extend,
   Subscribe,
   Unsubscribe,
 } from '../generated/Subscriptions/Subscriptions';
@@ -59,26 +59,26 @@ export function createUnsubscribeEvent(subscriber: Address): Unsubscribe {
   return unsubscribeEvent;
 }
 
-export function createExtendEvent(
-  subscriber: Address,
-  endBlock: BigInt
-): Extend {
-  let extendEvent = changetype<Extend>(newMockEvent());
+// export function createExtendEvent(
+//   subscriber: Address,
+//   endBlock: BigInt
+// ): Extend {
+//   let extendEvent = changetype<Extend>(newMockEvent());
 
-  extendEvent.parameters = new Array();
+//   extendEvent.parameters = new Array();
 
-  extendEvent.parameters.push(
-    new ethereum.EventParam(
-      'subscriber',
-      ethereum.Value.fromAddress(subscriber)
-    )
-  );
-  extendEvent.parameters.push(
-    new ethereum.EventParam(
-      'endBlock',
-      ethereum.Value.fromUnsignedBigInt(endBlock)
-    )
-  );
+//   extendEvent.parameters.push(
+//     new ethereum.EventParam(
+//       'subscriber',
+//       ethereum.Value.fromAddress(subscriber)
+//     )
+//   );
+//   extendEvent.parameters.push(
+//     new ethereum.EventParam(
+//       'endBlock',
+//       ethereum.Value.fromUnsignedBigInt(endBlock)
+//     )
+//   );
 
-  return extendEvent;
-}
+//   return extendEvent;
+// }

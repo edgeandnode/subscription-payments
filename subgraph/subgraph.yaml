@@ -13,16 +13,17 @@ dataSources:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
+        - Init
         - Subscribe
         - Unsubscribe
       abis:
         - name: Subscriptions
           file: ./abis/Subscriptions.json
       eventHandlers:
+        - event: Init(address)
+          handler: handleInit
         - event: Subscribe(indexed address,uint64,uint64,uint128)
           handler: handleSubscribe
         - event: Unsubscribe(indexed address)
           handler: handleUnsubscribe
-        - event: Extend(indexed address,uint64)
-          handler: handleExtend
       file: ./src/subscriptions.ts

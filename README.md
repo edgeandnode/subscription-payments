@@ -33,20 +33,23 @@ echo "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" | cargo 
 
 ```graphql
 {
+  inits {
+    token
+  }
   subscribes {
-    subscriber
-    startBlock
-    endBlock
-    pricePerBlock
+    user
+    start
+    end
+    rate
   }
   unsubscribes {
-    subscriber
+    user
   }
   activeSubscriptions {
-    subscriber
-    startBlock
-    endBlock
-    pricePerBlock
+    user
+    start
+    end
+    rate
   }
 }
 ```

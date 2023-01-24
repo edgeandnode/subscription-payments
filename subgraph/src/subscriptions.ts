@@ -1,15 +1,26 @@
 import {
-  Extend as ExtendEvent,
+  Init as InitEvent,
   Subscribe as SubscribeEvent,
   Unsubscribe as UnsubscribeEvent,
 } from '../generated/Subscriptions/Subscriptions';
 import {
   ActiveSubscription,
-  Extend,
+  Init,
   Subscribe,
   Unsubscribe,
 } from '../generated/schema';
 import {store} from '@graphprotocol/graph-ts';
+
+export function handleInit(event: InitEvent): void {
+  let entity = new Init(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+  entity.blockNumber = event.block.number;
+  entity.blockTimestamp = event.block.timestamp;
+  entity.transactionHash = event.transaction.hash;
+  entity.token = event.params.token;
+  entity.save();
+}
 
 export function handleSubscribe(event: SubscribeEvent): void {
   let entity = new Subscribe(
@@ -18,17 +29,17 @@ export function handleSubscribe(event: SubscribeEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-  entity.subscriber = event.params.subscriber;
-  entity.startBlock = event.params.startBlock;
-  entity.endBlock = event.params.endBlock;
-  entity.pricePerBlock = event.params.pricePerBlock;
+  entity.user = event.params.user;
+  entity.start = event.params.start;
+  entity.end = event.params.end;
+  entity.rate = event.params.rate;
   entity.save();
 
-  let sub = new ActiveSubscription(event.params.subscriber);
-  sub.subscriber = event.params.subscriber;
-  sub.startBlock = event.params.startBlock;
-  sub.endBlock = event.params.endBlock;
-  sub.pricePerBlock = event.params.pricePerBlock;
+  let sub = new ActiveSubscription(event.params.user);
+  sub.user = event.params.user;
+  sub.start = event.params.start;
+  sub.end = event.params.end;
+  sub.rate = event.params.rate;
   sub.save();
 }
 
@@ -39,24 +50,24 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-  entity.subscriber = event.params.subscriber;
+  entity.user = event.params.user;
   entity.save();
 
-  store.remove('ActiveSubscription', event.params.subscriber.toHexString());
+  store.remove('ActiveSubscription', event.params.user.toHexString());
 }
 
-export function handleExtend(event: ExtendEvent): void {
-  let entity = new Extend(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-  entity.subscriber = event.params.subscriber;
-  entity.endBlock = event.params.endBlock;
-  entity.save();
+// export function handleExtend(event: ExtendEvent): void {
+//   let entity = new Extend(
+//     event.transaction.hash.concatI32(event.logIndex.toI32())
+//   );
+//   entity.blockNumber = event.block.number;
+//   entity.blockTimestamp = event.block.timestamp;
+//   entity.transactionHash = event.transaction.hash;
+//   entity.user = event.params.user;
+//   entity.end = event.params.end;
+//   entity.save();
 
-  let sub = ActiveSubscription.load(event.params.subscriber)!;
-  sub.endBlock = event.params.endBlock;
-  sub.save();
-}
+//   let sub = ActiveSubscription.load(event.params.user)!;
+//   sub.end = event.params.end;
+//   sub.save();
+// }

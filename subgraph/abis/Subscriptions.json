@@ -3,8 +3,13 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "tokenAddress",
+        "name": "token_",
         "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "epochBlocks_",
+        "type": "uint64"
       }
     ],
     "stateMutability": "nonpayable",
@@ -14,19 +19,13 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "subscriber",
-        "type": "address"
-      },
-      {
         "indexed": false,
-        "internalType": "uint64",
-        "name": "endBlock",
-        "type": "uint64"
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
       }
     ],
-    "name": "Extend",
+    "name": "Init",
     "type": "event"
   },
   {
@@ -35,25 +34,25 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "subscriber",
+        "name": "user",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint64",
-        "name": "startBlock",
+        "name": "start",
         "type": "uint64"
       },
       {
         "indexed": false,
         "internalType": "uint64",
-        "name": "endBlock",
+        "name": "end",
         "type": "uint64"
       },
       {
         "indexed": false,
         "internalType": "uint128",
-        "name": "pricePerBlock",
+        "name": "rate",
         "type": "uint128"
       }
     ],
@@ -66,7 +65,7 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "subscriber",
+        "name": "user",
         "type": "address"
       }
     ],
@@ -81,21 +80,16 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "subscriber",
-        "type": "address"
-      },
+    "inputs": [],
+    "name": "epochBlocks",
+    "outputs": [
       {
         "internalType": "uint64",
-        "name": "endBlock",
+        "name": "",
         "type": "uint64"
       }
     ],
-    "name": "extend",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -115,22 +109,22 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "subscriber",
+        "name": "user",
         "type": "address"
       },
       {
         "internalType": "uint64",
-        "name": "startBlock",
+        "name": "start",
         "type": "uint64"
       },
       {
         "internalType": "uint64",
-        "name": "endBlock",
+        "name": "end",
         "type": "uint64"
       },
       {
         "internalType": "uint128",
-        "name": "pricePerBlock",
+        "name": "rate",
         "type": "uint128"
       }
     ],
@@ -143,7 +137,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "subscriber",
+        "name": "user",
         "type": "address"
       }
     ],
@@ -153,17 +147,17 @@
         "components": [
           {
             "internalType": "uint64",
-            "name": "startBlock",
+            "name": "start",
             "type": "uint64"
           },
           {
             "internalType": "uint64",
-            "name": "endBlock",
+            "name": "end",
             "type": "uint64"
           },
           {
             "internalType": "uint128",
-            "name": "pricePerBlock",
+            "name": "rate",
             "type": "uint128"
           }
         ],
