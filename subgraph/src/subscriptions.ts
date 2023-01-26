@@ -1,11 +1,13 @@
 import {
   Init as InitEvent,
+  Extend as ExtendEvent,
   Subscribe as SubscribeEvent,
   Unsubscribe as UnsubscribeEvent,
 } from '../generated/Subscriptions/Subscriptions';
 import {
   ActiveSubscription,
   Init,
+  Extend,
   Subscribe,
   Unsubscribe,
 } from '../generated/schema';
@@ -56,18 +58,18 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   store.remove('ActiveSubscription', event.params.user.toHexString());
 }
 
-// export function handleExtend(event: ExtendEvent): void {
-//   let entity = new Extend(
-//     event.transaction.hash.concatI32(event.logIndex.toI32())
-//   );
-//   entity.blockNumber = event.block.number;
-//   entity.blockTimestamp = event.block.timestamp;
-//   entity.transactionHash = event.transaction.hash;
-//   entity.user = event.params.user;
-//   entity.end = event.params.end;
-//   entity.save();
+export function handleExtend(event: ExtendEvent): void {
+  let entity = new Extend(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+  entity.blockNumber = event.block.number;
+  entity.blockTimestamp = event.block.timestamp;
+  entity.transactionHash = event.transaction.hash;
+  entity.user = event.params.user;
+  entity.end = event.params.end;
+  entity.save();
 
-//   let sub = ActiveSubscription.load(event.params.user)!;
-//   sub.end = event.params.end;
-//   sub.save();
-// }
+  let sub = ActiveSubscription.load(event.params.user)!;
+  sub.end = event.params.end;
+  sub.save();
+}
