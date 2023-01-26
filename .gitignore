@@ -11,3 +11,4 @@ node_modules/
 /subgraph/tests/.latest.json
 target/
 /graph-subscriptions-rs/Cargo.lock
+types/
