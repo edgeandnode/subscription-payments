@@ -2,6 +2,16 @@
 
 Prototype Contract for Subscription Payments
 
+## Contract deployment
+
+To deploy the contract run:
+
+```bash
+PRIVATE_KEY=<> hh deploy --token <STABLE_COIN_ADDRESS> --network <arbitrum-goerli|arbitrum-one>
+```
+
+Alternatively you can use the env var `MNEMONIC` to deploy the contract and it will pick the first derived address.
+
 ## Test Subgraph
 
 - `docker compose build`
