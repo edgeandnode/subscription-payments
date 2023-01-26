@@ -9,7 +9,11 @@
     "test": "npx hardhat test",
     "deploy-local": "npx hardhat run scripts/deploy.ts --network localhost | tee contract-deployment.json"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@typechain/ethers-v5": "^10.2.0",
+    "@typechain/hardhat": "^6.1.5",
+    "typechain": "^8.1.1"
+  },
   "devDependencies": {
     "@ethersproject/bytes": "^5.6.1",
     "@graphprotocol/contracts": "^1.12.0",
