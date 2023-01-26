@@ -18,7 +18,7 @@ const genInt = (rng: () => number, min: number, max: number): number =>
   Math.floor(rng() * (max - min + 1) + min);
 
 function genOp(rng: () => number, users: number): any {
-  switch (genInt(rng, 0, 3)) {
+  switch (genInt(rng, 0, 4)) {
     case 0:
       return {opcode: 'nextBlock'};
     case 1:
@@ -31,12 +31,12 @@ function genOp(rng: () => number, users: number): any {
       };
     case 3:
       return {opcode: 'unsubscribe', user: genInt(rng, 0, users - 1)};
-    // case 4:
-    //   return {
-    //     opcode: 'extend',
-    //     user: genInt(rng, 0, users - 1),
-    //     end: genSub(rng).end,
-    //   };
+    case 4:
+      return {
+        opcode: 'extend',
+        user: genInt(rng, 0, users - 1),
+        end: genSub(rng).end,
+      };
     default:
       throw 'unreachable';
   }
@@ -161,23 +161,19 @@ class Model {
     await this.contract.connect(user).unsubscribe();
   }
 
-  // async extend(user: SignerWithAddress, end: number) {
-  //   const sub = this.subs.get(user.address)!;
-  //   if (
-  //     sub.end >= end ||
-  //     this.block < sub.start ||
-  //     sub.end <= this.block
-  //   ) {
-  //     console.log('extend', 'skip');
-  //     return;
-  //   }
-  //   console.log('extend', {user: user.address, end});
-  //   const addition = sub.rate.mul(end - sub.end);
-  //   this.transfer(user.address, this.contract.address, addition);
-  //   sub.end = end;
-  //   await this.token.connect(user).approve(this.contract.address, addition);
-  //   await this.contract.connect(user).extend(user.address, end);
-  // }
+  async extend(user: SignerWithAddress, end: number) {
+    const sub = this.subs.get(user.address)!;
+    if (sub.end >= end || this.block < sub.start || sub.end <= this.block) {
+      console.log('extend', 'skip');
+      return;
+    }
+    console.log('extend', {user: user.address, end});
+    const addition = sub.rate.mul(end - sub.end);
+    this.transfer(user.address, this.contract.address, addition);
+    sub.end = end;
+    await this.token.connect(user).approve(this.contract.address, addition);
+    await this.contract.connect(user).extend(user.address, end);
+  }
 
   async exec(op: any) {
     switch (op.opcode) {
@@ -195,9 +191,9 @@ class Model {
       case 'unsubscribe':
         await this.unsubscribe(await this.user(op.user));
         break;
-      // case 'extend':
-      //   await this.extend(await this.user(op.user), op.end);
-      //   break;
+      case 'extend':
+        await this.extend(await this.user(op.user), op.end);
+        break;
       default:
         throw 'unreachable';
     }

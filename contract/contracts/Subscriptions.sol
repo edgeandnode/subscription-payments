@@ -8,9 +8,7 @@ is interpreted by the gateway.
 */
 
 /* TODO:
-- Add constructor event for subgraph
 - Make sure we can support multi-sigs, etc.
-- Re-implement extend with epochs
 - Implement resubscribe (update subscription) operation to reduce user friction.
 */
 
@@ -54,7 +52,7 @@ contract Subscriptions {
         uint128 rate
     );
     event Unsubscribe(address indexed user);
-    // event Extend(address indexed user, uint64 end);
+    event Extend(address indexed user, uint64 end);
 
     // The ERC-20 token held by this contract
     IERC20 public token;
@@ -171,8 +169,9 @@ contract Subscriptions {
         uint128 rate
     ) public {
         // This can be called by any account for a given user, because it
-        // requires that the subscription's start is less than the current
-        // block.
+        // requires that the active subscription start is less than the current
+        // block. Otherwise, this contract might not be able to recover the
+        // unlocked tokens for the active subscription we're overwriting.
 
         require(user != address(0), 'user is null');
         require(user != address(this), 'invalid user');
@@ -223,24 +222,28 @@ contract Subscriptions {
         emit Unsubscribe(user);
     }
 
-    // function extend(address user, uint64 end) public {
-    //     require(user != address(0), 'user is null');
-    //     uint64 currentBlock = uint64(block.number);
-    //     Subscription storage sub = _subscriptions[user];
-    //     require(
-    //         (sub.start <= currentBlock) && (currentBlock < sub.end),
-    //         'current subscription must be active'
-    //     );
-    //     require(
-    //         sub.end < end,
-    //         'end must be after that of the current subscription'
-    //     );
+    // Extend a user's subscription.
+    function extend(address user, uint64 end) public {
+        require(user != address(0), 'user is null');
+        uint64 currentBlock = uint64(block.number);
+        Subscription storage sub = _subscriptions[user];
+        require(
+            (sub.start <= currentBlock) && (currentBlock < sub.end),
+            'current subscription must be active'
+        );
+        require(
+            sub.end < end,
+            'end must be after that of the current subscription'
+        );
 
-    //     uint128 addition = sub.rate * (end - sub.end);
-    //     token.transferFrom(msg.sender, address(this), addition);
+        uint128 addition = sub.rate * (end - sub.end);
+        token.transferFrom(msg.sender, address(this), addition);
 
-    //     _subscriptions[user].end = end;
+        setEpochs(sub.start, sub.end, -int128(sub.rate));
+        setEpochs(sub.start, end, int128(sub.rate));
 
-    //     emit Extend(user, end);
-    // }
+        _subscriptions[user].end = end;
+
+        emit Extend(user, end);
+    }
 }
