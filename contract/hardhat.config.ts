@@ -20,8 +20,6 @@ interface NetworkConfig {
 }
 
 const networkConfigs: NetworkConfig[] = [
-  {network: 'mainnet', chainId: 1},
-  {network: 'goerli', chainId: 5},
   {
     network: 'arbitrum-one',
     chainId: 42161,
