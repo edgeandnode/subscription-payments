@@ -110,7 +110,7 @@ contract Subscriptions {
     // Unlocked tokens for a subscription are not collectable by the contract
     // owner and can be recovered by the user.
     // Defined as `rate * max(0, end - max(block, start))`
-    function unlocked(Subscription storage sub) private view returns (uint128) {
+    function unlocked(Subscription memory sub) private view returns (uint128) {
         uint64 currentBlock = uint64(block.number);
         int256 len = Prelude.max(
             0,
@@ -184,15 +184,15 @@ contract Subscriptions {
             'active subscription must have ended'
         );
 
-        uint128 subTotal = rate * (end - start);
-        token.transferFrom(msg.sender, address(this), subTotal);
-
         _subscriptions[user] = Subscription({
             start: start,
             end: end,
             rate: rate
         });
         setEpochs(start, end, int128(rate));
+
+        uint128 subTotal = rate * (end - start);
+        token.transferFrom(msg.sender, address(this), subTotal);
 
         emit Subscribe(user, start, end, rate);
     }
@@ -202,10 +202,8 @@ contract Subscriptions {
         address user = msg.sender;
         require(user != address(0), 'user is null');
 
-        Subscription storage sub = _subscriptions[user];
+        Subscription memory sub = _subscriptions[user];
         uint64 currentBlock = uint64(block.number);
-
-        token.transfer(user, unlocked(sub));
 
         if ((sub.start <= currentBlock) && (currentBlock < sub.end)) {
             setEpochs(sub.start, sub.end, -int128(sub.rate));
@@ -219,6 +217,8 @@ contract Subscriptions {
             delete _subscriptions[user];
         }
 
+        token.transfer(user, unlocked(sub));
+
         emit Unsubscribe(user);
     }
 
@@ -226,7 +226,7 @@ contract Subscriptions {
     function extend(address user, uint64 end) public {
         require(user != address(0), 'user is null');
         uint64 currentBlock = uint64(block.number);
-        Subscription storage sub = _subscriptions[user];
+        Subscription memory sub = _subscriptions[user];
         require(
             (sub.start <= currentBlock) && (currentBlock < sub.end),
             'current subscription must be active'
@@ -236,13 +236,13 @@ contract Subscriptions {
             'end must be after that of the current subscription'
         );
 
-        uint128 addition = sub.rate * (end - sub.end);
-        token.transferFrom(msg.sender, address(this), addition);
-
         setEpochs(sub.start, sub.end, -int128(sub.rate));
         setEpochs(sub.start, end, int128(sub.rate));
 
         _subscriptions[user].end = end;
+
+        uint128 addition = sub.rate * (end - sub.end);
+        token.transferFrom(msg.sender, address(this), addition);
 
         emit Extend(user, end);
     }
