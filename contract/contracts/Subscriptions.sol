@@ -132,7 +132,8 @@ contract Subscriptions {
             delete _epochs[_uncollectedEpoch];
         }
 
-        token.transfer(owner, uint128(total));
+        bool success = token.transfer(owner, uint128(total));
+        require(success);
     }
 
     function setEpochs(uint64 start, uint64 end, int128 rate) private {
@@ -192,7 +193,8 @@ contract Subscriptions {
         setEpochs(start, end, int128(rate));
 
         uint128 subTotal = rate * (end - start);
-        token.transferFrom(msg.sender, address(this), subTotal);
+        bool success = token.transferFrom(msg.sender, address(this), subTotal);
+        require(success);
 
         emit Subscribe(user, start, end, rate);
     }
@@ -217,7 +219,8 @@ contract Subscriptions {
             delete _subscriptions[user];
         }
 
-        token.transfer(user, unlocked(sub));
+        bool success = token.transfer(user, unlocked(sub));
+        require(success);
 
         emit Unsubscribe(user);
     }
@@ -242,7 +245,8 @@ contract Subscriptions {
         _subscriptions[user].end = end;
 
         uint128 addition = sub.rate * (end - sub.end);
-        token.transferFrom(msg.sender, address(this), addition);
+        bool success = token.transferFrom(msg.sender, address(this), addition);
+        require(success);
 
         emit Extend(user, end);
     }
