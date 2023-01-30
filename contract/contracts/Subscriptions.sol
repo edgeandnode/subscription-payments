@@ -156,8 +156,8 @@ contract Subscriptions {
         }
         uint64 e2 = blockToEpoch(end);
         if (e <= e2) {
-            _epochs[e1].delta -= rate * int64(epochBlocks);
-            _epochs[e1].extra += rate * int64(end - ((e2 - 1) * epochBlocks));
+            _epochs[e2].delta -= rate * int64(epochBlocks);
+            _epochs[e2].extra += rate * int64(end - ((e2 - 1) * epochBlocks));
         }
     }
 
