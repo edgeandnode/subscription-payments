@@ -16,16 +16,8 @@ pragma solidity ^0.8.17;
 pragma abicoder v2;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-
-library Prelude {
-    function min(int256 a, int256 b) internal pure returns (int256) {
-        return a <= b ? a : b;
-    }
-
-    function max(int256 a, int256 b) internal pure returns (int256) {
-        return a >= b ? a : b;
-    }
-}
+import '@openzeppelin/contracts/utils/math/Math.sol';
+import '@openzeppelin/contracts/utils/math/SignedMath.sol';
 
 contract Subscriptions {
     // A Subscription represents a lockup of `rate` tokens per block for the
@@ -80,12 +72,8 @@ contract Subscriptions {
 
     // Convert block number to epoch number, rounding up to the next epoch
     // boundry.
-    function blockToEpoch(uint64 b) private view returns (uint64) {
-        int256 value = Prelude.max(
-            1,
-            int64(b / epochBlocks) + Prelude.min(1, int64(b % epochBlocks))
-        );
-        return uint64(int64(value));
+    function blockToEpoch(uint256 b) private view returns (uint256) {
+        return Math.max(1, (b / epochBlocks) + Math.min(1, b % epochBlocks));
     }
 
     // Get the user's most recent subscription.
@@ -99,31 +87,34 @@ contract Subscriptions {
     // and cannot be recovered by the user.
     // Defined as `rate * max(0, min(block, end) - start)`
     function locked(Subscription storage sub) private view returns (uint128) {
-        uint64 currentBlock = uint64(block.number);
-        int256 len = Prelude.max(
-            0,
-            Prelude.min(int64(currentBlock), int64(sub.end)) - int64(sub.start)
+        uint256 len = uint256(
+            SignedMath.max(
+                0,
+                int256(Math.min(block.number, sub.end)) - int64(sub.start)
+            )
         );
-        return sub.rate * uint128(uint256(len));
+        return sub.rate * uint128(len);
     }
 
     // Unlocked tokens for a subscription are not collectable by the contract
     // owner and can be recovered by the user.
     // Defined as `rate * max(0, end - max(block, start))`
     function unlocked(Subscription memory sub) private view returns (uint128) {
-        uint64 currentBlock = uint64(block.number);
-        int256 len = Prelude.max(
-            0,
-            int64(sub.end) - Prelude.max(int64(currentBlock), int64(sub.start))
+        uint256 len = uint256(
+            SignedMath.max(
+                0,
+                int256(int64(sub.end)) -
+                    int256(Math.max(block.number, sub.start))
+            )
         );
-        return sub.rate * uint128(uint256(len));
+        return sub.rate * uint128(len);
     }
 
     // Collect a subset of the locked tokens held by this contract.
     function collect() public {
         require(msg.sender == owner, 'must be called by owner');
 
-        uint64 currentEpoch = blockToEpoch(uint64(block.number));
+        uint256 currentEpoch = blockToEpoch(block.number);
         int128 total = 0;
         for (; _uncollectedEpoch < currentEpoch; _uncollectedEpoch++) {
             Epoch storage epoch = _epochs[_uncollectedEpoch];
@@ -149,13 +140,13 @@ contract Subscriptions {
                                e1^               e2^
         */
 
-        uint64 e = blockToEpoch(uint64(block.number));
-        uint64 e1 = blockToEpoch(start);
+        uint64 e = uint64(blockToEpoch(block.number));
+        uint64 e1 = uint64(blockToEpoch(start));
         if (e <= e1) {
             _epochs[e1].delta += rate * int64(epochBlocks);
             _epochs[e1].extra -= rate * int64(start - ((e1 - 1) * epochBlocks));
         }
-        uint64 e2 = blockToEpoch(end);
+        uint64 e2 = uint64(blockToEpoch(end));
         if (e <= e2) {
             _epochs[e2].delta -= rate * int64(epochBlocks);
             _epochs[e2].extra += rate * int64(end - ((e2 - 1) * epochBlocks));
@@ -176,9 +167,7 @@ contract Subscriptions {
 
         require(user != address(0), 'user is null');
         require(user != address(this), 'invalid user');
-        start = uint64(
-            uint256(Prelude.max(int64(start), int64(uint64(block.number))))
-        );
+        start = uint64(Math.max(start, block.number));
         require(start < end, 'start must be less than end');
         require(
             _subscriptions[user].end <= uint64(block.number),
