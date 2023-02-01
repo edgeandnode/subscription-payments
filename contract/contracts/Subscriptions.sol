@@ -110,11 +110,14 @@ contract Subscriptions {
         return sub.rate * uint128(len);
     }
 
-    // Collect a subset of the locked tokens held by this contract.
-    function collect() public {
+    /**
+     * Collect a subset of the locked tokens held by this contract.
+     * @param _block block used to calculate the epoch to collect the subset of locked tokens
+     */
+    function collect(uint256 _block) public {
         require(msg.sender == owner, 'must be called by owner');
 
-        uint256 currentEpoch = blockToEpoch(block.number);
+        uint256 currentEpoch = blockToEpoch(_block);
         int128 total = 0;
         for (; _uncollectedEpoch < currentEpoch; _uncollectedEpoch++) {
             Epoch storage epoch = _epochs[_uncollectedEpoch];
@@ -125,6 +128,10 @@ contract Subscriptions {
 
         bool success = token.transfer(owner, uint128(total));
         require(success);
+    }
+
+    function collect() public {
+        collect(block.number);
     }
 
     function setEpochs(uint64 start, uint64 end, int128 rate) private {

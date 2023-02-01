@@ -1,4 +1,4 @@
-import {task} from 'hardhat/config';
+import {HardhatUserConfig, task} from 'hardhat/config';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
 import '@typechain/hardhat';
@@ -42,7 +42,10 @@ function getProviderURL(network: string) {
   return `https://${network}.infura.io/v3/${process.env.INFURA_KEY}`;
 }
 
-function setupNetworkConfig(config) {
+function setupNetworkConfig(config: HardhatUserConfig) {
+  if (config.networks == null) {
+    config.networks = {};
+  }
   for (const netConfig of networkConfigs) {
     config.networks[netConfig.network] = {
       chainId: netConfig.chainId,
@@ -54,7 +57,7 @@ function setupNetworkConfig(config) {
   }
 }
 
-const config = {
+const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {

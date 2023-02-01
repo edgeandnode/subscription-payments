@@ -1,10 +1,15 @@
 import {expect} from 'chai';
-import {BigNumber, Contract} from 'ethers';
+import {BigNumber} from 'ethers';
 import {ethers, network} from 'hardhat';
-import {xoshiro128ss} from './rng';
 import {GraphToken__factory} from '@graphprotocol/contracts/dist/types/factories/GraphToken__factory';
+import {GraphToken} from '@graphprotocol/contracts/dist/types/GraphToken';
 import {hexDataSlice, randomBytes} from 'ethers/lib/utils';
 import {SignerWithAddress} from '@nomiclabs/hardhat-ethers/signers';
+
+import {xoshiro128ss} from './rng';
+
+import {Subscriptions} from '../types';
+import {Subscriptions__factory} from '../types/factories/contracts/Subscriptions__factory';
 
 interface Subscription {
   start: number;
@@ -49,15 +54,19 @@ const genSub = (rng: () => number): Subscription => ({
 });
 
 class Model {
-  contract: Contract;
-  token: Contract;
+  contract: Subscriptions;
+  token: GraphToken;
   owner: SignerWithAddress;
   block: number = 0;
   balances: Map<string, BigNumber> = new Map();
   subs: Map<string, Subscription> = new Map();
   uncollected: BigNumber = BigNumber.from(0);
 
-  constructor(contract: Contract, token: Contract, owner: SignerWithAddress) {
+  constructor(
+    contract: Subscriptions,
+    token: GraphToken,
+    owner: SignerWithAddress
+  ) {
     this.contract = contract;
     this.token = token;
     this.owner = owner;
@@ -114,7 +123,7 @@ class Model {
     console.log('collect', {collectable: collectable.toString()});
     this.uncollected = BigNumber.from(0);
     this.transfer(this.contract.address, this.owner.address, collectable);
-    await this.contract.connect(this.owner).collect();
+    await this.contract.connect(this.owner)['collect()'];
   }
 
   async subscribe(user: SignerWithAddress, sub: Subscription) {
@@ -208,9 +217,10 @@ it('Model Test', async () => {
   const token = await new GraphToken__factory(owner).deploy(
     initialBalance.mul(users.length)
   );
-  const contract = await (
-    await ethers.getContractFactory('Subscriptions')
-  ).deploy(token.address, 3);
+  const Subscriptions: Subscriptions__factory = await ethers.getContractFactory(
+    'Subscriptions'
+  );
+  const contract: Subscriptions = await Subscriptions.deploy(token.address, 3);
   await network.provider.send('evm_mine');
   for (const signer of users) {
     await token.transfer(signer.address, initialBalance);
