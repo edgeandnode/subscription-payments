@@ -16,13 +16,19 @@ interface Subscription {
   end: number;
   rate: BigNumber;
 }
+interface Op {
+  opcode: 'nextBlock' | 'collect' | 'subscribe' | 'unsubscribe' | 'extend';
+  user?: number;
+  sub?: Subscription;
+  end?: number;
+}
 
 const nullSub = {start: 0, end: 0, rate: BigNumber.from(0)};
 
 const genInt = (rng: () => number, min: number, max: number): number =>
   Math.floor(rng() * (max - min + 1) + min);
 
-function genOp(rng: () => number, users: number): any {
+function genOp(rng: () => number, users: number): Op {
   switch (genInt(rng, 0, 4)) {
     case 0:
       return {opcode: 'nextBlock'};
@@ -184,7 +190,7 @@ class Model {
     await this.contract.connect(user).extend(user.address, end);
   }
 
-  async exec(op: any) {
+  async exec(op: Op) {
     switch (op.opcode) {
       case 'nextBlock':
         this.block += 1;
@@ -195,13 +201,13 @@ class Model {
         await this.collect();
         break;
       case 'subscribe':
-        await this.subscribe(await this.user(op.user), op.sub);
+        await this.subscribe(await this.user(op.user!), op.sub!);
         break;
       case 'unsubscribe':
-        await this.unsubscribe(await this.user(op.user));
+        await this.unsubscribe(await this.user(op.user!));
         break;
       case 'extend':
-        await this.extend(await this.user(op.user), op.end);
+        await this.extend(await this.user(op.user!), op.end!);
         break;
       default:
         throw 'unreachable';

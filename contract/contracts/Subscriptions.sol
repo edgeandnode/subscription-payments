@@ -204,6 +204,8 @@ contract Subscriptions {
 
         Subscription memory sub = _subscriptions[user];
         uint64 currentBlock = uint64(block.number);
+        // check if subscription has expired: sub.end <= block.number
+        require(sub.end <= currentBlock, 'Subscription has expired');
 
         if ((sub.start <= currentBlock) && (currentBlock < sub.end)) {
             setEpochs(sub.start, sub.end, -int128(sub.rate));
