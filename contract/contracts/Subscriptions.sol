@@ -178,8 +178,9 @@ contract Subscriptions {
         require(user != address(this), 'invalid user');
         start = uint64(Math.max(start, block.number));
         require(start < end, 'start must be less than end');
+        // user can bypass this check incase their subscription gets griefed
         require(
-            _subscriptions[user].end <= uint64(block.number),
+            _subscriptions[user].end <= uint64(block.number) || user == msg.sender,
             'active subscription must have ended'
         );
 
