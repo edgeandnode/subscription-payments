@@ -119,11 +119,13 @@ contract Subscriptions {
 
         uint256 currentEpoch = blockToEpoch(_block);
         int128 total = 0;
-        for (; _uncollectedEpoch < currentEpoch; _uncollectedEpoch++) {
+        for (; _uncollectedEpoch < currentEpoch;) {
             Epoch storage epoch = _epochs[_uncollectedEpoch];
             _collectPerEpoch += epoch.delta;
             total += _collectPerEpoch + epoch.extra;
             delete _epochs[_uncollectedEpoch];
+
+            unchecked { ++_uncollectedEpoch; }
         }
 
         bool success = token.transfer(owner, uint128(total));
