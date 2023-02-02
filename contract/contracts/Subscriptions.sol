@@ -167,7 +167,7 @@ contract Subscriptions {
         }
 
         bool success = token.transfer(owner, uint128(total));
-        require(success);
+        require(success, 'token transfer to owner failed');
     }
 
     function collect() public {
