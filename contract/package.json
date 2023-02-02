@@ -6,16 +6,17 @@
   "license": "MIT",
   "scripts": {
     "build": "npx hardhat compile && bash extract-abis.bash",
-    "test": "npx hardhat test",
+    "test": "scripts/test",
     "deploy-local": "npx hardhat run scripts/deploy.ts --network localhost | tee contract-deployment.json"
   },
   "dependencies": {},
   "devDependencies": {
     "@ethersproject/bytes": "^5.6.1",
     "@graphprotocol/contracts": "^1.12.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
-    "@openzeppelin/contracts": "^4.6.0",
+    "@openzeppelin/contracts": "^4.8.1",
     "@typechain/ethers-v5": "^10.2.0",
     "@typechain/hardhat": "^6.1.5",
     "@types/chai": "^4.3.1",
