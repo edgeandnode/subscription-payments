@@ -253,9 +253,6 @@ contract Subscriptions {
         } else if (currentBlock < sub.start) {
             setEpochs(sub.start, sub.end, -int128(sub.rate));
             delete _subscriptions[user];
-        } else {
-            // sub.end <= currentBlock
-            delete _subscriptions[user];
         }
 
         bool success = token.transfer(user, unlocked(sub.start, sub.end, sub.rate));
