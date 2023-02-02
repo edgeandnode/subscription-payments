@@ -129,7 +129,7 @@ class Model {
     console.log('collect', {collectable: collectable.toString()});
     this.uncollected = BigNumber.from(0);
     this.transfer(this.contract.address, this.owner.address, collectable);
-    await this.contract.connect(this.owner)['collect()'];
+    await this.contract.connect(this.owner)['collect()']();
   }
 
   async subscribe(user: SignerWithAddress, sub: Subscription) {

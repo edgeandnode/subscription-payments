@@ -106,27 +106,46 @@ contract Subscriptions {
      * Locked tokens for a subscription are collectable by the contract owner
      * and cannot be recovered by the user.
      * Defined as `rate * max(0, min(block, end) - start)`
-     * @param user address of the user with an active subscription
+     * @param _user address of the active subscription owner
      * @return lockedTokens the amount of locked tokens in the active subscription
      */
-    function locked(address user) public view returns (uint128) {
-        Subscription memory sub = _subscriptions[user];
+    function locked(address _user) public view returns (uint128) {
+        Subscription memory sub = _subscriptions[_user];
         
         return locked(sub.start, sub.end, sub.rate);
     }
 
-    // Unlocked tokens for a subscription are not collectable by the contract
-    // owner and can be recovered by the user.
-    // Defined as `rate * max(0, end - max(block, start))`
-    function unlocked(Subscription memory sub) private view returns (uint128) {
+    /**
+     * Unlocked tokens for a subscription are not collectable by the contract
+     * owner and can be recovered by the user.
+     * Defined as `rate * max(0, end - max(block, start))`
+     * @param _subStart the start block of the active subscription subscription
+     * @param _subEnd the end block of the active subscription
+     * @param _subRate the active subscription rate
+     * @return unlockedTokens amount of unlocked tokens recoverable by the user
+     */
+    function unlocked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
         uint256 len = uint256(
             SignedMath.max(
                 0,
-                int256(int64(sub.end)) -
-                    int256(Math.max(block.number, sub.start))
+                int256(int64(_subEnd)) -
+                    int256(Math.max(block.number, _subStart))
             )
         );
-        return sub.rate * uint128(len);
+        return _subRate * uint128(len);
+    }
+
+    /**
+     * Unlocked tokens for a subscription are not collectable by the contract
+     * owner and can be recovered by the user.
+     * Defined as `rate * max(0, end - max(block, start))`
+     * @param _user address of the active subscription owner
+     * @return unlockedTokens amount of unlocked tokens recoverable by the user
+     */
+    function unlocked(address _user) public view returns (uint128) {
+        Subscription memory sub = _subscriptions[_user];
+
+        return unlocked(sub.start, sub.end, sub.rate);
     }
 
     /**
@@ -239,7 +258,7 @@ contract Subscriptions {
             delete _subscriptions[user];
         }
 
-        bool success = token.transfer(user, unlocked(sub));
+        bool success = token.transfer(user, unlocked(sub.start, sub.end, sub.rate));
         require(success);
 
         emit Unsubscribe(user);
