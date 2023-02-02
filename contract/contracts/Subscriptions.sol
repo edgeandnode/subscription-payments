@@ -83,17 +83,36 @@ contract Subscriptions {
         return _subscriptions[user];
     }
 
-    // Locked tokens for a subscription are collectable by the contract owner
-    // and cannot be recovered by the user.
-    // Defined as `rate * max(0, min(block, end) - start)`
-    function locked(Subscription storage sub) private view returns (uint128) {
+    /**
+     * Locked tokens for a subscription are collectable by the contract owner
+     * and cannot be recovered by the user.
+     * Defined as `rate * max(0, min(block, end) - start)`
+     * @param _subStart the start block of the active subscription subscription
+     * @param _subEnd the end block of the active subscription
+     * @param _subRate the active subscription rate
+     * @return lockedTokens the amount of locked tokens in the active subscription
+     */
+    function locked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
         uint256 len = uint256(
             SignedMath.max(
                 0,
-                int256(Math.min(block.number, sub.end)) - int64(sub.start)
+                int256(Math.min(block.number, _subEnd)) - int64(_subStart)
             )
         );
-        return sub.rate * uint128(len);
+        return _subRate * uint128(len);
+    }
+
+    /**
+     * Locked tokens for a subscription are collectable by the contract owner
+     * and cannot be recovered by the user.
+     * Defined as `rate * max(0, min(block, end) - start)`
+     * @param user address of the user with an active subscription
+     * @return lockedTokens the amount of locked tokens in the active subscription
+     */
+    function locked(address user) public view returns (uint128) {
+        Subscription memory sub = _subscriptions[user];
+        
+        return locked(sub.start, sub.end, sub.rate);
     }
 
     // Unlocked tokens for a subscription are not collectable by the contract
