@@ -55,7 +55,7 @@ contract Subscriptions {
     // Mapping of users to their most recent subscription
     mapping(address => Subscription) private _subscriptions;
     // Mapping of epoch numbers to their payloads
-    mapping(uint64 => Epoch) private _epochs;
+    mapping(uint256 => Epoch) private _epochs;
     // The epoch cursor position
     uint64 private _uncollectedEpoch;
     // The epoch cursor value
@@ -187,16 +187,16 @@ contract Subscriptions {
                                e1^               e2^
         */
 
-        uint64 e = uint64(blockToEpoch(block.number));
-        uint64 e1 = uint64(blockToEpoch(start));
+        uint256 e = blockToEpoch(block.number);
+        uint256 e1 = blockToEpoch(start);
         if (e <= e1) {
             _epochs[e1].delta += rate * int64(epochBlocks);
-            _epochs[e1].extra -= rate * int64(start - ((e1 - 1) * epochBlocks));
+            _epochs[e1].extra -= rate * int64(start - ((uint64(e1) - 1) * epochBlocks));
         }
-        uint64 e2 = uint64(blockToEpoch(end));
+        uint256 e2 = blockToEpoch(end);
         if (e <= e2) {
             _epochs[e2].delta -= rate * int64(epochBlocks);
-            _epochs[e2].extra += rate * int64(end - ((e2 - 1) * epochBlocks));
+            _epochs[e2].extra += rate * int64(end - ((uint64(e2) - 1) * epochBlocks));
         }
     }
 
