@@ -167,7 +167,7 @@ contract Subscriptions {
         }
 
         bool success = token.transfer(owner, uint128(total));
-        require(success, 'token transfer to owner failed');
+        require(success, 'IERC20 token transfer failed');
     }
 
     function collect() public {
@@ -231,7 +231,7 @@ contract Subscriptions {
 
         uint128 subTotal = rate * (end - start);
         bool success = token.transferFrom(msg.sender, address(this), subTotal);
-        require(success);
+        require(success, 'IERC20 token transfer failed');
 
         emit Subscribe(user, start, end, rate);
     }
@@ -259,7 +259,7 @@ contract Subscriptions {
         }
 
         bool success = token.transfer(user, unlocked(sub.start, sub.end, sub.rate));
-        require(success);
+        require(success, 'IERC20 token transfer failed');
 
         emit Unsubscribe(user);
     }
@@ -285,7 +285,7 @@ contract Subscriptions {
 
         uint128 addition = sub.rate * (end - sub.end);
         bool success = token.transferFrom(msg.sender, address(this), addition);
-        require(success);
+        require(success, 'IERC20 token transfer failed');
 
         emit Extend(user, end);
     }
