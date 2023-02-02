@@ -110,7 +110,7 @@ contract Subscriptions {
      * @return lockedTokens the amount of locked tokens in the active subscription
      */
     function locked(address _user) public view returns (uint128) {
-        Subscription memory sub = _subscriptions[_user];
+        Subscription storage sub = _subscriptions[_user];
         
         return locked(sub.start, sub.end, sub.rate);
     }
@@ -143,7 +143,7 @@ contract Subscriptions {
      * @return unlockedTokens amount of unlocked tokens recoverable by the user
      */
     function unlocked(address _user) public view returns (uint128) {
-        Subscription memory sub = _subscriptions[_user];
+        Subscription storage sub = _subscriptions[_user];
 
         return unlocked(sub.start, sub.end, sub.rate);
     }
@@ -241,7 +241,7 @@ contract Subscriptions {
         address user = msg.sender;
         require(user != address(0), 'user is null');
 
-        Subscription memory sub = _subscriptions[user];
+        Subscription storage sub = _subscriptions[user];
         uint64 currentBlock = uint64(block.number);
         // check if subscription has expired: sub.end <= block.number
         require(sub.end <= currentBlock, 'Subscription has expired');
@@ -265,7 +265,7 @@ contract Subscriptions {
     function extend(address user, uint64 end) public {
         require(user != address(0), 'user is null');
         uint64 currentBlock = uint64(block.number);
-        Subscription memory sub = _subscriptions[user];
+        Subscription storage sub = _subscriptions[user];
         require(
             (sub.start <= currentBlock) && (currentBlock < sub.end),
             'current subscription must be active'
