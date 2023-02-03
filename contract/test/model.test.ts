@@ -110,7 +110,7 @@ class Model {
       } else {
         expect(await this.token.balanceOf(addr)).eq(balance);
       }
-      const sub = await this.contract.connect(this.owner).subscription(addr);
+      const sub = await this.contract.connect(this.owner)._subscriptions(addr);
       const modelSub = this.subs.get(addr);
       // console.log({addr, sub, modelSub});
       expect(sub.start).eq(modelSub?.start);
