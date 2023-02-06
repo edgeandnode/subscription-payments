@@ -1,36 +1,26 @@
 // SPDX-License-Identifier: MIT
 
-/* TODO: turn this into a more coherent set of docs.
-- This contract is designed to allow users of the Graph Protocol to pay gateways
-for their services with limited risk of losing tokens.
-- This contract makes no assumptions about how the subscription price per block
-is interpreted by the gateway.
-*/
-
-/* TODO:
-- Make sure we can support multi-sigs, etc.
-- Implement resubscribe (update subscription) operation to reduce user friction.
-*/
-
 pragma solidity ^0.8.17;
-pragma abicoder v2;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 import '@openzeppelin/contracts/utils/math/SignedMath.sol';
 
+/// @title Graph subscriptions contract. This contract is designed to allow users of the Graph
+/// Protocol to pay gateways for their services with limited risk of losing tokens.
+/// @notice This contract makes no assumptions about how the subscription rate is interpreted by the
+/// gateway.
 contract Subscriptions {
-    // A Subscription represents a lockup of `rate` tokens per block for the
-    // half-open block range [start, end).
+    /// @notice A Subscription represents a lockup of `rate` tokens per second for the half-open
+    /// timestamp range [start, end).
     struct Subscription {
         uint64 start;
         uint64 end;
         uint128 rate;
     }
-    // An epoch defines the end of a span of blocks, the length of which is
-    // defined by `epochBlocks`. These exist to facilitate a relatively
-    // efficient `collect` implementation while allowing users to recover
-    // unlocked tokens at a block granularity.
+    /// @notice An epoch defines the end of a span of blocks, the length of which is defined by
+    /// `epochSeconds`. These exist to facilitate a relatively efficient `collect` implementation
+    /// while allowing users to recover unlocked tokens at a block granularity.
     struct Epoch {
         int128 delta;
         int128 extra;
@@ -46,131 +36,117 @@ contract Subscriptions {
     event Unsubscribe(address indexed user);
     event Extend(address indexed user, uint64 end);
 
-    // The ERC-20 token held by this contract
+    /// @notice ERC-20 token held by this contract.
     IERC20 public token;
-    // The owner of the contract, which has the authority to call collect
+    /// @notice Owner of the contract, which has the authority to call collect.
     address public owner;
-    // The block length of each epoch
-    uint64 public epochBlocks;
-    // Mapping of users to their most recent subscription
-    mapping(address => Subscription) public _subscriptions;
-    // Mapping of epoch numbers to their payloads
-    mapping(uint256 => Epoch) public _epochs;
-    // The epoch cursor position
-    uint64 public _uncollectedEpoch;
-    // The epoch cursor value
-    int128 public _collectPerEpoch;
+    /// @notice Duration of each epoch in seconds.
+    uint64 public epochSeconds;
+    /// @notice Mapping of users to their most recent subscription.
+    mapping(address => Subscription) public subscriptions;
+    /// @notice Mapping of epoch numbers to their payloads.
+    mapping(uint256 => Epoch) public epochs;
+    /// @notice Epoch cursor position.
+    uint256 public uncollectedEpoch;
+    /// @notice Epoch cursor value.
+    int128 public collectPerEpoch;
 
-    constructor(address token_, uint64 epochBlocks_) {
-        token = IERC20(token_);
+    /// @param _token The ERC-20 token held by this contract
+    /// @param _epochSeconds The Duration of each epoch in seconds.
+    constructor(address _token, uint64 _epochSeconds) {
+        token = IERC20(_token);
         owner = msg.sender;
-        epochBlocks = epochBlocks_;
-        _uncollectedEpoch = uint64(block.number) / epochBlocks_;
+        epochSeconds = _epochSeconds;
+        uncollectedEpoch = block.timestamp / _epochSeconds;
 
-        emit Init(token_);
+        emit Init(_token);
     }
 
-    // Convert block number to epoch number, rounding up to the next epoch
-    // boundry.
-    function blockToEpoch(uint256 b) public view returns (uint256) {
-        return (b / epochBlocks) + 1;
+    /// @param _timestamp Block timestamp, in seconds.
+    /// @return epoch Epoch number, rouded up to the next epoch Boundary.
+    function timestampToEpoch(uint256 _timestamp) public view returns (uint256) {
+        return (_timestamp / epochSeconds) + 1;
     }
 
-    /**
-     * Locked tokens for a subscription are collectable by the contract owner
-     * and cannot be recovered by the user.
-     * Defined as `rate * max(0, min(block, end) - start)`
-     * @param _subStart the start block of the active subscription
-     * @param _subEnd the end block of the active subscription
-     * @param _subRate the active subscription rate
-     * @return lockedTokens the amount of locked tokens in the active subscription
-     */
+    /// @return epoch Current epoch number, rouded up to the next epoch Boundary.
+    function currentEpoch() public view returns (uint256) {
+        return timestampToEpoch(block.number);
+    }
+
+    /// @param _subStart Start timestamp of the active subscription.
+    /// @param _subEnd End timestamp of the active subscription.
+    /// @param _subRate Active subscription rate.
+    /// @return lockedTokens Amount of locked tokens for the given subscription, which are
+    /// collectable by the contract owner and are not recoverable by the user.
+    /// @dev Defined as `rate * max(0, min(now, end) - start)`.
     function locked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
         uint256 len = uint256(
-            SignedMath.max(
-                0,
-                int256(Math.min(block.number, _subEnd)) - int64(_subStart)
-            )
+            SignedMath.max(0, int256(Math.min(block.timestamp, _subEnd)) - int64(_subStart))
         );
         return _subRate * uint128(len);
     }
 
-    /**
-     * Locked tokens for a subscription are collectable by the contract owner
-     * and cannot be recovered by the user.
-     * Defined as `rate * max(0, min(block, end) - start)`
-     * @param _user address of the active subscription owner
-     * @return lockedTokens the amount of locked tokens in the active subscription
-     */
+    /// @param _user Address of the active subscription owner.
+    /// @return lockedTokens Amount of locked tokens for the given subscription, which are
+    /// collectable by the contract owner and are not recoverable by the user.
+    /// @dev Defined as `rate * max(0, min(now, end) - start)`.
     function locked(address _user) public view returns (uint128) {
-        Subscription storage sub = _subscriptions[_user];
-        
+        Subscription storage sub = subscriptions[_user];
         return locked(sub.start, sub.end, sub.rate);
     }
 
-    /**
-     * Unlocked tokens for a subscription are not collectable by the contract
-     * owner and can be recovered by the user.
-     * Defined as `rate * max(0, end - max(block, start))`
-     * @param _subStart the start block of the active subscription
-     * @param _subEnd the end block of the active subscription
-     * @param _subRate the active subscription rate
-     * @return unlockedTokens amount of unlocked tokens recoverable by the user
-     */
+    /// @param _subStart Start timestamp of the active subscription.
+    /// @param _subEnd End timestamp of the active subscription.
+    /// @param _subRate Active subscription rate.
+    /// @return unlockedTokens Amount of unlocked tokens, which are recoverable by the user, and are
+    /// not collectable by the contract owner.
+    /// @dev Defined as `rate * max(0, end - max(now, start))`.
     function unlocked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
         uint256 len = uint256(
-            SignedMath.max(
-                0,
-                int256(int64(_subEnd)) -
-                    int256(Math.max(block.number, _subStart))
-            )
+            SignedMath.max(0, int256(int64(_subEnd)) - int256(Math.max(block.timestamp, _subStart)))
         );
         return _subRate * uint128(len);
     }
 
-    /**
-     * Unlocked tokens for a subscription are not collectable by the contract
-     * owner and can be recovered by the user.
-     * Defined as `rate * max(0, end - max(block, start))`
-     * @param _user address of the active subscription owner
-     * @return unlockedTokens amount of unlocked tokens recoverable by the user
-     */
+    /// @param _user Address of the active subscription owner.
+    /// @return unlockedTokens Amount of unlocked tokens, which are recoverable by the user, and are
+    /// not collectable by the contract owner.
+    /// @dev Defined as `rate * max(0, end - max(now, start))`.
     function unlocked(address _user) public view returns (uint128) {
-        Subscription storage sub = _subscriptions[_user];
-
+        Subscription storage sub = subscriptions[_user];
         return unlocked(sub.start, sub.end, sub.rate);
     }
 
-    /**
-     * Collect a subset of the locked tokens held by this contract.
-     * @param _block block used to calculate the epoch to collect the subset of locked tokens
-     */
-    function collect(uint256 _block) public {
+    /// @notice Collect a subset of the locked tokens held by this contract.
+    /// @param _offset epochs before the current epoch to end collection. This should be zero unless
+    /// this call would otherwise be expected to run out of gas.
+    function collect(uint256 _offset) public {
         require(msg.sender == owner, 'must be called by owner');
 
-        uint256 currentEpoch = blockToEpoch(_block);
+        uint256 endEpoch = currentEpoch() - _offset;
         int128 total = 0;
-        while (_uncollectedEpoch < currentEpoch) {
-            Epoch storage epoch = _epochs[_uncollectedEpoch];
-            _collectPerEpoch += epoch.delta;
-            total += _collectPerEpoch + epoch.extra;
-            delete _epochs[_uncollectedEpoch];
+        while (uncollectedEpoch < endEpoch) {
+            Epoch storage epoch = epochs[uncollectedEpoch];
+            collectPerEpoch += epoch.delta;
+            total += collectPerEpoch + epoch.extra;
+            delete epochs[uncollectedEpoch];
 
-            unchecked { ++_uncollectedEpoch; }
+            unchecked { ++uncollectedEpoch; }
         }
 
         bool success = token.transfer(owner, uint128(total));
         require(success, 'IERC20 token transfer failed');
     }
 
+    /// @notice Collect a subset of the locked tokens held by this contract.
     function collect() public {
-        collect(block.number);
+        collect(0);
     }
 
     function setEpochs(uint64 start, uint64 end, int128 rate) private {
         /*
         Example subscription layout using
-            epochBlocks = 6
+            epochSeconds = 6
             sub = {start: 2, end: 9, rate: 1}
 
         blocks: |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10|11|
@@ -180,46 +156,39 @@ contract Subscriptions {
                                e1^               e2^
         */
 
-        uint256 e = blockToEpoch(block.number);
-        uint256 e1 = blockToEpoch(start);
+        uint256 e = currentEpoch();
+        uint256 e1 = timestampToEpoch(start);
         if (e <= e1) {
-            _epochs[e1].delta += rate * int64(epochBlocks);
-            _epochs[e1].extra -= rate * int64(start - ((uint64(e1) - 1) * epochBlocks));
+            epochs[e1].delta += rate * int64(epochSeconds);
+            epochs[e1].extra -= rate * int64(start - (uint64(e1 - 1) * epochSeconds));
         }
-        uint256 e2 = blockToEpoch(end);
+        uint256 e2 = timestampToEpoch(end);
         if (e <= e2) {
-            _epochs[e2].delta -= rate * int64(epochBlocks);
-            _epochs[e2].extra += rate * int64(end - ((uint64(e2) - 1) * epochBlocks));
+            epochs[e2].delta -= rate * int64(epochSeconds);
+            epochs[e2].extra += rate * int64(end - (uint64(e2 - 1) * epochSeconds));
         }
     }
 
-    // Set the subscription for a user.
-    function subscribe(
-        address user,
-        uint64 start,
-        uint64 end,
-        uint128 rate
-    ) public {
-        // This can be called by any account for a given user, because it
-        // requires that the active subscription start is less than the current
-        // block. Otherwise, this contract might not be able to recover the
-        // unlocked tokens for the active subscription we're overwriting.
+    /// @param user Owner for the new subscription.
+    /// @param start Start timestamp for the new subscription.
+    /// @param end End timestamp for the new subscription.
+    /// @param rate Rate for the new subscription.
+    function subscribe(address user, uint64 start, uint64 end, uint128 rate) public {
+        // This can be called by any account for a given user, because it requires that the active
+        // subscription start before the current block. Otherwise, this contract might not be able
+        // to recover the unlocked tokens for the active subscription we're overwriting.
 
         require(user != address(0), 'user is null');
         require(user != address(this), 'invalid user');
-        start = uint64(Math.max(start, block.number));
+        start = uint64(Math.max(start, block.timestamp));
         require(start < end, 'start must be less than end');
         // user can bypass this check incase their subscription gets griefed
         require(
-            _subscriptions[user].end <= uint64(block.number) || user == msg.sender,
+            (subscriptions[user].end <= block.timestamp) || (user == msg.sender),
             'active subscription must have ended'
         );
 
-        _subscriptions[user] = Subscription({
-            start: start,
-            end: end,
-            rate: rate
-        });
+        subscriptions[user] = Subscription({ start: start, end: end, rate: rate });
         setEpochs(start, end, int128(rate));
 
         uint128 subTotal = rate * (end - start);
@@ -229,27 +198,26 @@ contract Subscriptions {
         emit Subscribe(user, start, end, rate);
     }
 
-    // Remove a user's subscription.
+    /// @notice Remove the sender's subscription. Unlocked tokens will be transfered to the sender.
     function unsubscribe() public {
         address user = msg.sender;
         require(user != address(0), 'user is null');
 
-        Subscription storage sub = _subscriptions[user];
+        Subscription storage sub = subscriptions[user];
         require(sub.start != 0, 'no active subscription');
 
-        // check if subscription has expired: sub.end <= block.number
-        uint64 currentBlock = uint64(block.number);
-        require(sub.end > currentBlock, 'Subscription has expired');
+        uint64 _now = uint64(block.timestamp);
+        require(sub.end > _now, 'Subscription has expired');
 
         uint128 tokenAmount = unlocked(sub.start, sub.end, sub.rate);
 
-        if ((sub.start <= currentBlock) && (currentBlock < sub.end)) {
+        if ((sub.start <= _now) && (_now < sub.end)) {
             setEpochs(sub.start, sub.end, -int128(sub.rate));
-            setEpochs(sub.start, currentBlock, int128(sub.rate));
-            _subscriptions[user].end = currentBlock;
-        } else if (currentBlock < sub.start) {
+            setEpochs(sub.start, _now, int128(sub.rate));
+            subscriptions[user].end = _now;
+        } else if (_now < sub.start) {
             setEpochs(sub.start, sub.end, -int128(sub.rate));
-            delete _subscriptions[user];
+            delete subscriptions[user];
         }
 
         bool success = token.transfer(user, tokenAmount);
@@ -258,30 +226,26 @@ contract Subscriptions {
         emit Unsubscribe(user);
     }
 
-    // Extend a user's subscription.
-    function extend(address user, uint64 end) public {
+    /// @param user Owner of the subscription will be extended.
+    /// @param end New end timestamp for the user's subscription.
+    function extendSubscription(address user, uint64 end) public {
         require(user != address(0), 'user is null');
-        uint64 currentBlock = uint64(block.number);
-        Subscription storage sub = _subscriptions[user];
+        Subscription storage sub = subscriptions[user];
         require(
-            (sub.start <= currentBlock) && (currentBlock < sub.end),
+            (sub.start <= block.timestamp) && (block.timestamp < sub.end),
             'current subscription must be active'
         );
-        require(
-            sub.end < end,
-            'end must be after that of the current subscription'
-        );
+        require(sub.end < end, 'end must be after that of the current subscription');
 
         setEpochs(sub.start, sub.end, -int128(sub.rate));
         setEpochs(sub.start, end, int128(sub.rate));
 
         uint64 currentEnd = sub.end;
-        _subscriptions[user].end = end;
+        subscriptions[user].end = end;
 
         uint128 addition = sub.rate * (end - currentEnd);
         bool success = token.transferFrom(msg.sender, address(this), addition);
         require(success, 'IERC20 token transfer failed');
-        
 
         emit Extend(user, end);
     }
