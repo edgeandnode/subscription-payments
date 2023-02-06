@@ -53,13 +53,13 @@ contract Subscriptions {
     // The block length of each epoch
     uint64 public epochBlocks;
     // Mapping of users to their most recent subscription
-    mapping(address => Subscription) private _subscriptions;
+    mapping(address => Subscription) public _subscriptions;
     // Mapping of epoch numbers to their payloads
-    mapping(uint256 => Epoch) private _epochs;
+    mapping(uint256 => Epoch) public _epochs;
     // The epoch cursor position
-    uint64 private _uncollectedEpoch;
+    uint64 public _uncollectedEpoch;
     // The epoch cursor value
-    int128 private _collectPerEpoch;
+    int128 public _collectPerEpoch;
 
     constructor(address token_, uint64 epochBlocks_) {
         token = IERC20(token_);
@@ -72,15 +72,8 @@ contract Subscriptions {
 
     // Convert block number to epoch number, rounding up to the next epoch
     // boundry.
-    function blockToEpoch(uint256 b) private view returns (uint256) {
-        return Math.max(1, (b / epochBlocks) + Math.min(1, b % epochBlocks));
-    }
-
-    // Get the user's most recent subscription.
-    function subscription(
-        address user
-    ) public view returns (Subscription memory) {
-        return _subscriptions[user];
+    function blockToEpoch(uint256 b) public view returns (uint256) {
+        return (b / epochBlocks) + 1;
     }
 
     /**
@@ -242,9 +235,13 @@ contract Subscriptions {
         require(user != address(0), 'user is null');
 
         Subscription storage sub = _subscriptions[user];
-        uint64 currentBlock = uint64(block.number);
+        require(sub.start != 0, 'no active subscription');
+
         // check if subscription has expired: sub.end <= block.number
-        require(sub.end <= currentBlock, 'Subscription has expired');
+        uint64 currentBlock = uint64(block.number);
+        require(sub.end > currentBlock, 'Subscription has expired');
+
+        uint128 tokenAmount = unlocked(sub.start, sub.end, sub.rate);
 
         if ((sub.start <= currentBlock) && (currentBlock < sub.end)) {
             setEpochs(sub.start, sub.end, -int128(sub.rate));
@@ -255,7 +252,7 @@ contract Subscriptions {
             delete _subscriptions[user];
         }
 
-        bool success = token.transfer(user, unlocked(sub.start, sub.end, sub.rate));
+        bool success = token.transfer(user, tokenAmount);
         require(success, 'IERC20 token transfer failed');
 
         emit Unsubscribe(user);
@@ -278,11 +275,13 @@ contract Subscriptions {
         setEpochs(sub.start, sub.end, -int128(sub.rate));
         setEpochs(sub.start, end, int128(sub.rate));
 
+        uint64 currentEnd = sub.end;
         _subscriptions[user].end = end;
 
-        uint128 addition = sub.rate * (end - sub.end);
+        uint128 addition = sub.rate * (end - currentEnd);
         bool success = token.transferFrom(msg.sender, address(this), addition);
         require(success, 'IERC20 token transfer failed');
+        
 
         emit Extend(user, end);
     }
