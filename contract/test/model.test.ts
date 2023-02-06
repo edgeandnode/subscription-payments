@@ -1,15 +1,26 @@
 import {expect} from 'chai';
-import {BigNumber, Contract} from 'ethers';
+import {BigNumber} from 'ethers';
 import {ethers, network} from 'hardhat';
-import {xoshiro128ss} from './rng';
 import {GraphToken__factory} from '@graphprotocol/contracts/dist/types/factories/GraphToken__factory';
+import {GraphToken} from '@graphprotocol/contracts/dist/types/GraphToken';
 import {hexDataSlice, randomBytes} from 'ethers/lib/utils';
 import {SignerWithAddress} from '@nomiclabs/hardhat-ethers/signers';
+
+import {xoshiro128ss} from './rng';
+
+import {Subscriptions} from '../types';
+import {Subscriptions__factory} from '../types/factories/contracts/Subscriptions__factory';
 
 interface Subscription {
   start: number;
   end: number;
   rate: BigNumber;
+}
+interface Op {
+  opcode: 'nextBlock' | 'collect' | 'subscribe' | 'unsubscribe' | 'extend';
+  user?: number;
+  sub?: Subscription;
+  end?: number;
 }
 
 const nullSub = {start: 0, end: 0, rate: BigNumber.from(0)};
@@ -17,7 +28,7 @@ const nullSub = {start: 0, end: 0, rate: BigNumber.from(0)};
 const genInt = (rng: () => number, min: number, max: number): number =>
   Math.floor(rng() * (max - min + 1) + min);
 
-function genOp(rng: () => number, users: number): any {
+function genOp(rng: () => number, users: number): Op {
   switch (genInt(rng, 0, 4)) {
     case 0:
       return {opcode: 'nextBlock'};
@@ -49,15 +60,19 @@ const genSub = (rng: () => number): Subscription => ({
 });
 
 class Model {
-  contract: Contract;
-  token: Contract;
+  contract: Subscriptions;
+  token: GraphToken;
   owner: SignerWithAddress;
   block: number = 0;
   balances: Map<string, BigNumber> = new Map();
   subs: Map<string, Subscription> = new Map();
   uncollected: BigNumber = BigNumber.from(0);
 
-  constructor(contract: Contract, token: Contract, owner: SignerWithAddress) {
+  constructor(
+    contract: Subscriptions,
+    token: GraphToken,
+    owner: SignerWithAddress
+  ) {
     this.contract = contract;
     this.token = token;
     this.owner = owner;
@@ -95,7 +110,7 @@ class Model {
       } else {
         expect(await this.token.balanceOf(addr)).eq(balance);
       }
-      const sub = await this.contract.connect(this.owner).subscription(addr);
+      const sub = await this.contract.connect(this.owner)._subscriptions(addr);
       const modelSub = this.subs.get(addr);
       // console.log({addr, sub, modelSub});
       expect(sub.start).eq(modelSub?.start);
@@ -114,7 +129,7 @@ class Model {
     console.log('collect', {collectable: collectable.toString()});
     this.uncollected = BigNumber.from(0);
     this.transfer(this.contract.address, this.owner.address, collectable);
-    await this.contract.connect(this.owner).collect();
+    await this.contract.connect(this.owner)['collect()']();
   }
 
   async subscribe(user: SignerWithAddress, sub: Subscription) {
@@ -175,7 +190,7 @@ class Model {
     await this.contract.connect(user).extend(user.address, end);
   }
 
-  async exec(op: any) {
+  async exec(op: Op) {
     switch (op.opcode) {
       case 'nextBlock':
         this.block += 1;
@@ -186,13 +201,13 @@ class Model {
         await this.collect();
         break;
       case 'subscribe':
-        await this.subscribe(await this.user(op.user), op.sub);
+        await this.subscribe(await this.user(op.user!), op.sub!);
         break;
       case 'unsubscribe':
-        await this.unsubscribe(await this.user(op.user));
+        await this.unsubscribe(await this.user(op.user!));
         break;
       case 'extend':
-        await this.extend(await this.user(op.user), op.end);
+        await this.extend(await this.user(op.user!), op.end!);
         break;
       default:
         throw 'unreachable';
@@ -208,9 +223,10 @@ it('Model Test', async () => {
   const token = await new GraphToken__factory(owner).deploy(
     initialBalance.mul(users.length)
   );
-  const contract = await (
-    await ethers.getContractFactory('Subscriptions')
-  ).deploy(token.address, 3);
+  const Subscriptions: Subscriptions__factory = await ethers.getContractFactory(
+    'Subscriptions'
+  );
+  const contract: Subscriptions = await Subscriptions.deploy(token.address, 3);
   await network.provider.send('evm_mine');
   for (const signer of users) {
     await token.transfer(signer.address, initialBalance);
