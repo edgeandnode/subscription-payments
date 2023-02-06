@@ -19,10 +19,8 @@ export interface Account {
 }
 
 export const getAccounts = async (): Promise<Account[]> => {
-  const accounts = []
-  const signers: Signer[] = await hre.ethers.getSigners()
-  for (const signer of signers) {
-    accounts.push({ signer, address: await signer.getAddress() })
-  }
-  return accounts
+  const signers: Signer[] = await hre.ethers.getSigners();
+  return Promise.all(
+    signers.map(async signer => ({signer, address: await signer.getAddress()}))
+  );
 }
