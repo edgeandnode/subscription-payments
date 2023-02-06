@@ -87,7 +87,7 @@ contract Subscriptions {
      * Locked tokens for a subscription are collectable by the contract owner
      * and cannot be recovered by the user.
      * Defined as `rate * max(0, min(block, end) - start)`
-     * @param _subStart the start block of the active subscription subscription
+     * @param _subStart the start block of the active subscription
      * @param _subEnd the end block of the active subscription
      * @param _subRate the active subscription rate
      * @return lockedTokens the amount of locked tokens in the active subscription
@@ -119,7 +119,7 @@ contract Subscriptions {
      * Unlocked tokens for a subscription are not collectable by the contract
      * owner and can be recovered by the user.
      * Defined as `rate * max(0, end - max(block, start))`
-     * @param _subStart the start block of the active subscription subscription
+     * @param _subStart the start block of the active subscription
      * @param _subEnd the end block of the active subscription
      * @param _subRate the active subscription rate
      * @return unlockedTokens amount of unlocked tokens recoverable by the user
@@ -157,7 +157,7 @@ contract Subscriptions {
 
         uint256 currentEpoch = blockToEpoch(_block);
         int128 total = 0;
-        for (; _uncollectedEpoch < currentEpoch;) {
+        while (_uncollectedEpoch < currentEpoch) {
             Epoch storage epoch = _epochs[_uncollectedEpoch];
             _collectPerEpoch += epoch.delta;
             total += _collectPerEpoch + epoch.extra;
