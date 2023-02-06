@@ -387,7 +387,7 @@ describe('Subscriptions contract', () => {
         rate
       );
 
-      mineNBlocks(100);
+      await mineNBlocks(100);
 
       await unsubscribe(
         stableToken,
@@ -469,7 +469,7 @@ describe('Subscriptions contract', () => {
         rate
       );
 
-      mineNBlocks(1000);
+      await mineNBlocks(1000);
 
       const tx = unsubscribe(
         stableToken,
@@ -483,6 +483,167 @@ describe('Subscriptions contract', () => {
     it('should revert if user has no subscription', async function () {
       const tx = subscriptions.connect(subscriber2.signer).unsubscribe();
       await expect(tx).revertedWith('no active subscription');
+    });
+  });
+
+  describe('extend', function () {
+    it('should revert if user is the zero address', async function () {
+      const tx = subscriptions.extend(
+        ethers.constants.AddressZero,
+        BigNumber.from(0)
+      );
+      await expect(tx).revertedWith('user is null');
+    });
+
+    it('should revert when extending a subscription that has not started', async function () {
+      const blockNumber = await latestBlockNumber();
+      const start = blockNumber.add(500);
+      const end = blockNumber.add(1000);
+      const newEnd = blockNumber.add(2000);
+      const rate = BigNumber.from(5);
+      const user = subscriber2.address;
+
+      const subscribeBlockNumber = await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        user
+      );
+
+      const tx = extend(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        user,
+        newEnd,
+        subscribeBlockNumber
+      );
+      await expect(tx).revertedWith('current subscription must be active');
+    });
+
+    it('should revert when extending a subscription that has expired', async function () {
+      const blockNumber = await latestBlockNumber();
+      const start = blockNumber.add(500);
+      const end = blockNumber.add(1000);
+      const newEnd = blockNumber.add(2000);
+      const rate = BigNumber.from(5);
+      const user = subscriber2.address;
+
+      const subscribeBlockNumber = await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        user
+      );
+
+      await mineNBlocks(1500);
+
+      const tx = extend(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        user,
+        newEnd,
+        subscribeBlockNumber
+      );
+      await expect(tx).revertedWith('current subscription must be active');
+    });
+
+    it('should revert when extending a subscription with an invalid new end date', async function () {
+      const blockNumber = await latestBlockNumber();
+      const start = blockNumber;
+      const end = blockNumber.add(1000);
+      const newEnd = blockNumber.add(750);
+      const rate = BigNumber.from(5);
+      const user = subscriber2.address;
+
+      const subscribeBlockNumber = await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        user
+      );
+
+      await mineNBlocks(150);
+
+      const tx = extend(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        user,
+        newEnd,
+        subscribeBlockNumber
+      );
+      await expect(tx).revertedWith(
+        'end must be after that of the current subscription'
+      );
+    });
+
+    it('should allow extending a subscription', async function () {
+      const blockNumber = await latestBlockNumber();
+      const start = blockNumber;
+      const end = blockNumber.add(1000);
+      const newEnd = blockNumber.add(2000);
+      const rate = BigNumber.from(5);
+      const user = subscriber2.address;
+
+      const subscribeBlockNumber = await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        user
+      );
+
+      await mineNBlocks(150);
+
+      await extend(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        user,
+        newEnd,
+        subscribeBlockNumber
+      );
+    });
+
+    it('should allow extending a one epoch subscription', async function () {
+      const blockNumber = await latestBlockNumber();
+      const start = blockNumber;
+      const end = blockNumber.add(5);
+      const newEnd = blockNumber.add(2000);
+      const rate = BigNumber.from(5);
+      const user = subscriber2.address;
+
+      const subscribeBlockNumber = await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        user
+      );
+
+      await extend(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        user,
+        newEnd,
+        subscribeBlockNumber
+      );
     });
   });
 });
@@ -625,6 +786,56 @@ async function unsubscribe(
       BigNumber.from(txBlock)
     );
   }
+}
+
+async function extend(
+  stableToken: StableToken,
+  subscriptions: Subscriptions,
+  signer: Account,
+  user: string,
+  newEnd: BigNumber,
+  subscribeBlockNumber: number | undefined
+) {
+  // Before state
+  const beforeSub = await subscriptions._subscriptions(user);
+  const beforeBalance = await stableToken.balanceOf(signer.address);
+  const beforeContractBalance = await stableToken.balanceOf(
+    subscriptions.address
+  );
+
+  const additionalTokens = beforeSub.rate.mul(newEnd.sub(beforeSub.end));
+
+  // * Tx
+  const tx = subscriptions.connect(signer.signer).extend(user, newEnd);
+
+  // * Check events
+  await expect(tx).to.emit(subscriptions, 'Extend').withArgs(user, newEnd);
+
+  // * Check balances
+  const afterBalance = await stableToken.balanceOf(signer.address);
+  const afterContractBalance = await stableToken.balanceOf(
+    subscriptions.address
+  );
+  expect(afterBalance).to.eq(beforeBalance.sub(additionalTokens));
+  expect(afterContractBalance).to.eq(
+    beforeContractBalance.add(additionalTokens)
+  );
+
+  // * Check state
+  const afterSub = await subscriptions._subscriptions(user);
+  expect(afterSub.start).to.eq(beforeSub.start);
+  expect(afterSub.end).to.eq(newEnd);
+  expect(afterSub.rate).to.eq(beforeSub.rate);
+
+  // Sub + extend -> Epoch changes should match those of a sub [start, newEnd)
+  await testEpochDetails(
+    subscriptions,
+    beforeSub.start,
+    newEnd,
+    beforeSub.rate,
+    BigNumber.from(subscribeBlockNumber! - 1),
+    BigNumber.from((await tx).blockNumber!)
+  );
 }
 
 async function testEpochDetails(

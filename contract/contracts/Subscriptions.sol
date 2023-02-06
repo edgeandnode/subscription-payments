@@ -276,11 +276,13 @@ contract Subscriptions {
         setEpochs(sub.start, sub.end, -int128(sub.rate));
         setEpochs(sub.start, end, int128(sub.rate));
 
+        uint64 currentEnd = sub.end;
         _subscriptions[user].end = end;
 
-        uint128 addition = sub.rate * (end - sub.end);
+        uint128 addition = sub.rate * (end - currentEnd);
         bool success = token.transferFrom(msg.sender, address(this), addition);
         require(success, 'IERC20 token transfer failed');
+        
 
         emit Extend(user, end);
     }
