@@ -73,7 +73,7 @@ contract Subscriptions {
     // Convert block number to epoch number, rounding up to the next epoch
     // boundry.
     function blockToEpoch(uint256 b) public view returns (uint256) {
-        return Math.max(1, (b / epochBlocks) + Math.min(1, (b % epochBlocks) + 1));
+        return (b / epochBlocks) + 1;
     }
 
     /**
