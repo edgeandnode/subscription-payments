@@ -60,59 +60,9 @@ contract Subscriptions is Ownable {
         emit Init(_token);
     }
 
-    /// @param _timestamp Block timestamp, in seconds.
-    /// @return epoch Epoch number, rouded up to the next epoch Boundary.
-    function timestampToEpoch(uint256 _timestamp) public view returns (uint256) {
-        return (_timestamp / epochSeconds) + 1;
-    }
-
-    /// @return epoch Current epoch number, rouded up to the next epoch Boundary.
-    function currentEpoch() public view returns (uint256) {
-        return timestampToEpoch(block.number);
-    }
-
-    /// @param _subStart Start timestamp of the active subscription.
-    /// @param _subEnd End timestamp of the active subscription.
-    /// @param _subRate Active subscription rate.
-    /// @return lockedTokens Amount of locked tokens for the given subscription, which are
-    /// collectable by the contract owner and are not recoverable by the user.
-    /// @dev Defined as `rate * max(0, min(now, end) - start)`.
-    function locked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
-        uint256 len = uint256(
-            SignedMath.max(0, int256(Math.min(block.timestamp, _subEnd)) - int64(_subStart))
-        );
-        return _subRate * uint128(len);
-    }
-
-    /// @param _user Address of the active subscription owner.
-    /// @return lockedTokens Amount of locked tokens for the given subscription, which are
-    /// collectable by the contract owner and are not recoverable by the user.
-    /// @dev Defined as `rate * max(0, min(now, end) - start)`.
-    function locked(address _user) public view returns (uint128) {
-        Subscription storage sub = subscriptions[_user];
-        return locked(sub.start, sub.end, sub.rate);
-    }
-
-    /// @param _subStart Start timestamp of the active subscription.
-    /// @param _subEnd End timestamp of the active subscription.
-    /// @param _subRate Active subscription rate.
-    /// @return unlockedTokens Amount of unlocked tokens, which are recoverable by the user, and are
-    /// not collectable by the contract owner.
-    /// @dev Defined as `rate * max(0, end - max(now, start))`.
-    function unlocked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
-        uint256 len = uint256(
-            SignedMath.max(0, int256(int64(_subEnd)) - int256(Math.max(block.timestamp, _subStart)))
-        );
-        return _subRate * uint128(len);
-    }
-
-    /// @param _user Address of the active subscription owner.
-    /// @return unlockedTokens Amount of unlocked tokens, which are recoverable by the user, and are
-    /// not collectable by the contract owner.
-    /// @dev Defined as `rate * max(0, end - max(now, start))`.
-    function unlocked(address _user) public view returns (uint128) {
-        Subscription storage sub = subscriptions[_user];
-        return unlocked(sub.start, sub.end, sub.rate);
+    /// @notice Collect a subset of the locked tokens held by this contract.
+    function collect() public {
+        collect(0);
     }
 
     /// @notice Collect a subset of the locked tokens held by this contract.
@@ -132,37 +82,6 @@ contract Subscriptions is Ownable {
 
         bool success = token.transfer(owner(), uint128(total));
         require(success, 'IERC20 token transfer failed');
-    }
-
-    /// @notice Collect a subset of the locked tokens held by this contract.
-    function collect() public {
-        collect(0);
-    }
-
-    function setEpochs(uint64 start, uint64 end, int128 rate) private {
-        /*
-        Example subscription layout using
-            epochSeconds = 6
-            sub = {start: 2, end: 9, rate: 1}
-
-        blocks: |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10|11|
-                                      ^ currentBlock
-                       ^start               ^end
-        epochs: |                1|                2|
-                               e1^               e2^
-        */
-
-        uint256 e = currentEpoch();
-        uint256 e1 = timestampToEpoch(start);
-        if (e <= e1) {
-            epochs[e1].delta += rate * int64(epochSeconds);
-            epochs[e1].extra -= rate * int64(start - (uint64(e1 - 1) * epochSeconds));
-        }
-        uint256 e2 = timestampToEpoch(end);
-        if (e <= e2) {
-            epochs[e2].delta -= rate * int64(epochSeconds);
-            epochs[e2].extra += rate * int64(end - (uint64(e2 - 1) * epochSeconds));
-        }
     }
 
     /// @param user Owner for the new subscription.
@@ -245,5 +164,86 @@ contract Subscriptions is Ownable {
         require(success, 'IERC20 token transfer failed');
 
         emit Extend(user, end);
+    }
+
+    /// @param _timestamp Block timestamp, in seconds.
+    /// @return epoch Epoch number, rouded up to the next epoch Boundary.
+    function timestampToEpoch(uint256 _timestamp) public view returns (uint256) {
+        return (_timestamp / epochSeconds) + 1;
+    }
+
+    /// @return epoch Current epoch number, rouded up to the next epoch Boundary.
+    function currentEpoch() public view returns (uint256) {
+        return timestampToEpoch(block.number);
+    }
+
+    /// @param _subStart Start timestamp of the active subscription.
+    /// @param _subEnd End timestamp of the active subscription.
+    /// @param _subRate Active subscription rate.
+    /// @return lockedTokens Amount of locked tokens for the given subscription, which are
+    /// collectable by the contract owner and are not recoverable by the user.
+    /// @dev Defined as `rate * max(0, min(now, end) - start)`.
+    function locked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
+        uint256 len = uint256(
+            SignedMath.max(0, int256(Math.min(block.timestamp, _subEnd)) - int64(_subStart))
+        );
+        return _subRate * uint128(len);
+    }
+
+    /// @param _user Address of the active subscription owner.
+    /// @return lockedTokens Amount of locked tokens for the given subscription, which are
+    /// collectable by the contract owner and are not recoverable by the user.
+    /// @dev Defined as `rate * max(0, min(now, end) - start)`.
+    function locked(address _user) public view returns (uint128) {
+        Subscription storage sub = subscriptions[_user];
+        return locked(sub.start, sub.end, sub.rate);
+    }
+
+    /// @param _subStart Start timestamp of the active subscription.
+    /// @param _subEnd End timestamp of the active subscription.
+    /// @param _subRate Active subscription rate.
+    /// @return unlockedTokens Amount of unlocked tokens, which are recoverable by the user, and are
+    /// not collectable by the contract owner.
+    /// @dev Defined as `rate * max(0, end - max(now, start))`.
+    function unlocked(uint64 _subStart, uint64 _subEnd, uint128 _subRate) public view returns (uint128) {
+        uint256 len = uint256(
+            SignedMath.max(0, int256(int64(_subEnd)) - int256(Math.max(block.timestamp, _subStart)))
+        );
+        return _subRate * uint128(len);
+    }
+
+    /// @param _user Address of the active subscription owner.
+    /// @return unlockedTokens Amount of unlocked tokens, which are recoverable by the user, and are
+    /// not collectable by the contract owner.
+    /// @dev Defined as `rate * max(0, end - max(now, start))`.
+    function unlocked(address _user) public view returns (uint128) {
+        Subscription storage sub = subscriptions[_user];
+        return unlocked(sub.start, sub.end, sub.rate);
+    }
+
+    function setEpochs(uint64 start, uint64 end, int128 rate) private {
+        /*
+        Example subscription layout using
+            epochSeconds = 6
+            sub = {start: 2, end: 9, rate: 1}
+
+        blocks: |0 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10|11|
+                                      ^ currentBlock
+                       ^start               ^end
+        epochs: |                1|                2|
+                               e1^               e2^
+        */
+
+        uint256 e = currentEpoch();
+        uint256 e1 = timestampToEpoch(start);
+        if (e <= e1) {
+            epochs[e1].delta += rate * int64(epochSeconds);
+            epochs[e1].extra -= rate * int64(start - (uint64(e1 - 1) * epochSeconds));
+        }
+        uint256 e2 = timestampToEpoch(end);
+        if (e <= e2) {
+            epochs[e2].delta -= rate * int64(epochSeconds);
+            epochs[e2].extra += rate * int64(end - (uint64(e2 - 1) * epochSeconds));
+        }
     }
 }
