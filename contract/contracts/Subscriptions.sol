@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.17;
 
+import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 import '@openzeppelin/contracts/utils/math/SignedMath.sol';
@@ -10,7 +11,7 @@ import '@openzeppelin/contracts/utils/math/SignedMath.sol';
 /// Protocol to pay gateways for their services with limited risk of losing tokens.
 /// @notice This contract makes no assumptions about how the subscription rate is interpreted by the
 /// gateway.
-contract Subscriptions {
+contract Subscriptions is Ownable {
     /// @notice A Subscription represents a lockup of `rate` tokens per second for the half-open
     /// timestamp range [start, end).
     struct Subscription {
@@ -38,8 +39,6 @@ contract Subscriptions {
 
     /// @notice ERC-20 token held by this contract.
     IERC20 public immutable token;
-    /// @notice Owner of the contract, which has the authority to call collect.
-    address public owner;
     /// @notice Duration of each epoch in seconds.
     uint64 public immutable epochSeconds;
     /// @notice Mapping of users to their most recent subscription.
@@ -55,7 +54,6 @@ contract Subscriptions {
     /// @param _epochSeconds The Duration of each epoch in seconds.
     constructor(address _token, uint64 _epochSeconds) {
         token = IERC20(_token);
-        owner = msg.sender;
         epochSeconds = _epochSeconds;
         uncollectedEpoch = block.timestamp / _epochSeconds;
 
@@ -120,9 +118,7 @@ contract Subscriptions {
     /// @notice Collect a subset of the locked tokens held by this contract.
     /// @param _offset epochs before the current epoch to end collection. This should be zero unless
     /// this call would otherwise be expected to run out of gas.
-    function collect(uint256 _offset) public {
-        require(msg.sender == owner, 'must be called by owner');
-
+    function collect(uint256 _offset) public onlyOwner {
         uint256 endEpoch = currentEpoch() - _offset;
         int128 total = 0;
         while (uncollectedEpoch < endEpoch) {
@@ -134,7 +130,7 @@ contract Subscriptions {
             unchecked { ++uncollectedEpoch; }
         }
 
-        bool success = token.transfer(owner, uint128(total));
+        bool success = token.transfer(owner(), uint128(total));
         require(success, 'IERC20 token transfer failed');
     }
 
