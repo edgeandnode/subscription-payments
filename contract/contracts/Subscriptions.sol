@@ -37,11 +37,11 @@ contract Subscriptions {
     event Extend(address indexed user, uint64 end);
 
     /// @notice ERC-20 token held by this contract.
-    IERC20 public token;
+    IERC20 public immutable token;
     /// @notice Owner of the contract, which has the authority to call collect.
     address public owner;
     /// @notice Duration of each epoch in seconds.
-    uint64 public epochSeconds;
+    uint64 public immutable epochSeconds;
     /// @notice Mapping of users to their most recent subscription.
     mapping(address => Subscription) public subscriptions;
     /// @notice Mapping of epoch numbers to their payloads.
