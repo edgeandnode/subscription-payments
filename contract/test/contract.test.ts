@@ -651,6 +651,38 @@ describe('Subscriptions contract', () => {
       );
     });
   });
+
+  describe('setPendingSubscription/fulfil', function () {
+    it('unable to fulfil by default', async function () {
+      expect(subscriptions.fulfil(subscriber1.address, 0)).revertedWith(
+        'start must be less than end'
+      );
+    });
+
+    it('fulfil should subscribe using pending subscription', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.add(100);
+      const end = now.add(200);
+      const rate = BigNumber.from(1);
+      const value = end.sub(start).mul(rate);
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(subscriber1.address, start, end, rate);
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, value);
+      await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        subscriber1.address,
+        subscriber2
+      );
+    });
+  });
 });
 
 async function subscribe(
@@ -660,7 +692,8 @@ async function subscribe(
   start: BigNumber,
   end: BigNumber,
   rate: BigNumber,
-  user?: string
+  user?: string,
+  fulfiller?: Account
 ) {
   user = user ?? signer.address;
 
@@ -675,9 +708,9 @@ async function subscribe(
   );
 
   // * Tx
-  const tx = subscriptions
-    .connect(signer.signer)
-    .subscribe(user, start, end, rate);
+  const tx = fulfiller
+    ? subscriptions.connect(fulfiller!.signer).fulfil(user, amount)
+    : subscriptions.connect(signer.signer).subscribe(user, start, end, rate);
 
   // If start is in the past, override it with the next block where the sub tx will be mined
   const nextTimestamp = beforeTimestamp.add(1);
@@ -689,7 +722,9 @@ async function subscribe(
     .withArgs(user, start, end, rate);
 
   // * Check balances
-  const afterBalance = await stableToken.balanceOf(signer.address);
+  const afterBalance = await stableToken.balanceOf(
+    fulfiller ? fulfiller.address : signer.address
+  );
   const afterContractBalance = await stableToken.balanceOf(
     subscriptions.address
   );
