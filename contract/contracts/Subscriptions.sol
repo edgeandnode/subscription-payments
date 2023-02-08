@@ -51,6 +51,8 @@ contract Subscriptions is Ownable {
     int128 public collectPerEpoch;
     /// @notice Mapping of user to set of authorized signer.
     mapping(address => mapping(address => bool)) public authorizedSigners;
+    /// @notice Mapping of user to pending subscription.
+    mapping(address => Subscription) pendingSubscriptions;
 
     /// @param _token The ERC-20 token held by this contract
     /// @param _epochSeconds The Duration of each epoch in seconds.
@@ -191,6 +193,26 @@ contract Subscriptions is Ownable {
         require(success, 'IERC20 token transfer failed');
 
         emit Extend(user, end);
+    }
+
+    /// @param user Owner for the pending subscription.
+    /// @param start Start timestamp for the pending subscription.
+    /// @param end End timestamp for the pending subscription.
+    /// @param rate Rate for the pending subscription.
+    /// @notice Creates a subscription template without requiring funds. Expected to be used with
+    /// `fulfil`.
+    function setPendingSubscription(address user, uint64 start, uint64 end, uint128 rate) public {
+        pendingSubscriptions[user] = Subscription({ start: start, end: end, rate: rate });
+    }
+
+    /// @param _to Owner of the new subscription.
+    /// @notice Equivalent to calling `subscribe` with the previous `setPendingSubscription`
+    /// arguments for the same user.
+    /// @dev Second param required, but currently unused.
+    function fulfil(address _to, uint256) public {
+        Subscription memory sub = pendingSubscriptions[_to];
+        delete pendingSubscriptions[_to];
+        subscribe(_to, sub.start, sub.end, sub.rate);
     }
 
     /// @param _timestamp Block timestamp, in seconds.
