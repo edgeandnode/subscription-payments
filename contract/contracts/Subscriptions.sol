@@ -178,11 +178,12 @@ contract Subscriptions is Ownable {
         require(user != address(this), 'invalid user');
         start = uint64(Math.max(start, block.timestamp));
         require(start < end, 'start must be less than end');
-        // user can bypass this check incase their subscription gets griefed
-        require(
-            (subscriptions[user].end <= block.timestamp) || (user == msg.sender),
-            'active subscription must have ended'
-        );
+
+        // Only the user can overwrite an active subscription.
+        if (subscriptions[user].end > block.timestamp) {
+            require(user == msg.sender, 'active subscription must have ended');
+            unsubscribe();
+        }
 
         subscriptions[user] = Subscription({ start: start, end: end, rate: rate });
         setEpochs(start, end, int128(rate));
