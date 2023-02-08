@@ -92,6 +92,46 @@ describe('Subscriptions contract', () => {
     });
   });
 
+  describe('authorizedSigners', function () {
+    it('user is always authorized', async function () {
+      const user = subscriber1.address;
+      expect(await subscriptions.checkAuthorizedSigner(user, user)).to.eq(true);
+      expect(subscriptions.addAuthorizedSigner(user, user)).revertedWith(
+        'user is always an authorized signer'
+      );
+      expect(subscriptions.removeAuthorizedSigner(user, user)).revertedWith(
+        'user is always an authorized signer'
+      );
+    });
+
+    it('other addresses are unauthorized by default', async function () {
+      const user = subscriber1.address;
+      const other = subscriber2.address;
+      expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
+        false
+      );
+    });
+
+    it('authorizedSigners can be added', async function () {
+      const user = subscriber1.address;
+      const other = subscriber2.address;
+      await subscriptions.addAuthorizedSigner(user, other);
+      expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
+        true
+      );
+    });
+
+    it('authorizedSigners can be removed', async function () {
+      const user = subscriber1.address;
+      const other = subscriber2.address;
+      await subscriptions.addAuthorizedSigner(user, other);
+      await subscriptions.removeAuthorizedSigner(user, other);
+      expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
+        false
+      );
+    });
+  });
+
   describe('timestampToEpoch', function () {
     it('should start the epoch index at 1', async function () {
       expect(await subscriptions.timestampToEpoch(BigNumber.from(0))).to.eq(
