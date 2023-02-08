@@ -343,8 +343,11 @@ describe('Subscriptions contract', () => {
       const start = now.add(100);
       const end = now.add(500);
       const rate = BigNumber.from(5);
+      const firstSubValue = end.sub(start).mul(rate);
       const newStart = now.add(200);
-      const newEnd = now.add(600);
+      const newEnd = now.add(400);
+      const newSubValue = newEnd.sub(newStart).mul(rate);
+      const initialBalance = await stableToken.balanceOf(subscriber1.address);
       await subscribe(
         stableToken,
         subscriptions,
@@ -353,6 +356,9 @@ describe('Subscriptions contract', () => {
         end,
         rate
       );
+      expect(await stableToken.balanceOf(subscriber1.address)).eq(
+        initialBalance.sub(firstSubValue)
+      );
       await subscribe(
         stableToken,
         subscriptions,
@@ -360,6 +366,9 @@ describe('Subscriptions contract', () => {
         newStart,
         newEnd,
         rate
+      );
+      expect(await stableToken.balanceOf(subscriber1.address)).eq(
+        initialBalance.sub(newSubValue)
       );
     });
   });
