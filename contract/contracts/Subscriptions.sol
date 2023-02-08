@@ -49,6 +49,8 @@ contract Subscriptions is Ownable {
     uint256 public uncollectedEpoch;
     /// @notice Epoch cursor value.
     int128 public collectPerEpoch;
+    /// @notice Mapping of user to set of authorized signer.
+    mapping(address => mapping(address => bool)) public authorizedSigners;
 
     /// @param _token The ERC-20 token held by this contract
     /// @param _epochSeconds The Duration of each epoch in seconds.
@@ -58,6 +60,31 @@ contract Subscriptions is Ownable {
         uncollectedEpoch = block.timestamp / _epochSeconds;
 
         emit Init(_token);
+    }
+
+    /// @param _user Subscription owner.
+    /// @param _signer Address to be authorized to sign messages on the owners behalf.
+    function addAuthorizedSigner(address _user, address _signer) public {
+        require(_user != _signer, 'user is always an authorized signer');
+        authorizedSigners[_user][_signer] = true;
+    }
+
+    /// @param _user Subscription owner.
+    /// @param _signer Address to become unauthorized to sign messages on the owners behalf.
+    function removeAuthorizedSigner(address _user, address _signer) public {
+        require(_user != _signer, 'user is always an authorized signer');
+        authorizedSigners[_user][_signer] = false;
+    }
+
+    /// @param _user Subscription owner.
+    /// @param _signer Address potentially authorized to sign messages on the owners behalf.
+    /// @return isAuthorized True if the given signer is set as an authorized signer for the given
+    /// user, false otherwise.
+    function checkAuthorizedSigner(address _user, address _signer) public view returns (bool) {
+        if (_user == _signer) {
+            return true;
+        }
+        return authorizedSigners[_user][_signer];
     }
 
     /// @notice Collect a subset of the locked tokens held by this contract.
