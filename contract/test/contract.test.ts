@@ -85,6 +85,13 @@ describe('Subscriptions contract', () => {
     });
   });
 
+  describe('transferOwnership', function () {
+    it('should set the owner to the new owner', async function () {
+      await subscriptions.transferOwnership(subscriber1.address);
+      expect(await subscriptions.owner()).to.eq(subscriber1.address);
+    });
+  });
+
   describe('timestampToEpoch', function () {
     it('should start the epoch index at 1', async function () {
       expect(await subscriptions.timestampToEpoch(BigNumber.from(0))).to.eq(
