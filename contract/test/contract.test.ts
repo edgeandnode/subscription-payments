@@ -2,7 +2,7 @@ import '@nomicfoundation/hardhat-chai-matchers';
 
 import {expect} from 'chai';
 import * as deployment from '../utils/deploy';
-import {getAccounts, Account, toGRT, toBN, floorBN} from '../utils/helpers';
+import {getAccounts, Account, toGRT} from '../utils/helpers';
 
 import {Subscriptions} from '../types/contracts/Subscriptions';
 import {StableToken} from '../types/contracts/test/StableMock.sol/StableToken';
@@ -115,20 +115,26 @@ describe('Subscriptions contract', () => {
     it('authorizedSigners can be added', async function () {
       const user = subscriber1.address;
       const other = subscriber2.address;
-      await subscriptions.addAuthorizedSigner(user, other);
+      const tx = await subscriptions.addAuthorizedSigner(user, other);
       expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
         true
       );
+      expect(tx)
+        .to.emit(subscriptions, 'AuthorizedSignerAdded')
+        .withArgs(user, other);
     });
 
     it('authorizedSigners can be removed', async function () {
       const user = subscriber1.address;
       const other = subscriber2.address;
       await subscriptions.addAuthorizedSigner(user, other);
-      await subscriptions.removeAuthorizedSigner(user, other);
+      const tx = await subscriptions.removeAuthorizedSigner(user, other);
       expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
         false
       );
+      expect(tx)
+        .to.emit(subscriptions, 'AuthorizedSignerRemoved')
+        .withArgs(user, other);
     });
   });
 

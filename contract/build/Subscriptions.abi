@@ -21,6 +21,44 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "subscriptionOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "authorizedSigner",
+        "type": "address"
+      }
+    ],
+    "name": "AuthorizedSignerAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "subscriptionOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "authorizedSigner",
+        "type": "address"
+      }
+    ],
+    "name": "AuthorizedSignerRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "user",
         "type": "address"
       },
