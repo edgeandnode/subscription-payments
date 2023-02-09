@@ -36,6 +36,8 @@ contract Subscriptions is Ownable {
     );
     event Unsubscribe(address indexed user);
     event Extend(address indexed user, uint64 end);
+    event AuthorizedSignerAdded(address indexed subscriptionOwner, address indexed authorizedSigner);
+    event AuthorizedSignerRemoved(address indexed subscriptionOwner, address indexed authorizedSigner);
 
     /// @notice ERC-20 token held by this contract.
     IERC20 public immutable token;
@@ -69,6 +71,8 @@ contract Subscriptions is Ownable {
     function addAuthorizedSigner(address _user, address _signer) public {
         require(_user != _signer, 'user is always an authorized signer');
         authorizedSigners[_user][_signer] = true;
+        
+        emit AuthorizedSignerAdded(_user, _signer);
     }
 
     /// @param _user Subscription owner.
@@ -76,6 +80,8 @@ contract Subscriptions is Ownable {
     function removeAuthorizedSigner(address _user, address _signer) public {
         require(_user != _signer, 'user is always an authorized signer');
         authorizedSigners[_user][_signer] = false;
+
+        emit AuthorizedSignerRemoved(_user, _signer);
     }
 
     /// @param _user Subscription owner.
