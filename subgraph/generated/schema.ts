@@ -461,12 +461,20 @@ export class AuthorizedSigner extends Entity {
     this.set("signer", Value.fromBytes(value));
   }
 
-  get activeSubscription(): Bytes {
+  get activeSubscription(): Bytes | null {
     let value = this.get("activeSubscription");
-    return value!.toBytes();
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
   }
 
-  set activeSubscription(value: Bytes) {
-    this.set("activeSubscription", Value.fromBytes(value));
+  set activeSubscription(value: Bytes | null) {
+    if (!value) {
+      this.unset("activeSubscription");
+    } else {
+      this.set("activeSubscription", Value.fromBytes(<Bytes>value));
+    }
   }
 }

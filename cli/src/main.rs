@@ -43,6 +43,14 @@ enum Commands {
         // #[arg(long, help = "maximum uses")]
         // max_uses: Option<u64>,
     },
+    AddAuthorizedSigner {
+        #[arg(long, help = "authorized signer")]
+        signer: Address,
+    },
+    RemoveAuthorizedSigner {
+        #[arg(long, help = "authorized signer")]
+        signer: Address,
+    },
 }
 
 abigen!(
@@ -75,7 +83,7 @@ async fn main() -> Result<()> {
 
     match opt.command {
         Commands::Active => {
-            let active_sub = subscriptions.subscription(wallet.address()).await?;
+            let active_sub = subscriptions.subscriptions(wallet.address()).await?;
             println!("{active_sub:?}");
         }
 
@@ -164,6 +172,30 @@ async fn main() -> Result<()> {
                     "nonce": format!("0x{}",hex::encode(ticket.nonce)),
                 })
             );
+        }
+        Commands::AddAuthorizedSigner { signer } => {
+            let active_sub = subscriptions.subscriptions(wallet.address()).await?;
+            println!("{active_sub:?}");
+            let call = subscriptions.add_authorized_signer(wallet.address(), signer);
+            eprintln!("add authorized signer tx: {}", call.tx.data().unwrap());
+            let receipt = client.send_transaction(call.tx, None).await?.await?;
+            let status = receipt
+                .and_then(|receipt| Some(receipt.status?.as_u64()))
+                .unwrap_or(0);
+            eprintln!("add authorized signer receipt status: {}", status);
+            ensure!(status == 1, "Failed to add the authorized signer");
+        }
+        Commands::RemoveAuthorizedSigner { signer } => {
+            let active_sub = subscriptions.subscriptions(wallet.address()).await?;
+            println!("{active_sub:?}");
+            let call = subscriptions.remove_authorized_signer(wallet.address(), signer);
+            eprintln!("remove authorized signer tx: {}", call.tx.data().unwrap());
+            let receipt = client.send_transaction(call.tx, None).await?.await?;
+            let status = receipt
+                .and_then(|receipt| Some(receipt.status?.as_u64()))
+                .unwrap_or(0);
+            eprintln!("remove authorized signer receipt status: {}", status);
+            ensure!(status == 1, "Failed to remove the authorized signer");
         }
     }
 

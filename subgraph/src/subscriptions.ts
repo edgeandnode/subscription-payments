@@ -1,10 +1,4 @@
-import {
-  Address,
-  ByteArray,
-  Bytes,
-  crypto,
-  store,
-} from '@graphprotocol/graph-ts';
+import {log, store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -66,6 +60,18 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.transactionHash = event.transaction.hash;
   entity.user = event.params.user;
   entity.save();
+
+  // find any AuthorizedSigners related to the active subscription and remove link
+  let sub = ActiveSubscription.load(event.params.user)!;
+  if (sub.authorizedSigners != null && sub.authorizedSigners!.length > 0) {
+    for (let i = 0; i < sub.authorizedSigners!.length; i++) {
+      let authorizedSigner = AuthorizedSigner.load(sub.authorizedSigners![i]);
+      if (authorizedSigner != null) {
+        authorizedSigner.activeSubscription = null;
+        authorizedSigner.save();
+      }
+    }
+  }
 
   store.remove('ActiveSubscription', event.params.user.toHexString());
 }

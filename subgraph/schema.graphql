@@ -44,9 +44,9 @@ type ActiveSubscription @entity {
     @derivedFrom(field: "activeSubscription")
 }
 
-type AuthorizedSigner @entity(immutable: true) {
+type AuthorizedSigner @entity {
   id: Bytes! #keccak256 hex string of user:signer
   user: Bytes! #address
   signer: Bytes! #address
-  activeSubscription: ActiveSubscription!
+  activeSubscription: ActiveSubscription
 }
