@@ -10,8 +10,8 @@ export function buildAuthorizedSignerId(
   subscriptionOwner: Address,
   authorizedSigner: Address
 ): Bytes {
-  let hex = crypto
-    .keccak256(ByteArray.fromUTF8(`${subscriptionOwner}:${authorizedSigner}`))
-    .toHexString();
-  return Bytes.fromHexString(hex);
+  let hash = crypto.keccak256(
+    ByteArray.fromUTF8(`${subscriptionOwner}:${authorizedSigner}`)
+  );
+  return Bytes.fromByteArray(hash);
 }
