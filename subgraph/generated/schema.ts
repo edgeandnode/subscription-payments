@@ -391,4 +391,82 @@ export class ActiveSubscription extends Entity {
   set rate(value: BigInt) {
     this.set("rate", Value.fromBigInt(value));
   }
+
+  get authorizedSigners(): Array<Bytes> | null {
+    let value = this.get("authorizedSigners");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set authorizedSigners(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("authorizedSigners");
+    } else {
+      this.set("authorizedSigners", Value.fromBytesArray(<Array<Bytes>>value));
+    }
+  }
+}
+
+export class AuthorizedSigner extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save AuthorizedSigner entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type AuthorizedSigner must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set("AuthorizedSigner", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static load(id: Bytes): AuthorizedSigner | null {
+    return changetype<AuthorizedSigner | null>(
+      store.get("AuthorizedSigner", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get signer(): Bytes {
+    let value = this.get("signer");
+    return value!.toBytes();
+  }
+
+  set signer(value: Bytes) {
+    this.set("signer", Value.fromBytes(value));
+  }
+
+  get activeSubscription(): Bytes {
+    let value = this.get("activeSubscription");
+    return value!.toBytes();
+  }
+
+  set activeSubscription(value: Bytes) {
+    this.set("activeSubscription", Value.fromBytes(value));
+  }
 }

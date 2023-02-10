@@ -1,8 +1,18 @@
 import {
+  Address,
+  ByteArray,
+  Bytes,
+  crypto,
+  store,
+} from '@graphprotocol/graph-ts';
+
+import {
   Init as InitEvent,
   Extend as ExtendEvent,
   Subscribe as SubscribeEvent,
   Unsubscribe as UnsubscribeEvent,
+  AuthorizedSignerAdded as AuthorizedSignerAddedEvent,
+  AuthorizedSignerRemoved as AuthorizedSignerRemovedEvent,
 } from '../generated/Subscriptions/Subscriptions';
 import {
   ActiveSubscription,
@@ -10,8 +20,10 @@ import {
   Extend,
   Subscribe,
   Unsubscribe,
+  AuthorizedSigner,
 } from '../generated/schema';
-import {store} from '@graphprotocol/graph-ts';
+
+import {buildAuthorizedSignerId} from './utils';
 
 export function handleInit(event: InitEvent): void {
   let entity = new Init(
@@ -72,4 +84,33 @@ export function handleExtend(event: ExtendEvent): void {
   let sub = ActiveSubscription.load(event.params.user)!;
   sub.end = event.params.end;
   sub.save();
+}
+
+export function handleAuthorizedSignerAdded(
+  event: AuthorizedSignerAddedEvent
+): void {
+  let sub = ActiveSubscription.load(event.params.subscriptionOwner)!;
+  let subscriptionOwner = event.params.subscriptionOwner;
+  let authorizedSigner = event.params.authorizedSigner;
+  let id = buildAuthorizedSignerId(subscriptionOwner, authorizedSigner);
+  // validate an AuthorizedSigner entity with the id doesn't already exist
+  let signer = AuthorizedSigner.load(id);
+  if (signer != null) {
+    return;
+  }
+  signer = new AuthorizedSigner(id);
+  signer.user = subscriptionOwner;
+  signer.signer = authorizedSigner;
+  signer.activeSubscription = sub.id;
+  signer.save();
+}
+
+export function handleAuthorizedSignerRemoved(
+  event: AuthorizedSignerRemovedEvent
+): void {
+  let id = buildAuthorizedSignerId(
+    event.params.subscriptionOwner,
+    event.params.authorizedSigner
+  );
+  store.remove('AuthorizedSigner', id.toHexString());
 }

@@ -16,6 +16,8 @@ dataSources:
         - Init
         - Subscribe
         - Unsubscribe
+        - Extend
+        - ActiveSubscription
       abis:
         - name: Subscriptions
           file: ./abis/Subscriptions.json
@@ -26,4 +28,8 @@ dataSources:
           handler: handleSubscribe
         - event: Unsubscribe(indexed address)
           handler: handleUnsubscribe
+        - event: AuthorizedSignerAdded(indexed address,indexed address)
+          handler: handleAuthorizedSignerAdded
+        - event: AuthorizedSignerRemoved(indexed address,indexed address)
+          handler: handleAuthorizedSignerRemoved
       file: ./src/subscriptions.ts
