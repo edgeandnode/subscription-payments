@@ -1,4 +1,4 @@
-import {log, store} from '@graphprotocol/graph-ts';
+import {store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -17,6 +17,7 @@ import {
   AuthorizedSigner,
 } from '../generated/schema';
 
+import {loadOrCreateUser} from './entity-loader';
 import {buildAuthorizedSignerId} from './utils';
 
 export function handleInit(event: InitEvent): void {
@@ -43,8 +44,10 @@ export function handleSubscribe(event: SubscribeEvent): void {
   entity.rate = event.params.rate;
   entity.save();
 
+  let user = loadOrCreateUser(event.params.user);
+
   let sub = new ActiveSubscription(event.params.user);
-  sub.user = event.params.user;
+  sub.user = user.id;
   sub.start = event.params.start;
   sub.end = event.params.end;
   sub.rate = event.params.rate;
@@ -52,38 +55,30 @@ export function handleSubscribe(event: SubscribeEvent): void {
 }
 
 export function handleUnsubscribe(event: UnsubscribeEvent): void {
+  let user = loadOrCreateUser(event.params.user);
+
   let entity = new Unsubscribe(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-  entity.user = event.params.user;
+  entity.user = user.id;
   entity.save();
-
-  // find any AuthorizedSigners related to the active subscription and remove link
-  let sub = ActiveSubscription.load(event.params.user)!;
-  if (sub.authorizedSigners != null && sub.authorizedSigners!.length > 0) {
-    for (let i = 0; i < sub.authorizedSigners!.length; i++) {
-      let authorizedSigner = AuthorizedSigner.load(sub.authorizedSigners![i]);
-      if (authorizedSigner != null) {
-        authorizedSigner.activeSubscription = null;
-        authorizedSigner.save();
-      }
-    }
-  }
 
   store.remove('ActiveSubscription', event.params.user.toHexString());
 }
 
 export function handleExtend(event: ExtendEvent): void {
+  let user = loadOrCreateUser(event.params.user);
+
   let entity = new Extend(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   );
   entity.blockNumber = event.block.number;
   entity.blockTimestamp = event.block.timestamp;
   entity.transactionHash = event.transaction.hash;
-  entity.user = event.params.user;
+  entity.user = user.id;
   entity.end = event.params.end;
   entity.save();
 
@@ -95,7 +90,8 @@ export function handleExtend(event: ExtendEvent): void {
 export function handleAuthorizedSignerAdded(
   event: AuthorizedSignerAddedEvent
 ): void {
-  let sub = ActiveSubscription.load(event.params.subscriptionOwner)!;
+  let user = loadOrCreateUser(event.params.subscriptionOwner);
+
   let subscriptionOwner = event.params.subscriptionOwner;
   let authorizedSigner = event.params.authorizedSigner;
   let id = buildAuthorizedSignerId(subscriptionOwner, authorizedSigner);
@@ -105,9 +101,8 @@ export function handleAuthorizedSignerAdded(
     return;
   }
   signer = new AuthorizedSigner(id);
-  signer.user = subscriptionOwner;
+  signer.user = user.id;
   signer.signer = authorizedSigner;
-  signer.activeSubscription = sub.id;
   signer.save();
 }
 

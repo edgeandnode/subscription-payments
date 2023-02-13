@@ -1,10 +1,12 @@
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
+use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
-use ethers::{abi::Address, contract::abigen, prelude::*};
-use graph_subscriptions::{eip712, Ticket, Url};
+use ethers::{abi::Address, prelude::*};
+use graph_subscriptions::{eip712, Subscription, Subscriptions, Ticket, IERC20};
 use rand::{thread_rng, RngCore as _};
 use serde_json::json;
 use std::{io::stdin, str::FromStr as _, sync::Arc};
+use toolshed::url::Url;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -26,20 +28,20 @@ enum Commands {
     /// show active subscription
     Active,
     Subscribe {
-        #[arg(long, default_value = "0")]
-        start_block: u64,
         #[arg(long)]
-        end_block: u64,
+        start: Option<DateTime<Utc>>,
         #[arg(long)]
-        price_per_block: u128,
+        end: DateTime<Utc>,
+        #[arg(long)]
+        rate: u128,
     },
     Unsubscribe,
     Collect,
     Ticket {
         #[arg(long, help = "random by default")]
         nonce: Option<u64>,
-        // #[arg(long, help = "ticket expiration, in seconds since Unix epoch")]
-        // expiration: Option<u64>,
+        // #[arg(long, help = "ticket expiration")]
+        // expiration: Option<DateTime<Utc>>,
         // #[arg(long, help = "maximum uses")]
         // max_uses: Option<u64>,
     },
@@ -52,15 +54,6 @@ enum Commands {
         signer: Address,
     },
 }
-
-abigen!(
-    Subscriptions,
-    "../contract/build/Subscriptions.abi",
-    event_derives(serde::Deserialize, serde::Serialize);
-    IERC20,
-    "../contract/build/IERC20.abi",
-    event_derives(serde::Deserialize, serde::Serialize);
-);
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -83,36 +76,45 @@ async fn main() -> Result<()> {
 
     match opt.command {
         Commands::Active => {
-            let active_sub = subscriptions.subscriptions(wallet.address()).await?;
+            let active_sub: Subscription = subscriptions
+                .subscriptions(wallet.address())
+                .await?
+                .try_into()?;
             println!("{active_sub:?}");
         }
 
-        Commands::Subscribe {
-            start_block,
-            end_block,
-            price_per_block,
-        } => {
-            ensure!(start_block < end_block);
-            let call = token.approve(
-                subscriptions.address(),
-                U256::from(price_per_block) * (end_block - start_block),
-            );
+        Commands::Subscribe { start, end, rate } => {
+            let start = start.unwrap_or_else(Utc::now);
+            eprintln!("start: {start}\n  end: {end}");
+            ensure!(start < end);
+            let duration: u64 = (end - start)
+                .num_seconds()
+                .try_into()
+                .context("invalid sub duration")?;
+            eprintln!("duration: {duration} s");
+
+            let call = token.approve(subscriptions.address(), U256::from(rate) * duration);
             eprintln!("tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
             let status = receipt
                 .and_then(|receipt| Some(receipt.status?.as_u64()))
                 .unwrap_or(0);
             eprintln!("approve status: {}", status);
-            ensure!(status == 1, "Failed to approve token amount");
-            let call =
-                subscriptions.subscribe(wallet.address(), start_block, end_block, price_per_block);
+            ensure!(status == 1, "failed to approve token amount");
+
+            let call = subscriptions.subscribe(
+                wallet.address(),
+                start.timestamp() as u64,
+                end.timestamp() as u64,
+                rate,
+            );
             eprintln!("tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
             let status = receipt
                 .and_then(|receipt| Some(receipt.status?.as_u64()))
                 .unwrap_or(0);
             eprintln!("subscribe status: {}", status);
-            ensure!(status == 1, "Failed to subscribe");
+            ensure!(status == 1, "failed to subscribe");
         }
 
         Commands::Unsubscribe => {

@@ -1,5 +1,23 @@
 # Graph Subscriptions Contract
 
+## Contract Deployment
+
+To deploy the contract run:
+
+```bash
+PRIVATE_KEY=<> hh deploy --token <STABLE_COIN_ADDRESS> --network <arbitrum-goerli|arbitrum-one>
+```
+
+Alternatively you can use the env var `MNEMONIC` to deploy the contract and it will pick the first derived address.
+
+## Tests
+
+To test the contract run:
+
+```bash
+yarn test
+```
+
 ## Contract Design
 
 This contract is designed to allow users of the Graph Protocol to pay gateways for their services

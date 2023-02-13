@@ -57,6 +57,8 @@ describe('Describe entity assertions', () => {
     assert.fieldEquals('Subscribe', id, 'end', '5000');
     assert.fieldEquals('Subscribe', id, 'rate', '2000000000000000000');
 
+    assert.entityCount('User', 1);
+
     assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals('ActiveSubscription', user, 'user', user);
     assert.fieldEquals('ActiveSubscription', user, 'start', '2000');
@@ -222,93 +224,5 @@ describe('Describe entity assertions', () => {
       'AuthorizedSigner',
       authorizedSignerEntity1Id.toHexString()
     );
-  });
-
-  test('should unlink AuthorizedSigners from an ActiveSubscription on unsubscribe', () => {
-    // create the active subscription
-    const validateAuthSignerTestUser =
-      '0x0000000000000000000000000000000000000004';
-    let activateSubscriptionEvent = createSubscribeEvent(
-      Address.fromString(validateAuthSignerTestUser),
-      BigInt.fromU32(2000),
-      BigInt.fromU32(5000),
-      BigInt.fromU32(10)
-        .pow(18)
-        .times(BigInt.fromU32(2))
-    );
-    activateSubscriptionEvent.logIndex = BigInt.fromU32(8);
-
-    handleSubscribe(activateSubscriptionEvent);
-
-    assert.fieldEquals(
-      'ActiveSubscription',
-      validateAuthSignerTestUser,
-      'user',
-      validateAuthSignerTestUser
-    );
-    assert.fieldEquals(
-      'ActiveSubscription',
-      validateAuthSignerTestUser,
-      'start',
-      '2000'
-    );
-    assert.fieldEquals(
-      'ActiveSubscription',
-      validateAuthSignerTestUser,
-      'end',
-      '5000'
-    );
-    assert.fieldEquals(
-      'ActiveSubscription',
-      validateAuthSignerTestUser,
-      'rate',
-      '2000000000000000000'
-    );
-
-    // add AuthorizedSigner
-    const signer = '0x0000000000000000000000000000000000000005';
-    let subscriptionOwner = Address.fromString(validateAuthSignerTestUser);
-    let authorizedSigner = Address.fromString(signer);
-    let addAuthorizedSignerEvent = createAuthorizedSignerAddedEvent(
-      subscriptionOwner,
-      authorizedSigner
-    );
-    addAuthorizedSignerEvent.logIndex = BigInt.fromU32(9);
-
-    handleAuthorizedSignerAdded(addAuthorizedSignerEvent);
-
-    let authorizedSignerEntityId = buildAuthorizedSignerId(
-      subscriptionOwner,
-      authorizedSigner
-    );
-    assert.fieldEquals(
-      'AuthorizedSigner',
-      authorizedSignerEntityId.toHexString(),
-      'user',
-      validateAuthSignerTestUser
-    );
-    assert.fieldEquals(
-      'AuthorizedSigner',
-      authorizedSignerEntityId.toHexString(),
-      'signer',
-      authorizedSigner.toHexString()
-    );
-    assert.fieldEquals(
-      'AuthorizedSigner',
-      authorizedSignerEntityId.toHexString(),
-      'activeSubscription',
-      validateAuthSignerTestUser
-    );
-
-    // call unsubscribe
-    let unsubscribeEvent = createUnsubscribeEvent(
-      Address.fromString(validateAuthSignerTestUser)
-    );
-    unsubscribeEvent.logIndex = BigInt.fromU32(10);
-
-    handleUnsubscribe(unsubscribeEvent);
-
-    // and that the ActiveSubscription has been removed
-    assert.notInStore('ActiveSubscription', validateAuthSignerTestUser);
   });
 });

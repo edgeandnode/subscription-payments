@@ -1,4 +1,5 @@
 import '@nomicfoundation/hardhat-chai-matchers';
+import {time} from '@nomicfoundation/hardhat-network-helpers';
 
 import {expect} from 'chai';
 import * as deployment from '../utils/deploy';
@@ -17,6 +18,7 @@ import {
 
 const tenBillion = toGRT('10000000000');
 const oneMillion = toGRT('1000000');
+const zero = toGRT('0');
 
 describe('Subscriptions contract', () => {
   // Accounts
@@ -96,10 +98,10 @@ describe('Subscriptions contract', () => {
     it('user is always authorized', async function () {
       const user = subscriber1.address;
       expect(await subscriptions.checkAuthorizedSigner(user, user)).to.eq(true);
-      expect(subscriptions.addAuthorizedSigner(user, user)).revertedWith(
+      await expect(subscriptions.addAuthorizedSigner(user, user)).revertedWith(
         'user is always an authorized signer'
       );
-      expect(subscriptions.removeAuthorizedSigner(user, user)).revertedWith(
+      await expect(subscriptions.removeAuthorizedSigner(user, user)).revertedWith(
         'user is always an authorized signer'
       );
     });
@@ -658,35 +660,143 @@ describe('Subscriptions contract', () => {
     });
   });
 
-  describe('setPendingSubscription/fulfil', function () {
-    it('unable to fulfil by default', async function () {
-      expect(subscriptions.fulfil(subscriber1.address, 0)).revertedWith(
-        'start must be less than end'
-      );
-    });
+  describe.skip('collect', function () {});
 
-    it('fulfil should subscribe using pending subscription', async function () {
+  describe('setPendingSubscription', function () {
+    it('should set a pending subscription', async function () {
       const now = await latestBlockTimestamp();
-      const start = now.add(100);
-      const end = now.add(200);
+      const start = now.add(1000);
+      const end = now.add(2000);
       const rate = BigNumber.from(1);
-      const value = end.sub(start).mul(rate);
-      await subscriptions
-        .connect(subscriber1.signer)
-        .setPendingSubscription(subscriber1.address, start, end, rate);
-      await stableToken
-        .connect(subscriber2.signer)
-        .approve(subscriptions.address, value);
-      await subscribe(
-        stableToken,
+      await setPendingSubscription(
         subscriptions,
         subscriber1,
         start,
         end,
-        rate,
-        subscriber1.address,
-        subscriber2
+        rate
       );
+    });
+
+    it('should override existing pending subscription', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.add(1000);
+      const end = now.add(2000);
+      const rate = BigNumber.from(1);
+      await setPendingSubscription(
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate
+      );
+
+      const newStart = now.add(10000);
+      const newEnd = now.add(20000);
+      const newRate = BigNumber.from(10);
+      await setPendingSubscription(
+        subscriptions,
+        subscriber1,
+        newStart,
+        newEnd,
+        newRate
+      );
+
+      const sub = await subscriptions.pendingSubscriptions(subscriber1.address);
+      expect(sub.start).to.equal(newStart);
+      expect(sub.end).to.equal(newEnd);
+      expect(sub.rate).to.equal(newRate);
+    });
+
+    it('only allow setting a pending subscription for self', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.add(1000);
+      const end = now.add(2000);
+      const rate = BigNumber.from(1);
+
+      // Set pending subscription
+      const tx = subscriptions
+        .connect(subscriber2.signer)
+        .setPendingSubscription(subscriber1.address, start, end, rate);
+
+      await expect(tx).revertedWith('Can only set pending subscriptions for self');
+    });
+  });
+
+  describe('fulfil', function () {
+    it('should subscribe using pending subscription', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.add(1000);
+      const end = now.add(2000);
+      const rate = BigNumber.from(1);
+      const value = end.sub(start).mul(rate);
+
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(subscriber1.address, start, end, rate);
+
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, value);
+
+      await fulfil(
+        stableToken,
+        subscriptions,
+        subscriber2,
+        start,
+        end,
+        rate,
+        subscriber1.address
+      );
+    });
+
+    it('should subscribe using pending subscription and send leftover tokens back to user', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.sub(100);
+      const end = now.add(2000);
+      const rate = BigNumber.from(1);
+      const value = end.sub(start).mul(rate);
+
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(subscriber1.address, start, end, rate);
+
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, value);
+
+      await fulfil(
+        stableToken,
+        subscriptions,
+        subscriber2,
+        start,
+        end,
+        rate,
+        subscriber1.address
+      );
+    });
+
+    it('should revert if there is no pending subscription', async function () {
+      const tx = subscriptions.connect(subscriber1.signer).fulfil(subscriber2.address, oneMillion);
+      await expect(tx).revertedWith('No pending subscription');
+    });
+
+    it('should revert if fulfil funds are not enough to create the pending subscription', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.add(1000);
+      const end = now.add(2000);
+      const rate = BigNumber.from(1);
+      const value = end.sub(start).mul(rate);
+
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(subscriber1.address, start, end, rate);
+
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, value);
+
+      const tx = subscriptions.connect(subscriber2.signer).fulfil(subscriber1.address, zero);
+      await expect(tx).revertedWith('Insufficient funds to create subscription');
     });
   });
 });
@@ -698,39 +808,38 @@ async function subscribe(
   start: BigNumber,
   end: BigNumber,
   rate: BigNumber,
-  user?: string,
-  fulfiller?: Account
+  user?: string
 ) {
   user = user ?? signer.address;
 
   const amount = rate.mul(end.sub(start));
+  const epochSeconds = await subscriptions.epochSeconds();
 
   // Before state
   const beforeBlock = await latestBlockNumber();
-  const beforeTimestamp = await latestBlockTimestamp();
   const beforeBalance = await stableToken.balanceOf(signer.address);
   const beforeContractBalance = await stableToken.balanceOf(
     subscriptions.address
   );
 
   // * Tx
-  const tx = fulfiller
-    ? subscriptions.connect(fulfiller!.signer).fulfil(user, amount)
-    : subscriptions.connect(signer.signer).subscribe(user, start, end, rate);
+  const tx = subscriptions
+    .connect(signer.signer)
+    .subscribe(user, start, end, rate);
+  await tx;
+  const txTimestamp = await time.latest();
+  const txEpoch = BigNumber.from(txTimestamp).div(epochSeconds).add(1);
 
-  // If start is in the past, override it with the next block where the sub tx will be mined
-  const nextTimestamp = beforeTimestamp.add(1);
-  start = start.gte(nextTimestamp) ? start : nextTimestamp;
+  // If start is in the past, override it with the tx timestamp
+  start = start.gte(txTimestamp) ? start : BigNumber.from(txTimestamp);
 
   // * Check events
   await expect(tx)
     .to.emit(subscriptions, 'Subscribe')
-    .withArgs(user, start, end, rate);
+    .withArgs(user, txEpoch, start, end, rate);
 
   // * Check balances
-  const afterBalance = await stableToken.balanceOf(
-    fulfiller ? fulfiller.address : signer.address
-  );
+  const afterBalance = await stableToken.balanceOf(signer.address);
   const afterContractBalance = await stableToken.balanceOf(
     subscriptions.address
   );
@@ -789,9 +898,12 @@ async function unsubscribe(
   const tx = await subscriptions.connect(signer.signer).unsubscribe();
   const txBlock = tx.blockNumber!;
   const txTimestamp = await latestBlockTimestamp();
+  const txEpoch = await subscriptions.timestampToEpoch(txTimestamp);
 
   // * Check events
-  await expect(tx).to.emit(subscriptions, 'Unsubscribe').withArgs(user);
+  await expect(tx)
+    .to.emit(subscriptions, 'Unsubscribe')
+    .withArgs(user, txEpoch);
 
   // * Check balances
   const afterBalance = await stableToken.balanceOf(user);
@@ -989,4 +1101,109 @@ async function testEndEpochDetails(
       end.sub(start).mul(rate)
     );
   }
+}
+
+async function setPendingSubscription(
+  subscriptions: Subscriptions,
+  signer: Account,
+  start: BigNumber,
+  end: BigNumber,
+  rate: BigNumber
+) {
+  // Set pending subscription
+  const tx = subscriptions
+    .connect(signer.signer)
+    .setPendingSubscription(signer.address, start, end, rate);
+
+  await tx;
+
+  const txTimestamp = await time.latest();
+  const epochSeconds = await subscriptions.epochSeconds();
+  const txEpoch = BigNumber.from(txTimestamp).div(epochSeconds).add(1);
+
+  await expect(tx)
+    .to.emit(subscriptions, 'PendingSubscriptionCreated')
+    .withArgs(signer.address, txEpoch, start, end, rate);
+
+  const sub = await subscriptions.pendingSubscriptions(signer.address);
+  expect(sub.start).to.equal(start);
+  expect(sub.end).to.equal(end);
+  expect(sub.rate).to.equal(rate);
+}
+
+async function fulfil(
+  stableToken: StableToken,
+  subscriptions: Subscriptions,
+  signer: Account,
+  start: BigNumber,
+  end: BigNumber,
+  rate: BigNumber,
+  user: string
+) {
+  const amount = rate.mul(end.sub(start));
+  const epochSeconds = await subscriptions.epochSeconds();
+
+  // Before state
+  const beforeBlock = await latestBlockNumber();
+  const beforeBalance = await stableToken.balanceOf(signer.address);
+  const beforeContractBalance = await stableToken.balanceOf(
+    subscriptions.address
+  );
+  const beforeUserBalance = await stableToken.balanceOf(user);
+
+  // * Tx
+  const tx = subscriptions.connect(signer.signer).fulfil(user, amount);
+  await tx;
+  const txTimestamp = await time.latest();
+  const txEpoch = BigNumber.from(txTimestamp).div(epochSeconds).add(1);
+
+  // If start is in the past, override it with the tx timestamp
+  start = start.gte(txTimestamp) ? start : BigNumber.from(txTimestamp);
+
+  // * Check events
+  await expect(tx)
+    .to.emit(subscriptions, 'Subscribe')
+    .withArgs(user, txEpoch, start, end, rate);
+
+  // * Check balances
+  const afterBalance = await stableToken.balanceOf(signer.address);
+  const afterContractBalance = await stableToken.balanceOf(
+    subscriptions.address
+  );
+  const afterUserBalance = await stableToken.balanceOf(user);
+
+  // Actual amount deposited might be less than intended if subStart < block.number
+  const amountDeposited = rate.mul(end.sub(start));
+  const amountLeftover = amount.sub(amountDeposited);
+  
+  expect(afterContractBalance).to.eq(
+    beforeContractBalance.add(amountDeposited)
+  );
+  expect(amountDeposited).to.lte(amount);
+  expect(afterBalance).to.eq(beforeBalance.sub(amount));
+  expect(afterUserBalance).to.eq(beforeUserBalance.add(amountLeftover));
+
+  // * Check state
+  const sub = await subscriptions.subscriptions(user);
+  expect(sub.start).to.eq(start);
+  expect(sub.end).to.eq(end);
+  expect(sub.rate).to.eq(rate);
+
+  const pendingSub = await subscriptions.pendingSubscriptions(user);
+  expect(pendingSub.start).to.eq(0);
+  expect(pendingSub.end).to.eq(0);
+  expect(pendingSub.rate).to.eq(0);
+
+  const afterBlock = await latestBlockNumber();
+
+  await testEpochDetails(
+    subscriptions,
+    start,
+    end,
+    rate,
+    beforeBlock,
+    afterBlock
+  );
+
+  return (await tx).blockNumber!;
 }

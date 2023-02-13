@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+chrono = { version = "0.4.23", default-features = false, features = ["std", "clock"] }
 clap = { version = "4.1", features = ["derive"] }
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
 ethers = { version = "1.0", default-features = false}
@@ -13,3 +14,4 @@ rand = "0.8"
 serde = { version = "1.0" }
 serde_json = "1.0"
 tokio = { version = "1.24", features = ["macros", "rt"] }
+toolshed = { git = "https://github.com/edgeandnode/toolshed", tag = "v0.1.1", default-features = false, features = ["url"] }
