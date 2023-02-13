@@ -73,8 +73,7 @@ const config: HardhatUserConfig = {
       url: 'http://localhost:8545',
       chainId: 1337,
       mining: {
-        auto: false,
-        interval: 0,
+        auto: true,
         mempool: {
           order: 'fifo',
         },

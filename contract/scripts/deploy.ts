@@ -3,16 +3,16 @@ import {BigNumber} from 'ethers';
 import {ethers, network} from 'hardhat';
 
 async function main() {
+  await network.provider.send('evm_setAutomine', [true]);
+
   const signer = (await ethers.getSigners())[0]!;
   const initialBalance = BigNumber.from(10).pow(18 + 9);
   const token = await new GraphToken__factory(signer).deploy(initialBalance);
   const contract = await (
     await ethers.getContractFactory('Subscriptions')
   ).deploy(token.address, 3);
-  await network.provider.send('evm_mine');
 
   await token.transfer(signer.address, BigNumber.from(10).pow(18 + 6));
-  await network.provider.send('evm_mine');
 
   console.log(
     JSON.stringify(

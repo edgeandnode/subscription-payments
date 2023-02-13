@@ -1,10 +1,8 @@
+use anyhow::anyhow;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use eip712::Eip712Domain;
 pub use eip_712_derive as eip712;
 use ethers::{abi::Address, contract::abigen};
-use std::{
-    fmt::{self, Debug},
-    str::FromStr,
-};
 
 abigen!(
     Subscriptions,
@@ -42,19 +40,24 @@ impl eip712::StructType for Ticket {
     }
 }
 
-#[derive(Clone)]
-pub struct Url(pub url::Url);
-
-impl FromStr for Url {
-    type Err = url::ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        url::Url::from_str(s).map(Self)
-    }
+#[derive(Debug)]
+pub struct Subscription {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub rate: u128,
 }
 
-impl Debug for Url {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0.as_str())
+impl TryFrom<(u64, u64, u128)> for Subscription {
+    type Error = anyhow::Error;
+    fn try_from(from: (u64, u64, u128)) -> Result<Self, Self::Error> {
+        let (start, end, rate) = from;
+        let to_datetime = |t: u64| {
+            NaiveDateTime::from_timestamp_opt(t.try_into()?, 0)
+                .ok_or_else(|| anyhow!("invalid timestamp"))
+                .map(|t| DateTime::<Utc>::from_utc(t, Utc))
+        };
+        let start = to_datetime(start)?;
+        let end = to_datetime(end)?;
+        Ok(Self { start, end, rate })
     }
 }
