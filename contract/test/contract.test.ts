@@ -98,12 +98,12 @@ describe('Subscriptions contract', () => {
     it('user is always authorized', async function () {
       const user = subscriber1.address;
       expect(await subscriptions.checkAuthorizedSigner(user, user)).to.eq(true);
-      await expect(subscriptions.addAuthorizedSigner(user, user)).revertedWith(
-        'user is always an authorized signer'
-      );
-      await expect(subscriptions.removeAuthorizedSigner(user, user)).revertedWith(
-        'user is always an authorized signer'
-      );
+      await expect(
+        subscriptions.connect(subscriber1.signer).addAuthorizedSigner(user)
+      ).revertedWith('user is always an authorized signer');
+      await expect(
+        subscriptions.connect(subscriber1.signer).removeAuthorizedSigner(user)
+      ).revertedWith('user is always an authorized signer');
     });
 
     it('other addresses are unauthorized by default', async function () {
@@ -117,7 +117,9 @@ describe('Subscriptions contract', () => {
     it('authorizedSigners can be added', async function () {
       const user = subscriber1.address;
       const other = subscriber2.address;
-      const tx = await subscriptions.addAuthorizedSigner(user, other);
+      const tx = await subscriptions
+        .connect(subscriber1.signer)
+        .addAuthorizedSigner(other);
       expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
         true
       );
@@ -129,8 +131,12 @@ describe('Subscriptions contract', () => {
     it('authorizedSigners can be removed', async function () {
       const user = subscriber1.address;
       const other = subscriber2.address;
-      await subscriptions.addAuthorizedSigner(user, other);
-      const tx = await subscriptions.removeAuthorizedSigner(user, other);
+      await subscriptions
+        .connect(subscriber1.signer)
+        .addAuthorizedSigner(other);
+      const tx = await subscriptions
+        .connect(subscriber1.signer)
+        .removeAuthorizedSigner(other);
       expect(await subscriptions.checkAuthorizedSigner(user, other)).to.eq(
         false
       );
@@ -718,7 +724,9 @@ describe('Subscriptions contract', () => {
         .connect(subscriber2.signer)
         .setPendingSubscription(subscriber1.address, start, end, rate);
 
-      await expect(tx).revertedWith('Can only set pending subscriptions for self');
+      await expect(tx).revertedWith(
+        'Can only set pending subscriptions for self'
+      );
     });
   });
 
@@ -776,7 +784,9 @@ describe('Subscriptions contract', () => {
     });
 
     it('should revert if there is no pending subscription', async function () {
-      const tx = subscriptions.connect(subscriber1.signer).fulfil(subscriber2.address, oneMillion);
+      const tx = subscriptions
+        .connect(subscriber1.signer)
+        .fulfil(subscriber2.address, oneMillion);
       await expect(tx).revertedWith('No pending subscription');
     });
 
@@ -795,8 +805,12 @@ describe('Subscriptions contract', () => {
         .connect(subscriber2.signer)
         .approve(subscriptions.address, value);
 
-      const tx = subscriptions.connect(subscriber2.signer).fulfil(subscriber1.address, zero);
-      await expect(tx).revertedWith('Insufficient funds to create subscription');
+      const tx = subscriptions
+        .connect(subscriber2.signer)
+        .fulfil(subscriber1.address, zero);
+      await expect(tx).revertedWith(
+        'Insufficient funds to create subscription'
+      );
     });
   });
 });
@@ -1175,7 +1189,7 @@ async function fulfil(
   // Actual amount deposited might be less than intended if subStart < block.number
   const amountDeposited = rate.mul(end.sub(start));
   const amountLeftover = amount.sub(amountDeposited);
-  
+
   expect(afterContractBalance).to.eq(
     beforeContractBalance.add(amountDeposited)
   );

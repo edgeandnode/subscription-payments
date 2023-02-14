@@ -270,22 +270,22 @@ contract Subscriptions is Ownable {
         }
     }
 
-    /// @param _user Subscription owner.
-    /// @param _signer Address to be authorized to sign messages on the owners behalf.
-    function addAuthorizedSigner(address _user, address _signer) public {
-        require(_user != _signer, 'user is always an authorized signer');
-        authorizedSigners[_user][_signer] = true;
+    /// @param _signer Address to be authorized to sign messages on the sender's behalf.
+    function addAuthorizedSigner(address _signer) public {
+        address user = msg.sender;
+        require(user != _signer, 'user is always an authorized signer');
+        authorizedSigners[user][_signer] = true;
 
-        emit AuthorizedSignerAdded(_user, _signer);
+        emit AuthorizedSignerAdded(user, _signer);
     }
 
-    /// @param _user Subscription owner.
-    /// @param _signer Address to become unauthorized to sign messages on the owners behalf.
-    function removeAuthorizedSigner(address _user, address _signer) public {
-        require(_user != _signer, 'user is always an authorized signer');
-        delete authorizedSigners[_user][_signer];
+    /// @param _signer Address to become unauthorized to sign messages on the sender's behalf.
+    function removeAuthorizedSigner(address _signer) public {
+        address user = msg.sender;
+        require(user != _signer, 'user is always an authorized signer');
+        delete authorizedSigners[user][_signer];
 
-        emit AuthorizedSignerRemoved(_user, _signer);
+        emit AuthorizedSignerRemoved(user, _signer);
     }
 
     /// @param _user Subscription owner.
