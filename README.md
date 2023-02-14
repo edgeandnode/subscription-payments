@@ -31,19 +31,23 @@ echo "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" | cargo 
     token
   }
   subscribes {
-    user
+    user { id }
     start
     end
     rate
   }
   unsubscribes {
-    user
+    user { id }
   }
   activeSubscriptions {
-    user
+    user { id }
     start
     end
     rate
+  }
+  users {
+    id
+    authorizedSigners { id }
   }
 }
 ```

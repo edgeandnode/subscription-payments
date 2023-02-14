@@ -34,6 +34,7 @@ describe('Describe entity assertions', () => {
   beforeAll(() => {
     let event = createSubscribeEvent(
       Address.fromString(user),
+      BigInt.fromU32(0),
       BigInt.fromU32(2000),
       BigInt.fromU32(5000),
       BigInt.fromU32(10)
@@ -72,7 +73,10 @@ describe('Describe entity assertions', () => {
   });
 
   test('handle Unsubscribe', () => {
-    let event = createUnsubscribeEvent(Address.fromString(user));
+    let event = createUnsubscribeEvent(
+      Address.fromString(user),
+      BigInt.fromU32(0)
+    );
     handleUnsubscribe(event);
 
     assert.entityCount('Subscribe', 1);
@@ -83,6 +87,7 @@ describe('Describe entity assertions', () => {
   test('update Subscription', () => {
     let event = createSubscribeEvent(
       Address.fromString(user),
+      BigInt.fromU32(0),
       BigInt.fromU32(3000),
       BigInt.fromU32(8000),
       BigInt.fromU32(10)
