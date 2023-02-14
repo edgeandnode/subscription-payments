@@ -1,6 +1,8 @@
 import {newMockEvent} from 'matchstick-as';
 import {ethereum, Address, BigInt} from '@graphprotocol/graph-ts';
 import {
+  AuthorizedSignerAdded,
+  AuthorizedSignerRemoved,
   Extend,
   Subscribe,
   Unsubscribe,
@@ -81,4 +83,56 @@ export function createExtendEvent(
   );
 
   return extendEvent;
+}
+
+export function createAuthorizedSignerAddedEvent(
+  subscriptionOwner: Address,
+  authorizedSigner: Address
+): AuthorizedSignerAdded {
+  let authorizedSignerAddedEvent = changetype<AuthorizedSignerAdded>(
+    newMockEvent()
+  );
+
+  authorizedSignerAddedEvent.parameters = new Array();
+
+  authorizedSignerAddedEvent.parameters.push(
+    new ethereum.EventParam(
+      'subscriptionOwner',
+      ethereum.Value.fromAddress(subscriptionOwner)
+    )
+  );
+  authorizedSignerAddedEvent.parameters.push(
+    new ethereum.EventParam(
+      'authorizedSigner',
+      ethereum.Value.fromAddress(authorizedSigner)
+    )
+  );
+
+  return authorizedSignerAddedEvent;
+}
+
+export function createAuthorizedSignerRemovedEvent(
+  subscriptionOwner: Address,
+  authorizedSigner: Address
+): AuthorizedSignerRemoved {
+  let authorizedSignerRemovedEvent = changetype<AuthorizedSignerRemoved>(
+    newMockEvent()
+  );
+
+  authorizedSignerRemovedEvent.parameters = new Array();
+
+  authorizedSignerRemovedEvent.parameters.push(
+    new ethereum.EventParam(
+      'subscriptionOwner',
+      ethereum.Value.fromAddress(subscriptionOwner)
+    )
+  );
+  authorizedSignerRemovedEvent.parameters.push(
+    new ethereum.EventParam(
+      'authorizedSigner',
+      ethereum.Value.fromAddress(authorizedSigner)
+    )
+  );
+
+  return authorizedSignerRemovedEvent;
 }

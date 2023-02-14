@@ -6,12 +6,21 @@ type Init @entity(immutable: true) {
   token: Bytes! # address
 }
 
+type User @entity(immutable: true) {
+  id: Bytes!
+  subscribeEvents: [Subscribe!]! @derivedFrom(field: "user") # can't have a User with a subscribe
+  unsubscribeEvents: [Unsubscribe!] @derivedFrom(field: "user")
+  extendEvents: [Unsubscribe!] @derivedFrom(field: "user")
+  activeSubscriptions: [ActiveSubscription!] @derivedFrom(field: "user")
+  authorizedSigners: [AuthorizedSigner!] @derivedFrom(field: "user")
+}
+
 type Subscribe @entity(immutable: true) {
   id: Bytes!
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  user: Bytes! # address
+  user: User!
   start: BigInt! # uint64
   end: BigInt! # uint64
   rate: BigInt! # uint128
@@ -22,7 +31,7 @@ type Unsubscribe @entity(immutable: true) {
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  user: Bytes! # address
+  user: User!
 }
 
 type Extend @entity(immutable: true) {
@@ -30,14 +39,20 @@ type Extend @entity(immutable: true) {
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
-  user: Bytes! # address
+  user: User!
   end: BigInt! # uint64
 }
 
 type ActiveSubscription @entity {
   id: Bytes!
-  user: Bytes! # address
+  user: User!
   start: BigInt! # uint64
   end: BigInt! # uint64
   rate: BigInt! # uint128
+}
+
+type AuthorizedSigner @entity {
+  id: Bytes! #keccak256 hex string of user:signer
+  user: User!
+  signer: Bytes! #address
 }

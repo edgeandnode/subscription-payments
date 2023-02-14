@@ -79,6 +79,118 @@ export class Init extends Entity {
   }
 }
 
+export class User extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save User entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type User must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set("User", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static load(id: Bytes): User | null {
+    return changetype<User | null>(store.get("User", id.toHexString()));
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get subscribeEvents(): Array<Bytes> {
+    let value = this.get("subscribeEvents");
+    return value!.toBytesArray();
+  }
+
+  set subscribeEvents(value: Array<Bytes>) {
+    this.set("subscribeEvents", Value.fromBytesArray(value));
+  }
+
+  get unsubscribeEvents(): Array<Bytes> | null {
+    let value = this.get("unsubscribeEvents");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set unsubscribeEvents(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("unsubscribeEvents");
+    } else {
+      this.set("unsubscribeEvents", Value.fromBytesArray(<Array<Bytes>>value));
+    }
+  }
+
+  get extendEvents(): Array<Bytes> | null {
+    let value = this.get("extendEvents");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set extendEvents(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("extendEvents");
+    } else {
+      this.set("extendEvents", Value.fromBytesArray(<Array<Bytes>>value));
+    }
+  }
+
+  get activeSubscriptions(): Array<Bytes> | null {
+    let value = this.get("activeSubscriptions");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set activeSubscriptions(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("activeSubscriptions");
+    } else {
+      this.set(
+        "activeSubscriptions",
+        Value.fromBytesArray(<Array<Bytes>>value)
+      );
+    }
+  }
+
+  get authorizedSigners(): Array<Bytes> | null {
+    let value = this.get("authorizedSigners");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set authorizedSigners(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("authorizedSigners");
+    } else {
+      this.set("authorizedSigners", Value.fromBytesArray(<Array<Bytes>>value));
+    }
+  }
+}
+
 export class Subscribe extends Entity {
   constructor(id: Bytes) {
     super();
@@ -390,5 +502,57 @@ export class ActiveSubscription extends Entity {
 
   set rate(value: BigInt) {
     this.set("rate", Value.fromBigInt(value));
+  }
+}
+
+export class AuthorizedSigner extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save AuthorizedSigner entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type AuthorizedSigner must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set("AuthorizedSigner", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static load(id: Bytes): AuthorizedSigner | null {
+    return changetype<AuthorizedSigner | null>(
+      store.get("AuthorizedSigner", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get signer(): Bytes {
+    let value = this.get("signer");
+    return value!.toBytes();
+  }
+
+  set signer(value: Bytes) {
+    this.set("signer", Value.fromBytes(value));
   }
 }
