@@ -232,11 +232,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
         "name": "_signer",
         "type": "address"
       }
@@ -505,11 +500,6 @@
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
       {
         "internalType": "address",
         "name": "_signer",
