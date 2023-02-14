@@ -116,6 +116,40 @@ export class OwnershipTransferred__Params {
   }
 }
 
+export class PendingSubscriptionCreated extends ethereum.Event {
+  get params(): PendingSubscriptionCreated__Params {
+    return new PendingSubscriptionCreated__Params(this);
+  }
+}
+
+export class PendingSubscriptionCreated__Params {
+  _event: PendingSubscriptionCreated;
+
+  constructor(event: PendingSubscriptionCreated) {
+    this._event = event;
+  }
+
+  get user(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get epoch(): BigInt {
+    return this._event.parameters[1].value.toBigInt();
+  }
+
+  get start(): BigInt {
+    return this._event.parameters[2].value.toBigInt();
+  }
+
+  get end(): BigInt {
+    return this._event.parameters[3].value.toBigInt();
+  }
+
+  get rate(): BigInt {
+    return this._event.parameters[4].value.toBigInt();
+  }
+}
+
 export class Subscribe extends ethereum.Event {
   get params(): Subscribe__Params {
     return new Subscribe__Params(this);
@@ -133,15 +167,49 @@ export class Subscribe__Params {
     return this._event.parameters[0].value.toAddress();
   }
 
-  get start(): BigInt {
+  get epoch(): BigInt {
     return this._event.parameters[1].value.toBigInt();
   }
 
-  get end(): BigInt {
+  get start(): BigInt {
     return this._event.parameters[2].value.toBigInt();
   }
 
+  get end(): BigInt {
+    return this._event.parameters[3].value.toBigInt();
+  }
+
   get rate(): BigInt {
+    return this._event.parameters[4].value.toBigInt();
+  }
+}
+
+export class TokensCollected extends ethereum.Event {
+  get params(): TokensCollected__Params {
+    return new TokensCollected__Params(this);
+  }
+}
+
+export class TokensCollected__Params {
+  _event: TokensCollected;
+
+  constructor(event: TokensCollected) {
+    this._event = event;
+  }
+
+  get owner(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+
+  get amount(): BigInt {
+    return this._event.parameters[1].value.toBigInt();
+  }
+
+  get startEpoch(): BigInt {
+    return this._event.parameters[2].value.toBigInt();
+  }
+
+  get endEpoch(): BigInt {
     return this._event.parameters[3].value.toBigInt();
   }
 }
@@ -161,6 +229,10 @@ export class Unsubscribe__Params {
 
   get user(): Address {
     return this._event.parameters[0].value.toAddress();
+  }
+
+  get epoch(): BigInt {
+    return this._event.parameters[1].value.toBigInt();
   }
 }
 
@@ -186,6 +258,38 @@ export class Subscriptions__epochsResult {
 
   getExtra(): BigInt {
     return this.value1;
+  }
+}
+
+export class Subscriptions__pendingSubscriptionsResult {
+  value0: BigInt;
+  value1: BigInt;
+  value2: BigInt;
+
+  constructor(value0: BigInt, value1: BigInt, value2: BigInt) {
+    this.value0 = value0;
+    this.value1 = value1;
+    this.value2 = value2;
+  }
+
+  toMap(): TypedMap<string, ethereum.Value> {
+    let map = new TypedMap<string, ethereum.Value>();
+    map.set("value0", ethereum.Value.fromUnsignedBigInt(this.value0));
+    map.set("value1", ethereum.Value.fromUnsignedBigInt(this.value1));
+    map.set("value2", ethereum.Value.fromUnsignedBigInt(this.value2));
+    return map;
+  }
+
+  getStart(): BigInt {
+    return this.value0;
+  }
+
+  getEnd(): BigInt {
+    return this.value1;
+  }
+
+  getRate(): BigInt {
+    return this.value2;
   }
 }
 
@@ -422,6 +526,43 @@ export class Subscriptions extends ethereum.SmartContract {
     }
     let value = result.value;
     return ethereum.CallResult.fromValue(value[0].toAddress());
+  }
+
+  pendingSubscriptions(
+    param0: Address
+  ): Subscriptions__pendingSubscriptionsResult {
+    let result = super.call(
+      "pendingSubscriptions",
+      "pendingSubscriptions(address):(uint64,uint64,uint128)",
+      [ethereum.Value.fromAddress(param0)]
+    );
+
+    return new Subscriptions__pendingSubscriptionsResult(
+      result[0].toBigInt(),
+      result[1].toBigInt(),
+      result[2].toBigInt()
+    );
+  }
+
+  try_pendingSubscriptions(
+    param0: Address
+  ): ethereum.CallResult<Subscriptions__pendingSubscriptionsResult> {
+    let result = super.tryCall(
+      "pendingSubscriptions",
+      "pendingSubscriptions(address):(uint64,uint64,uint128)",
+      [ethereum.Value.fromAddress(param0)]
+    );
+    if (result.reverted) {
+      return new ethereum.CallResult();
+    }
+    let value = result.value;
+    return ethereum.CallResult.fromValue(
+      new Subscriptions__pendingSubscriptionsResult(
+        value[0].toBigInt(),
+        value[1].toBigInt(),
+        value[2].toBigInt()
+      )
+    );
   }
 
   subscriptions(param0: Address): Subscriptions__subscriptionsResult {
@@ -754,7 +895,7 @@ export class FulfilCall__Inputs {
     return this._call.inputValues[0].value.toAddress();
   }
 
-  get value1(): BigInt {
+  get _amount(): BigInt {
     return this._call.inputValues[1].value.toBigInt();
   }
 }

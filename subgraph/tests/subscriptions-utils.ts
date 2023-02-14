@@ -9,9 +9,10 @@ import {
 } from '../generated/Subscriptions/Subscriptions';
 
 export function createSubscribeEvent(
-  subscriber: Address,
-  startBlock: BigInt,
-  endBlock: BigInt,
+  user: Address,
+  epoch: BigInt,
+  start: BigInt,
+  end: BigInt,
   pricePerBlock: BigInt
 ): Subscribe {
   let subscribeEvent = changetype<Subscribe>(newMockEvent());
@@ -19,22 +20,16 @@ export function createSubscribeEvent(
   subscribeEvent.parameters = new Array();
 
   subscribeEvent.parameters.push(
-    new ethereum.EventParam(
-      'subscriber',
-      ethereum.Value.fromAddress(subscriber)
-    )
+    new ethereum.EventParam('user', ethereum.Value.fromAddress(user))
   );
   subscribeEvent.parameters.push(
-    new ethereum.EventParam(
-      'startBlock',
-      ethereum.Value.fromUnsignedBigInt(startBlock)
-    )
+    new ethereum.EventParam('epoch', ethereum.Value.fromUnsignedBigInt(epoch))
   );
   subscribeEvent.parameters.push(
-    new ethereum.EventParam(
-      'endBlock',
-      ethereum.Value.fromUnsignedBigInt(endBlock)
-    )
+    new ethereum.EventParam('start', ethereum.Value.fromUnsignedBigInt(start))
+  );
+  subscribeEvent.parameters.push(
+    new ethereum.EventParam('end', ethereum.Value.fromUnsignedBigInt(end))
   );
   subscribeEvent.parameters.push(
     new ethereum.EventParam(
@@ -46,40 +41,34 @@ export function createSubscribeEvent(
   return subscribeEvent;
 }
 
-export function createUnsubscribeEvent(subscriber: Address): Unsubscribe {
+export function createUnsubscribeEvent(
+  user: Address,
+  epoch: BigInt
+): Unsubscribe {
   let unsubscribeEvent = changetype<Unsubscribe>(newMockEvent());
 
   unsubscribeEvent.parameters = new Array();
 
   unsubscribeEvent.parameters.push(
-    new ethereum.EventParam(
-      'subscriber',
-      ethereum.Value.fromAddress(subscriber)
-    )
+    new ethereum.EventParam('user', ethereum.Value.fromAddress(user))
+  );
+  unsubscribeEvent.parameters.push(
+    new ethereum.EventParam('epoch', ethereum.Value.fromUnsignedBigInt(epoch))
   );
 
   return unsubscribeEvent;
 }
 
-export function createExtendEvent(
-  subscriber: Address,
-  endBlock: BigInt
-): Extend {
+export function createExtendEvent(user: Address, end: BigInt): Extend {
   let extendEvent = changetype<Extend>(newMockEvent());
 
   extendEvent.parameters = new Array();
 
   extendEvent.parameters.push(
-    new ethereum.EventParam(
-      'subscriber',
-      ethereum.Value.fromAddress(subscriber)
-    )
+    new ethereum.EventParam('user', ethereum.Value.fromAddress(user))
   );
   extendEvent.parameters.push(
-    new ethereum.EventParam(
-      'endBlock',
-      ethereum.Value.fromUnsignedBigInt(endBlock)
-    )
+    new ethereum.EventParam('end', ethereum.Value.fromUnsignedBigInt(end))
   );
 
   return extendEvent;
