@@ -419,6 +419,41 @@ describe('Subscriptions contract', () => {
         initialBalance.sub(newSubValue)
       );
     });
+    it('0xMacro: should allow creating a new sub if there is an expired one', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.add(100);
+      const end = now.add(500);
+      const rate = BigNumber.from(5);
+      const user = subscriber2.address;
+      await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate,
+        user
+      );
+
+      // advance past subscription end
+      mineNBlocks(600);
+      const newNow = await latestBlockTimestamp();
+      expect(newNow).to.be.gte(end);
+
+      const newStart = newNow.add(100);
+      const newEnd = newNow.add(500);
+
+      // Should be able to create another subscription
+      await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        newStart,
+        newEnd,
+        rate,
+        user
+      );
+    });
   });
   describe('unsubscribe', function () {
     it('should allow user to cancel an active subscription', async function () {

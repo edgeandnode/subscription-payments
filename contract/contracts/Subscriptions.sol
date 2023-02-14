@@ -105,7 +105,7 @@ contract Subscriptions is Ownable {
         uint128 rate
     ) public {
         require(
-            subscriptions[user].end <= uint64(block.number) ||
+            subscriptions[user].end <= uint64(block.timestamp) ||
                 user == msg.sender,
             'active subscription must have ended'
         );
