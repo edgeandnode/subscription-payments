@@ -239,10 +239,10 @@ contract Subscriptions is Ownable {
             'No pending subscription'
         );
 
-        uint256 minAmount = pendingSub.rate *
-            (pendingSub.end - pendingSub.start);
+        uint64 subStart = uint64(Math.max(pendingSub.start, block.timestamp));
+        uint256 subAmount = pendingSub.rate * (pendingSub.end - subStart);
         require(
-            _amount >= minAmount,
+            _amount >= subAmount,
             'Insufficient funds to create subscription'
         );
 
@@ -250,20 +250,18 @@ contract Subscriptions is Ownable {
         _subscribe(_to, pendingSub.start, pendingSub.end, pendingSub.rate);
         delete pendingSubscriptions[_to];
 
-        // Send any leftovers back to the user
-        Subscription storage sub = subscriptions[_to];
-        uint256 amountUsed = sub.rate * (sub.end - sub.start);
-        uint256 amountLeft = _amount - amountUsed;
+        // Send any extra tokens back to the user
+        uint256 extra = _amount - subAmount;
 
-        if (amountLeft > 0) {
+        if (extra > 0) {
             bool pullSuccess = token.transferFrom(
                 msg.sender,
                 address(this),
-                amountLeft
+                extra
             );
             require(pullSuccess, 'IERC20 token transfer failed');
 
-            bool transferSuccess = token.transfer(_to, amountLeft);
+            bool transferSuccess = token.transfer(_to, extra);
             require(transferSuccess, 'IERC20 token transfer failed');
         }
     }
