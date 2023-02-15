@@ -460,6 +460,18 @@ describe('Subscriptions contract', () => {
         user
       );
     });
+    it('0xMacro: should reject subscriptions where funds can be locked due to cast truncation', async () => {
+      const MaxInt64 = BigNumber.from('9223372036854775807');
+
+      // Scenario: user/UI mistakenly encodes the wrong timestamp values.
+      const start = MaxInt64.add(1);
+      const end = start.add(100);
+      const rate = BigNumber.from(5);
+
+      await expect(
+        subscriptions.subscribe(subscriber1.address, start, end, rate)
+      ).revertedWith('end too large');
+    });
   });
   describe('unsubscribe', function () {
     it('should allow user to cancel an active subscription', async function () {
