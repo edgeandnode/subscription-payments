@@ -1,10 +1,10 @@
 use anyhow::{ensure, Context, Result};
+use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use ethers::{abi::Address, prelude::*};
-use graph_subscriptions::{eip712, Subscription, Subscriptions, Ticket, IERC20};
+use graph_subscriptions::{eip712, Subscription, Subscriptions, TicketPayload, IERC20};
 use rand::{thread_rng, RngCore as _};
-use serde_json::json;
 use std::{io::stdin, str::FromStr as _, sync::Arc};
 use toolshed::url::Url;
 
@@ -37,14 +37,6 @@ enum Commands {
     },
     Unsubscribe,
     Collect,
-    Ticket {
-        #[arg(long, help = "random by default")]
-        nonce: Option<u64>,
-        // #[arg(long, help = "ticket expiration")]
-        // expiration: Option<DateTime<Utc>>,
-        // #[arg(long, help = "maximum uses")]
-        // max_uses: Option<u64>,
-    },
     AddAuthorizedSigner {
         #[arg(long, help = "authorized signer")]
         signer: Address,
@@ -52,6 +44,14 @@ enum Commands {
     RemoveAuthorizedSigner {
         #[arg(long, help = "authorized signer")]
         signer: Address,
+    },
+    Ticket {
+        #[arg(long)]
+        id: Option<u64>,
+        #[arg(long)]
+        signer: Option<Address>,
+        #[arg(long)]
+        user: Option<Address>,
     },
 }
 
@@ -139,45 +139,9 @@ async fn main() -> Result<()> {
             ensure!(status == 1, "Failed to collect");
         }
 
-        Commands::Ticket { nonce } => {
-            let domain = Ticket::eip712_domain(opt.chain_id, subscriptions.address());
-            let domain_separator = eip712::DomainSeparator::new(&domain);
-
-            let ticket = Ticket {
-                user: wallet.address().0,
-                nonce: nonce
-                    .unwrap_or_else(|| thread_rng().next_u64())
-                    .to_be_bytes(),
-            };
-
-            let (rs, v) = eip712::sign_typed(
-                &domain_separator,
-                &ticket,
-                &wallet.signer().to_bytes().as_slice().try_into().unwrap(),
-            )?;
-            let signature = Signature {
-                r: rs[0..32].try_into().unwrap(),
-                s: rs[32..64].try_into().unwrap(),
-                v: v as u64,
-            };
-
-            let sign_hash = eip712::sign_hash(&domain_separator, &ticket);
-            ensure!(wallet.address() == signature.recover(sign_hash)?);
-
-            println!(
-                "{}",
-                json!({
-                    "r": signature.r,
-                    "s": signature.s,
-                    "v": signature.v,
-                    "user": format!("0x{}", hex::encode(ticket.user)),
-                    "nonce": format!("0x{}",hex::encode(ticket.nonce)),
-                })
-            );
-        }
         Commands::AddAuthorizedSigner { signer } => {
             let active_sub = subscriptions.subscriptions(wallet.address()).await?;
-            println!("{active_sub:?}");
+            eprintln!("{active_sub:?}");
             let call = subscriptions.add_authorized_signer(wallet.address(), signer);
             eprintln!("add authorized signer tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
@@ -187,9 +151,10 @@ async fn main() -> Result<()> {
             eprintln!("add authorized signer receipt status: {}", status);
             ensure!(status == 1, "Failed to add the authorized signer");
         }
+
         Commands::RemoveAuthorizedSigner { signer } => {
             let active_sub = subscriptions.subscriptions(wallet.address()).await?;
-            println!("{active_sub:?}");
+            eprintln!("{active_sub:?}");
             let call = subscriptions.remove_authorized_signer(wallet.address(), signer);
             eprintln!("remove authorized signer tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
@@ -198,6 +163,33 @@ async fn main() -> Result<()> {
                 .unwrap_or(0);
             eprintln!("remove authorized signer receipt status: {}", status);
             ensure!(status == 1, "Failed to remove the authorized signer");
+        }
+
+        Commands::Ticket { id, signer, user } => {
+            let domain = TicketPayload::eip712_domain(opt.chain_id, subscriptions.address());
+            let domain_separator = eip712::DomainSeparator::new(&domain);
+
+            let signer = signer.unwrap_or_else(|| wallet.address());
+            let payload = TicketPayload {
+                id: id.unwrap_or_else(|| thread_rng().next_u64()).to_be_bytes(),
+                signer: signer.to_fixed_bytes(),
+                user: user.map(|user| user.0),
+            };
+
+            let user = Address::from(payload.user.unwrap_or(payload.signer));
+            ensure!(subscriptions.check_authorized_signer(user, signer).await?);
+
+            let ticket = payload.encode(
+                &domain_separator,
+                &wallet.signer().to_bytes().as_slice().try_into().unwrap(),
+            )?;
+
+            let signature_start = ticket.len() - 65;
+            eprintln!("cbor_hex: {}", hex::encode(&ticket[..signature_start]));
+            let signature: &[u8; 65] = ticket[signature_start..].try_into().unwrap();
+            ensure!(wallet.address() == payload.verify(&domain_separator, signature)?);
+
+            println!("{}", BASE64_URL_SAFE_NO_PAD.encode(ticket));
         }
     }
 
