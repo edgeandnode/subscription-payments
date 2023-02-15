@@ -887,6 +887,62 @@ describe('Subscriptions contract', () => {
       const afterBalance = await stableToken.balanceOf(subscriber1.address);
       expect(afterBalance).eq(beforeBalance.add(extra));
     });
+
+    it('0xMacro: may unsubscribe the caller', async () => {
+      let now = await latestBlockTimestamp();
+
+      // subscriber1 creates subscription and sets pending subscription
+      const sub1Start = (await latestBlockTimestamp()).add(5);
+      const sub1End = sub1Start.add(500);
+      const sub1Rate = BigNumber.from(5);
+      const sub1Value = sub1End.sub(sub1Start).mul(sub1Rate);
+
+      await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        sub1Start,
+        sub1End,
+        sub1Rate
+      );
+
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(
+          subscriber1.address,
+          sub1End,
+          sub1End.add(500),
+          sub1Rate
+        );
+
+      // subscr2 creates subscription and prematurely calls fulfil() for subscr1
+      now = await latestBlockTimestamp();
+      const sub2Start = now.add(5);
+      const sub2End = sub2Start.add(500);
+      const sub2Rate = BigNumber.from(1);
+      const sub2Value = sub2End.sub(sub2Start).mul(sub2Rate);
+
+      await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber2,
+        sub2Start,
+        sub2End,
+        sub2Rate
+      );
+
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, sub1Value);
+
+      await subscriptions
+        .connect(subscriber2.signer)
+        .fulfil(subscriber1.address, sub1Value);
+
+      // Expect subscriber 2 should still have a subscription registered
+      const sub = await subscriptions.subscriptions(subscriber2.address);
+      expect(sub.end).to.eq(sub2End);
+    });
   });
 });
 
