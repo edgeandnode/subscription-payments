@@ -127,11 +127,11 @@ contract Subscriptions is Ownable {
         uint128 tokenAmount = unlocked(sub.start, sub.end, sub.rate);
 
         if ((sub.start <= _now) && (_now < sub.end)) {
-            setEpochs(sub.start, sub.end, -int128(sub.rate));
-            setEpochs(sub.start, _now, int128(sub.rate));
+            _setEpochs(sub.start, sub.end, -int128(sub.rate));
+            _setEpochs(sub.start, _now, int128(sub.rate));
             subscriptions[user].end = _now;
         } else if (_now < sub.start) {
-            setEpochs(sub.start, sub.end, -int128(sub.rate));
+            _setEpochs(sub.start, sub.end, -int128(sub.rate));
             delete subscriptions[user];
         }
 
@@ -156,8 +156,8 @@ contract Subscriptions is Ownable {
             'end must be after that of the current subscription'
         );
 
-        setEpochs(sub.start, sub.end, -int128(sub.rate));
-        setEpochs(sub.start, end, int128(sub.rate));
+        _setEpochs(sub.start, sub.end, -int128(sub.rate));
+        _setEpochs(sub.start, end, int128(sub.rate));
 
         uint64 currentEnd = sub.end;
         subscriptions[user].end = end;
@@ -401,7 +401,7 @@ contract Subscriptions is Ownable {
             end: end,
             rate: rate
         });
-        setEpochs(start, end, int128(rate));
+        _setEpochs(start, end, int128(rate));
 
         uint256 subTotal = rate * (end - start);
         bool success = token.transferFrom(msg.sender, address(this), subTotal);
@@ -411,7 +411,7 @@ contract Subscriptions is Ownable {
         emit Subscribe(user, epoch, start, end, rate);
     }
 
-    function setEpochs(uint64 start, uint64 end, int128 rate) private {
+    function _setEpochs(uint64 start, uint64 end, int128 rate) private {
         /*
         Example subscription layout using
             epochSeconds = 6
