@@ -56,7 +56,6 @@ contract Subscriptions is Ownable {
         uint128 rate
     );
     event Unsubscribe(address indexed user, uint256 indexed epoch);
-    event Extend(address indexed user, uint64 end);
     event PendingSubscriptionCreated(
         address indexed user,
         uint256 indexed epoch,
@@ -91,58 +90,18 @@ contract Subscriptions is Ownable {
         emit Init(_token, _epochSeconds);
     }
 
-    /// @notice Create a subscription for a user
-    /// This can be called by any account for a given user as long as the new subscription starts
-    /// after the current subscription ends. Only the owner can overwrite an active subscription.
-    /// @param user Owner for the new subscription.
+    /// @notice Create a subscription for the sender.
+    /// Will override an active subscription if one exists.
     /// @param start Start timestamp for the new subscription.
     /// @param end End timestamp for the new subscription.
     /// @param rate Rate for the new subscription.
-    function subscribe(
-        address user,
-        uint64 start,
-        uint64 end,
-        uint128 rate
-    ) public {
-        require(
-            subscriptions[user].end <= uint64(block.timestamp) ||
-                user == msg.sender,
-            'active subscription must have ended'
-        );
-
-        _subscribe(user, start, end, rate);
+    function subscribe(uint64 start, uint64 end, uint128 rate) public {
+        _subscribe(msg.sender, start, end, rate);
     }
 
     /// @notice Remove the sender's subscription. Unlocked tokens will be transfered to the sender.
     function unsubscribe() public {
         _unsubscribe(msg.sender);
-    }
-
-    /// @param user Owner of the subscription that will be extended.
-    /// @param end New end timestamp for the user's subscription.
-    function extendSubscription(address user, uint64 end) public {
-        require(user != address(0), 'user is null');
-        Subscription storage sub = subscriptions[user];
-        require(
-            (sub.start <= block.timestamp) && (block.timestamp < sub.end),
-            'current subscription must be active'
-        );
-        require(
-            sub.end < end,
-            'end must be after that of the current subscription'
-        );
-
-        _setEpochs(sub.start, sub.end, -int128(sub.rate));
-        _setEpochs(sub.start, end, int128(sub.rate));
-
-        uint64 currentEnd = sub.end;
-        subscriptions[user].end = end;
-
-        uint128 addition = sub.rate * (end - currentEnd);
-        bool success = token.transferFrom(msg.sender, address(this), addition);
-        require(success, 'IERC20 token transfer failed');
-
-        emit Extend(user, end);
     }
 
     /// @notice Collect a subset of the locked tokens held by this contract.
@@ -350,7 +309,7 @@ contract Subscriptions is Ownable {
     }
 
     /// @notice Create a subscription for a user
-    /// Will always override an active subscription if it exists
+    /// Will override an active subscription if one exists.
     /// @param user Owner for the new subscription.
     /// @param start Start timestamp for the new subscription.
     /// @param end End timestamp for the new subscription.
