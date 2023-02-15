@@ -115,29 +115,7 @@ contract Subscriptions is Ownable {
 
     /// @notice Remove the sender's subscription. Unlocked tokens will be transfered to the sender.
     function unsubscribe() public {
-        address user = msg.sender;
-
-        Subscription storage sub = subscriptions[user];
-        require(sub.start != 0, 'no active subscription');
-
-        uint64 _now = uint64(block.timestamp);
-        require(sub.end > _now, 'Subscription has expired');
-
-        uint128 tokenAmount = unlocked(sub.start, sub.end, sub.rate);
-
-        _setEpochs(sub.start, sub.end, -int128(sub.rate));
-        if ((sub.start <= _now) && (_now < sub.end)) {
-            _setEpochs(sub.start, _now, int128(sub.rate));
-            subscriptions[user].end = _now;
-        } else {
-            delete subscriptions[user];
-        }
-
-        bool success = token.transfer(user, tokenAmount);
-        require(success, 'IERC20 token transfer failed');
-
-        uint256 epoch = currentEpoch();
-        emit Unsubscribe(user, epoch);
+        _unsubscribe(msg.sender);
     }
 
     /// @param user Owner of the subscription that will be extended.
@@ -393,7 +371,7 @@ contract Subscriptions is Ownable {
 
         // Overwrite an active subscription if there is one
         if (subscriptions[user].end > block.timestamp) {
-            unsubscribe();
+            _unsubscribe(user);
         }
 
         subscriptions[user] = Subscription({
@@ -409,6 +387,32 @@ contract Subscriptions is Ownable {
 
         uint256 epoch = currentEpoch();
         emit Subscribe(user, epoch, start, end, rate);
+    }
+
+    /// @notice Remove the user's subscription. Unlocked tokens will be transfered to the user.
+    /// @param user Owner of the subscription to be removed.
+    function _unsubscribe(address user) private {
+        Subscription storage sub = subscriptions[user];
+        require(sub.start != 0, 'no active subscription');
+
+        uint64 _now = uint64(block.timestamp);
+        require(sub.end > _now, 'Subscription has expired');
+
+        uint128 tokenAmount = unlocked(sub.start, sub.end, sub.rate);
+
+        _setEpochs(sub.start, sub.end, -int128(sub.rate));
+        if ((sub.start <= _now) && (_now < sub.end)) {
+            _setEpochs(sub.start, _now, int128(sub.rate));
+            subscriptions[user].end = _now;
+        } else {
+            delete subscriptions[user];
+        }
+
+        bool success = token.transfer(user, tokenAmount);
+        require(success, 'IERC20 token transfer failed');
+
+        uint256 epoch = currentEpoch();
+        emit Unsubscribe(user, epoch);
     }
 
     function _setEpochs(uint64 start, uint64 end, int128 rate) private {
