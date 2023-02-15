@@ -47,7 +47,7 @@ contract Subscriptions is Ownable {
     mapping(address => Subscription) public pendingSubscriptions;
 
     // -- Events --
-    event Init(address token);
+    event Init(address token, uint64 epochSeconds);
     event Subscribe(
         address indexed user,
         uint256 indexed epoch,
@@ -88,7 +88,7 @@ contract Subscriptions is Ownable {
         epochSeconds = _epochSeconds;
         uncollectedEpoch = block.timestamp / _epochSeconds;
 
-        emit Init(_token);
+        emit Init(_token, _epochSeconds);
     }
 
     /// @notice Create a subscription for a user

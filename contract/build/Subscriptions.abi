@@ -80,6 +80,12 @@
         "internalType": "address",
         "name": "token",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "epochSeconds",
+        "type": "uint64"
       }
     ],
     "name": "Init",
