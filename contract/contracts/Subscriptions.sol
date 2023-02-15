@@ -182,16 +182,18 @@ contract Subscriptions is Ownable {
         uint256 endEpoch = currentEpoch() - _offset;
 
         int128 total = 0;
-        while (uncollectedEpoch < endEpoch) {
-            Epoch storage epoch = epochs[uncollectedEpoch];
+        uint256 _uncollectedEpoch = uncollectedEpoch;
+        while (_uncollectedEpoch < endEpoch) {
+            Epoch storage epoch = epochs[_uncollectedEpoch];
             collectPerEpoch += epoch.delta;
             total += collectPerEpoch + epoch.extra;
-            delete epochs[uncollectedEpoch];
+            delete epochs[_uncollectedEpoch];
 
             unchecked {
-                ++uncollectedEpoch;
+                ++_uncollectedEpoch;
             }
         }
+        uncollectedEpoch = _uncollectedEpoch;
 
         // This should never happen but we need to check due to the int > uint cast below
         require(total >= 0, 'total must be non-negative');
