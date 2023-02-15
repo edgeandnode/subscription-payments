@@ -388,6 +388,9 @@ contract Subscriptions is Ownable {
         start = uint64(Math.max(start, block.timestamp));
         require(start < end, 'start must be less than end');
 
+        // This avoids unexpected behavior from truncation, especially in `locked` and `unlocked`.
+        require(end <= uint64(type(int64).max), 'end too large');
+
         // Overwrite an active subscription if there is one
         if (subscriptions[user].end > block.timestamp) {
             unsubscribe();
