@@ -847,6 +847,34 @@ describe('Subscriptions contract', () => {
         'Insufficient funds to create subscription'
       );
     });
+
+    it('should send extra to user when given more tokens than required for subscription', async function () {
+      const startOffset = 100;
+      mineNBlocks(startOffset);
+      const now = await latestBlockTimestamp();
+      const start = now.sub(startOffset);
+      const end = now.add(2000);
+      const rate = BigNumber.from(1);
+      const value = end.sub(start).mul(rate);
+
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(subscriber1.address, start, end, rate);
+
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, value);
+
+      const beforeBalance = await stableToken.balanceOf(subscriber1.address);
+
+      await subscriptions
+        .connect(subscriber2.signer)
+        .fulfil(subscriber1.address, value);
+
+      const extra = (await latestBlockTimestamp()).sub(start).mul(rate);
+      const afterBalance = await stableToken.balanceOf(subscriber1.address);
+      expect(afterBalance).eq(beforeBalance.add(extra));
+    });
   });
 });
 
