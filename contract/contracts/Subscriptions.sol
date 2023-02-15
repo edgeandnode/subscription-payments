@@ -116,7 +116,6 @@ contract Subscriptions is Ownable {
     /// @notice Remove the sender's subscription. Unlocked tokens will be transfered to the sender.
     function unsubscribe() public {
         address user = msg.sender;
-        require(user != address(0), 'user is null');
 
         Subscription storage sub = subscriptions[user];
         require(sub.start != 0, 'no active subscription');
