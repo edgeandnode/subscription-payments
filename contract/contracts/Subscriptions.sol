@@ -125,12 +125,11 @@ contract Subscriptions is Ownable {
 
         uint128 tokenAmount = unlocked(sub.start, sub.end, sub.rate);
 
+        _setEpochs(sub.start, sub.end, -int128(sub.rate));
         if ((sub.start <= _now) && (_now < sub.end)) {
-            _setEpochs(sub.start, sub.end, -int128(sub.rate));
             _setEpochs(sub.start, _now, int128(sub.rate));
             subscriptions[user].end = _now;
-        } else if (_now < sub.start) {
-            _setEpochs(sub.start, sub.end, -int128(sub.rate));
+        } else {
             delete subscriptions[user];
         }
 
