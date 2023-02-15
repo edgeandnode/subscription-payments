@@ -230,7 +230,6 @@ contract Subscriptions is Ownable {
     }
 
     /// @notice Fulfil method for the payment fulfilment service
-    /// @dev Second param required, but currently unused.
     /// @param _to Owner of the new subscription.
     /// @notice Equivalent to calling `subscribe` with the previous `setPendingSubscription`
     /// arguments for the same user.
