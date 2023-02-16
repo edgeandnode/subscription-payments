@@ -57,29 +57,16 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "address",
-        "name": "user",
+        "name": "token",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "uint64",
-        "name": "end",
+        "name": "epochSeconds",
         "type": "uint64"
-      }
-    ],
-    "name": "Extend",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
       }
     ],
     "name": "Init",
@@ -232,11 +219,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
         "name": "_signer",
         "type": "address"
       }
@@ -381,24 +363,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "internalType": "uint64",
-        "name": "end",
-        "type": "uint64"
-      }
-    ],
-    "name": "extendSubscription",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_to",
         "type": "address"
       },
@@ -507,11 +471,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
         "name": "_signer",
         "type": "address"
       }
@@ -558,11 +517,6 @@
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
       {
         "internalType": "uint64",
         "name": "start",

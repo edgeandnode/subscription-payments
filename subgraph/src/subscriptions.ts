@@ -2,7 +2,6 @@ import {store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
-  Extend as ExtendEvent,
   Subscribe as SubscribeEvent,
   Unsubscribe as UnsubscribeEvent,
   AuthorizedSignerAdded as AuthorizedSignerAddedEvent,
@@ -11,7 +10,6 @@ import {
 import {
   ActiveSubscription,
   Init,
-  Extend,
   Subscribe,
   Unsubscribe,
   AuthorizedSigner,
@@ -67,24 +65,6 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.save();
 
   store.remove('ActiveSubscription', event.params.user.toHexString());
-}
-
-export function handleExtend(event: ExtendEvent): void {
-  let user = loadOrCreateUser(event.params.user);
-
-  let entity = new Extend(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-  entity.user = user.id;
-  entity.end = event.params.end;
-  entity.save();
-
-  let sub = ActiveSubscription.load(event.params.user)!;
-  sub.end = event.params.end;
-  sub.save();
 }
 
 export function handleAuthorizedSignerAdded(

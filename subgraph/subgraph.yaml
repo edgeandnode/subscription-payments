@@ -16,13 +16,12 @@ dataSources:
         - Init
         - Subscribe
         - Unsubscribe
-        - Extend
         - ActiveSubscription
       abis:
         - name: Subscriptions
           file: ./abis/Subscriptions.json
       eventHandlers:
-        - event: Init(address)
+        - event: Init(address,uint64)
           handler: handleInit
         - event: Subscribe(indexed address,indexed uint256,uint64,uint64,uint128)
           handler: handleSubscribe

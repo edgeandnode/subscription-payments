@@ -54,28 +54,6 @@ export class AuthorizedSignerRemoved__Params {
   }
 }
 
-export class Extend extends ethereum.Event {
-  get params(): Extend__Params {
-    return new Extend__Params(this);
-  }
-}
-
-export class Extend__Params {
-  _event: Extend;
-
-  constructor(event: Extend) {
-    this._event = event;
-  }
-
-  get user(): Address {
-    return this._event.parameters[0].value.toAddress();
-  }
-
-  get end(): BigInt {
-    return this._event.parameters[1].value.toBigInt();
-  }
-}
-
 export class Init extends ethereum.Event {
   get params(): Init__Params {
     return new Init__Params(this);
@@ -91,6 +69,10 @@ export class Init__Params {
 
   get token(): Address {
     return this._event.parameters[0].value.toAddress();
+  }
+
+  get epochSeconds(): BigInt {
+    return this._event.parameters[1].value.toBigInt();
   }
 }
 
@@ -767,12 +749,8 @@ export class AddAuthorizedSignerCall__Inputs {
     this._call = call;
   }
 
-  get _user(): Address {
-    return this._call.inputValues[0].value.toAddress();
-  }
-
   get _signer(): Address {
-    return this._call.inputValues[1].value.toAddress();
+    return this._call.inputValues[0].value.toAddress();
   }
 }
 
@@ -840,40 +818,6 @@ export class Collect1Call__Outputs {
   }
 }
 
-export class ExtendSubscriptionCall extends ethereum.Call {
-  get inputs(): ExtendSubscriptionCall__Inputs {
-    return new ExtendSubscriptionCall__Inputs(this);
-  }
-
-  get outputs(): ExtendSubscriptionCall__Outputs {
-    return new ExtendSubscriptionCall__Outputs(this);
-  }
-}
-
-export class ExtendSubscriptionCall__Inputs {
-  _call: ExtendSubscriptionCall;
-
-  constructor(call: ExtendSubscriptionCall) {
-    this._call = call;
-  }
-
-  get user(): Address {
-    return this._call.inputValues[0].value.toAddress();
-  }
-
-  get end(): BigInt {
-    return this._call.inputValues[1].value.toBigInt();
-  }
-}
-
-export class ExtendSubscriptionCall__Outputs {
-  _call: ExtendSubscriptionCall;
-
-  constructor(call: ExtendSubscriptionCall) {
-    this._call = call;
-  }
-}
-
 export class FulfilCall extends ethereum.Call {
   get inputs(): FulfilCall__Inputs {
     return new FulfilCall__Inputs(this);
@@ -925,12 +869,8 @@ export class RemoveAuthorizedSignerCall__Inputs {
     this._call = call;
   }
 
-  get _user(): Address {
-    return this._call.inputValues[0].value.toAddress();
-  }
-
   get _signer(): Address {
-    return this._call.inputValues[1].value.toAddress();
+    return this._call.inputValues[0].value.toAddress();
   }
 }
 
@@ -1027,20 +967,16 @@ export class SubscribeCall__Inputs {
     this._call = call;
   }
 
-  get user(): Address {
-    return this._call.inputValues[0].value.toAddress();
-  }
-
   get start(): BigInt {
-    return this._call.inputValues[1].value.toBigInt();
+    return this._call.inputValues[0].value.toBigInt();
   }
 
   get end(): BigInt {
-    return this._call.inputValues[2].value.toBigInt();
+    return this._call.inputValues[1].value.toBigInt();
   }
 
   get rate(): BigInt {
-    return this._call.inputValues[3].value.toBigInt();
+    return this._call.inputValues[2].value.toBigInt();
   }
 }
 
