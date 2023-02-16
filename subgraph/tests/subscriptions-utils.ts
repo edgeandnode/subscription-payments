@@ -3,7 +3,6 @@ import {ethereum, Address, BigInt} from '@graphprotocol/graph-ts';
 import {
   AuthorizedSignerAdded,
   AuthorizedSignerRemoved,
-  Extend,
   Subscribe,
   Unsubscribe,
 } from '../generated/Subscriptions/Subscriptions';
@@ -57,21 +56,6 @@ export function createUnsubscribeEvent(
   );
 
   return unsubscribeEvent;
-}
-
-export function createExtendEvent(user: Address, end: BigInt): Extend {
-  let extendEvent = changetype<Extend>(newMockEvent());
-
-  extendEvent.parameters = new Array();
-
-  extendEvent.parameters.push(
-    new ethereum.EventParam('user', ethereum.Value.fromAddress(user))
-  );
-  extendEvent.parameters.push(
-    new ethereum.EventParam('end', ethereum.Value.fromUnsignedBigInt(end))
-  );
-
-  return extendEvent;
 }
 
 export function createAuthorizedSignerAddedEvent(

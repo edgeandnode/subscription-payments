@@ -102,12 +102,8 @@ async fn main() -> Result<()> {
             eprintln!("approve status: {}", status);
             ensure!(status == 1, "failed to approve token amount");
 
-            let call = subscriptions.subscribe(
-                wallet.address(),
-                start.timestamp() as u64,
-                end.timestamp() as u64,
-                rate,
-            );
+            let call =
+                subscriptions.subscribe(start.timestamp() as u64, end.timestamp() as u64, rate);
             eprintln!("tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
             let status = receipt
@@ -142,7 +138,7 @@ async fn main() -> Result<()> {
         Commands::AddAuthorizedSigner { signer } => {
             let active_sub = subscriptions.subscriptions(wallet.address()).await?;
             eprintln!("{active_sub:?}");
-            let call = subscriptions.add_authorized_signer(wallet.address(), signer);
+            let call = subscriptions.add_authorized_signer(signer);
             eprintln!("add authorized signer tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
             let status = receipt
@@ -155,7 +151,7 @@ async fn main() -> Result<()> {
         Commands::RemoveAuthorizedSigner { signer } => {
             let active_sub = subscriptions.subscriptions(wallet.address()).await?;
             eprintln!("{active_sub:?}");
-            let call = subscriptions.remove_authorized_signer(wallet.address(), signer);
+            let call = subscriptions.remove_authorized_signer(signer);
             eprintln!("remove authorized signer tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
             let status = receipt

@@ -10,7 +10,6 @@ import {
 import {Address, BigInt} from '@graphprotocol/graph-ts';
 
 import {
-  handleExtend,
   handleSubscribe,
   handleUnsubscribe,
   handleAuthorizedSignerAdded,
@@ -20,7 +19,6 @@ import {buildAuthorizedSignerId} from '../src/utils';
 import {
   createAuthorizedSignerAddedEvent,
   createAuthorizedSignerRemovedEvent,
-  createExtendEvent,
   createSubscribeEvent,
   createUnsubscribeEvent,
 } from './subscriptions-utils';
@@ -104,30 +102,6 @@ describe('Describe entity assertions', () => {
     assert.fieldEquals('ActiveSubscription', user, 'user', user);
     assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
     assert.fieldEquals('ActiveSubscription', user, 'end', '8000');
-    assert.fieldEquals(
-      'ActiveSubscription',
-      user,
-      'rate',
-      '3000000000000000000'
-    );
-  });
-
-  test('extend Subscription', () => {
-    let event = createExtendEvent(
-      Address.fromString(user),
-      BigInt.fromU32(10000)
-    );
-    event.logIndex = BigInt.fromU32(3);
-    handleExtend(event);
-
-    assert.entityCount('Extend', 1);
-    assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 1);
-
-    assert.entityCount('ActiveSubscription', 1);
-    assert.fieldEquals('ActiveSubscription', user, 'user', user);
-    assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
-    assert.fieldEquals('ActiveSubscription', user, 'end', '10000');
     assert.fieldEquals(
       'ActiveSubscription',
       user,
