@@ -178,6 +178,7 @@ contract Subscriptions is Ownable {
         );
 
         uint64 subStart = uint64(Math.max(pendingSub.start, block.timestamp));
+        require(subStart < pendingSub.end, 'Pending subscription has expired');
         uint256 subAmount = pendingSub.rate * (pendingSub.end - subStart);
         require(
             _amount >= subAmount,
