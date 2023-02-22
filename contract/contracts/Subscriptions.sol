@@ -331,6 +331,16 @@ contract Subscriptions is Ownable {
 
         // Overwrite an active subscription if there is one
         if (subscriptions[user].end > block.timestamp) {
+            // Note: This could potentially lead to a reentrancy vulnerability, since `_unsubscribe`
+            // may call `token.transfer` here prior to contract state changes below. Consider the
+            // following scenario:
+            //   - The user has an active subscription, and `_unsubscribe` is called here.
+            //   - Tokens are transfered to the user (for a refund), giving an opportunity for
+            //     reentrancy.
+            //   - This reentrancy occurs before `subscriptions[user]` is modified, and the new
+            //     epoch state gets updated.
+            // However, this would cause the attacker to lose money, as their old subscription data
+            // is overwritten with the new, with no chance to retrieve the funds for the old.
             _unsubscribe(user);
         }
 
