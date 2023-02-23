@@ -490,11 +490,6 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
         "internalType": "uint64",
         "name": "start",
         "type": "uint64"

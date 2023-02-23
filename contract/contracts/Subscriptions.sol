@@ -143,20 +143,15 @@ contract Subscriptions is Ownable {
 
     /// @notice Creates a subscription template without requiring funds. Expected to be used with
     /// `fulfil`.
-    /// @param user Owner for the pending subscription.
     /// @param start Start timestamp for the pending subscription.
     /// @param end End timestamp for the pending subscription.
     /// @param rate Rate for the pending subscription.
     function setPendingSubscription(
-        address user,
         uint64 start,
         uint64 end,
         uint128 rate
     ) public {
-        require(
-            msg.sender == user,
-            'Can only set pending subscriptions for self'
-        );
+        address user = msg.sender;
         pendingSubscriptions[user] = Subscription({
             start: start,
             end: end,
