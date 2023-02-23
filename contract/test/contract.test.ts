@@ -617,6 +617,29 @@ describe('Subscriptions contract', () => {
       await expect(tx).revertedWith('No pending subscription');
     });
 
+    it('should revert if pending subscription has expired', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now.sub(100);
+      const end = now.add(200);
+      const rate = BigNumber.from(1);
+      const value = end.sub(start).mul(rate);
+
+      await subscriptions
+        .connect(subscriber1.signer)
+        .setPendingSubscription(start, end, rate);
+
+      await stableToken
+        .connect(subscriber2.signer)
+        .approve(subscriptions.address, value);
+
+      await mineNBlocks(end.sub(now).toNumber());
+
+      const tx = subscriptions
+        .connect(subscriber2.signer)
+        .fulfil(subscriber1.address, value);
+      await expect(tx).revertedWith('Pending subscription has expired');
+    });
+
     it('should revert if fulfil funds are not enough to create the pending subscription', async function () {
       const now = await latestBlockTimestamp();
       const start = now.add(1000);
