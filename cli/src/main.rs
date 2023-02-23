@@ -1,5 +1,4 @@
 use anyhow::{ensure, Context, Result};
-use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use ethers::{abi::Address, prelude::*};
@@ -175,17 +174,15 @@ async fn main() -> Result<()> {
             let user = Address::from(payload.user.unwrap_or(payload.signer));
             ensure!(subscriptions.check_authorized_signer(user, signer).await?);
 
-            let ticket = payload.encode(
+            let ticket = payload.to_ticket_base64(
                 &domain_separator,
                 &wallet.signer().to_bytes().as_slice().try_into().unwrap(),
             )?;
 
-            let signature_start = ticket.len() - 65;
-            eprintln!("cbor_hex: {}", hex::encode(&ticket[..signature_start]));
-            let signature: &[u8; 65] = ticket[signature_start..].try_into().unwrap();
-            ensure!(wallet.address() == payload.verify(&domain_separator, signature)?);
+            // check recovery
+            TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator)?;
 
-            println!("{}", BASE64_URL_SAFE_NO_PAD.encode(ticket));
+            println!("{}", ticket);
         }
     }
 

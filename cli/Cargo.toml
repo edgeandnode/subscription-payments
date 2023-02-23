@@ -14,4 +14,3 @@ rand = "0.8"
 serde = { version = "1.0" }
 tokio = { version = "1.24", features = ["macros", "rt"] }
 toolshed = { git = "https://github.com/edgeandnode/toolshed", tag = "v0.1.1", default-features = false, features = ["url"] }
-base64 = { version = "0.21.0", features = ["alloc"] }

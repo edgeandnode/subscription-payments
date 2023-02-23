@@ -1,4 +1,5 @@
-use anyhow::{anyhow, ensure};
+use anyhow::{anyhow, ensure, Context};
+use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use eip712::{DomainSeparator, Eip712Domain, PrivateKey};
 pub use eip_712_derive as eip712;
@@ -42,6 +43,39 @@ impl eip712::StructType for TicketPayload {
 }
 
 impl TicketPayload {
+    pub fn from_ticket_base64(
+        ticket: &[u8],
+        domain_separator: &DomainSeparator,
+    ) -> anyhow::Result<(Self, [u8; 65])> {
+        let ticket = BASE64_URL_SAFE_NO_PAD.decode(ticket)?;
+
+        let signature_start = ticket.len() - 65;
+        let signature: &[u8; 65] = ticket[signature_start..]
+            .try_into()
+            .context("invalid signature")?;
+
+        let payload: TicketPayload =
+            ciborium::de::from_reader(&ticket[..signature_start]).context("invalid payload")?;
+        let recovered_signer = payload
+            .verify(&domain_separator, signature)
+            .context("failed to recover signer")?
+            .0;
+        ensure!(
+            payload.signer == recovered_signer,
+            "recovered signer does not match claim"
+        );
+        Ok((payload, *signature))
+    }
+
+    pub fn to_ticket_base64(
+        &self,
+        domain_separator: &DomainSeparator,
+        key: &PrivateKey,
+    ) -> anyhow::Result<String> {
+        let ticket = self.encode(domain_separator, key)?;
+        Ok(BASE64_URL_SAFE_NO_PAD.encode(ticket))
+    }
+
     pub fn verify(
         &self,
         domain_separator: &DomainSeparator,
