@@ -555,22 +555,6 @@ describe('Subscriptions contract', () => {
       expect(sub.end).to.equal(newEnd);
       expect(sub.rate).to.equal(newRate);
     });
-
-    it('only allow setting a pending subscription for self', async function () {
-      const now = await latestBlockTimestamp();
-      const start = now.add(1000);
-      const end = now.add(2000);
-      const rate = BigNumber.from(1);
-
-      // Set pending subscription
-      const tx = subscriptions
-        .connect(subscriber2.signer)
-        .setPendingSubscription(subscriber1.address, start, end, rate);
-
-      await expect(tx).revertedWith(
-        'Can only set pending subscriptions for self'
-      );
-    });
   });
 
   describe('fulfil', function () {
@@ -583,7 +567,7 @@ describe('Subscriptions contract', () => {
 
       await subscriptions
         .connect(subscriber1.signer)
-        .setPendingSubscription(subscriber1.address, start, end, rate);
+        .setPendingSubscription(start, end, rate);
 
       await stableToken
         .connect(subscriber2.signer)
@@ -609,7 +593,7 @@ describe('Subscriptions contract', () => {
 
       await subscriptions
         .connect(subscriber1.signer)
-        .setPendingSubscription(subscriber1.address, start, end, rate);
+        .setPendingSubscription(start, end, rate);
 
       await stableToken
         .connect(subscriber2.signer)
@@ -642,7 +626,7 @@ describe('Subscriptions contract', () => {
 
       await subscriptions
         .connect(subscriber1.signer)
-        .setPendingSubscription(subscriber1.address, start, end, rate);
+        .setPendingSubscription(start, end, rate);
 
       await stableToken
         .connect(subscriber2.signer)
@@ -667,7 +651,7 @@ describe('Subscriptions contract', () => {
 
       await subscriptions
         .connect(subscriber1.signer)
-        .setPendingSubscription(subscriber1.address, start, end, rate);
+        .setPendingSubscription(start, end, rate);
 
       await stableToken
         .connect(subscriber2.signer)
@@ -704,12 +688,7 @@ describe('Subscriptions contract', () => {
 
       await subscriptions
         .connect(subscriber1.signer)
-        .setPendingSubscription(
-          subscriber1.address,
-          sub1End,
-          sub1End.add(500),
-          sub1Rate
-        );
+        .setPendingSubscription(sub1End, sub1End.add(500), sub1Rate);
 
       // subscr2 creates subscription and prematurely calls fulfil() for subscr1
       now = await latestBlockTimestamp();
@@ -997,7 +976,7 @@ async function setPendingSubscription(
   // Set pending subscription
   const tx = subscriptions
     .connect(signer.signer)
-    .setPendingSubscription(signer.address, start, end, rate);
+    .setPendingSubscription(start, end, rate);
 
   await tx;
 
