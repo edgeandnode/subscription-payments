@@ -1,6 +1,7 @@
 import {HardhatUserConfig, task} from 'hardhat/config';
 import '@nomiclabs/hardhat-ethers';
 import '@typechain/hardhat';
+import "@nomiclabs/hardhat-etherscan";
 import './tasks/deploy';
 
 task('accounts', 'Print a list of accounts', async (_, hre) => {
@@ -92,6 +93,12 @@ const config: HardhatUserConfig = {
   typechain: {
     outDir: 'types',
     target: 'ethers-v5',
+  },
+  etherscan: {
+    apiKey: {
+      arbitrumOne: process.env.ARBISCAN_API_KEY!,
+      arbitrumGoerli: process.env.ARBISCAN_API_KEY!,
+    },
   },
 };
 
