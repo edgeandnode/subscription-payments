@@ -9,6 +9,7 @@ use ethers::{
     types::{RecoveryMessage, Signature},
 };
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 abigen!(
     Subscriptions,
@@ -22,10 +23,13 @@ abigen!(
 #[derive(Deserialize, Serialize)]
 pub struct TicketPayload {
     /// Unique identifier.
+    #[serde(with = "serde_byte_array")]
     pub id: [u8; 8],
     /// Address associated with the secret key used to sign the ticket.
+    #[serde(with = "serde_byte_array")]
     pub signer: [u8; 20],
     /// Disambiguates when an authorized signer is also a user. Defaults to `signer` when omitted.
+    #[serde(with = "serde_byte_array")]
     pub user: Option<[u8; 20]>,
     // /// Maximum uses for tickets with matching identifiers. Defaults to 1 when omitted.
     // pub max_uses: Option<u64>,
@@ -42,12 +46,24 @@ impl eip712::StructType for TicketPayload {
     }
 }
 
+impl fmt::Debug for TicketPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TicketPayload")
+            .field("id", &hex::encode(self.id))
+            .field("signer", &hex::encode(self.signer))
+            .field("user", &self.user.map(hex::encode))
+            .finish()
+    }
+}
+
 impl TicketPayload {
     pub fn from_ticket_base64(
         ticket: &[u8],
         domain_separator: &DomainSeparator,
     ) -> anyhow::Result<(Self, [u8; 65])> {
-        let ticket = BASE64_URL_SAFE_NO_PAD.decode(ticket)?;
+        let ticket = base64::prelude::BASE64_URL_SAFE_NO_PAD
+            .decode(ticket)
+            .context("invalid base64 (URL, nopad)")?;
 
         let signature_start = ticket.len() - 65;
         let signature: &[u8; 65] = ticket[signature_start..]
@@ -55,9 +71,9 @@ impl TicketPayload {
             .context("invalid signature")?;
 
         let payload: TicketPayload =
-            ciborium::de::from_reader(&ticket[..signature_start]).context("invalid payload")?;
+            serde_cbor_2::de::from_reader(&ticket[..signature_start]).context("invalid payload")?;
         let recovered_signer = payload
-            .verify(&domain_separator, signature)
+            .verify(domain_separator, signature)
             .context("failed to recover signer")?
             .0;
         ensure!(
@@ -98,8 +114,7 @@ impl TicketPayload {
         key: &PrivateKey,
     ) -> anyhow::Result<Vec<u8>> {
         let (sig, r) = self.sign_hash(domain_separator, key)?;
-        let mut buf = Vec::<u8>::new();
-        ciborium::ser::into_writer(self, &mut buf)?;
+        let mut buf = serde_cbor_2::ser::to_vec(self)?;
         buf.append(&mut sig.into());
         buf.push(r);
         Ok(buf)
@@ -146,4 +161,21 @@ impl TryFrom<(u64, u64, u128)> for Subscription {
         let end = to_datetime(end)?;
         Ok(Self { start, end, rate })
     }
+}
+
+#[cfg(test)]
+#[test]
+fn test_ticket() {
+    let chain_id = 1337;
+    let contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+        .parse::<Address>()
+        .unwrap();
+    let domain = TicketPayload::eip712_domain(chain_id, contract_address);
+    let domain_separator = eip712::DomainSeparator::new(&domain);
+
+    let ticket = "o2JpZEhrRXi4sZUWpGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImZkdXNlcvY9uE17zNUQpu6ElwD037VjBiHzFkk2WI3nvrV9eQcE7zDdDFgwetINM5QECDhQ6WaNnukJ6VPjAJroTVEjXMn0HA";
+    let (payload, signature) =
+        TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator).unwrap();
+    println!("{:#?}", payload);
+    println!("Signature({:?})", hex::encode(signature));
 }
