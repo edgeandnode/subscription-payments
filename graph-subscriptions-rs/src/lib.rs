@@ -51,6 +51,12 @@ pub struct TicketPayload {
     // pub max_uses: Option<u64>,
     // /// Unix timestamp after which the ticket is invalid.
     // pub expiration: Option<u64>,
+    /// Comma-separated list of subgraphs that can be queried with this ticket.
+    pub allowed_subgraphs: Option<String>,
+    /// Comma-separated list of subgraph deployments that can be queried with this ticket.
+    pub allowed_deployments: Option<String>,
+    /// Comma-separated list of origin domains that can send queries with this ticket.
+    pub allowed_domains: Option<String>,
 }
 
 impl eip712::StructType for TicketPayload {
@@ -60,6 +66,18 @@ impl eip712::StructType for TicketPayload {
         visitor.visit("signer", &eip712::Address(self.signer.0));
         visitor.visit("user", &eip712::Address(self.user.unwrap_or(self.signer).0));
         visitor.visit("name", &self.name.clone().unwrap_or_default());
+        visitor.visit(
+            "allowed_subgraphs",
+            &self.allowed_subgraphs.clone().unwrap_or_default(),
+        );
+        visitor.visit(
+            "allowed_deployments",
+            &self.allowed_deployments.clone().unwrap_or_default(),
+        );
+        visitor.visit(
+            "allowed_domains",
+            &self.allowed_domains.clone().unwrap_or_default(),
+        );
     }
 }
 

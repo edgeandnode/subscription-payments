@@ -53,6 +53,12 @@ enum Commands {
         user: Option<Address>,
         #[arg(long)]
         name: Option<String>,
+        #[arg(long)]
+        allowed_subgraphs: Option<String>,
+        #[arg(long)]
+        allowed_deployments: Option<String>,
+        #[arg(long)]
+        allowed_domains: Option<String>,
     },
 }
 
@@ -167,6 +173,9 @@ async fn main() -> Result<()> {
             signer,
             user,
             name,
+            allowed_subgraphs,
+            allowed_deployments,
+            allowed_domains,
         } => {
             let domain = TicketPayload::eip712_domain(opt.chain_id, subscriptions.address());
             let domain_separator = eip712::DomainSeparator::new(&domain);
@@ -177,6 +186,9 @@ async fn main() -> Result<()> {
                 signer,
                 user,
                 name,
+                allowed_subgraphs,
+                allowed_deployments,
+                allowed_domains,
             };
 
             let user = payload.user.unwrap_or(payload.signer);
