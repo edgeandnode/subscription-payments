@@ -33,6 +33,7 @@ impl From<AddressBytes> for Address { fn from(value: AddressBytes) -> Self { val
 #[rustfmt::skip]
 impl From<Address> for AddressBytes { fn from(value: Address) -> Self { Self(value.0) } }
 
+// TODO: handle optional fields as `options: BTreeMap<String, String>,`
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -65,19 +66,18 @@ impl eip712::StructType for TicketPayload {
         visitor.visit("id", &self.id.to_be_bytes());
         visitor.visit("signer", &eip712::Address(self.signer.0));
         visitor.visit("user", &eip712::Address(self.user.unwrap_or(self.signer).0));
-        visitor.visit("name", &self.name.clone().unwrap_or_default());
-        visitor.visit(
-            "allowed_subgraphs",
-            &self.allowed_subgraphs.clone().unwrap_or_default(),
-        );
-        visitor.visit(
-            "allowed_deployments",
-            &self.allowed_deployments.clone().unwrap_or_default(),
-        );
-        visitor.visit(
-            "allowed_domains",
-            &self.allowed_domains.clone().unwrap_or_default(),
-        );
+        if let Some(name) = &self.name {
+            visitor.visit("name", name);
+        }
+        if let Some(allowed_subgraphs) = &self.allowed_subgraphs {
+            visitor.visit("allowed_subgraphs", allowed_subgraphs);
+        }
+        if let Some(allowed_deployments) = &self.allowed_deployments {
+            visitor.visit("allowed_deployments", allowed_deployments);
+        }
+        if let Some(allowed_domains) = &self.allowed_domains {
+            visitor.visit("allowed_domains", allowed_domains);
+        }
     }
 }
 
@@ -197,7 +197,7 @@ fn test_ticket() {
     let domain = TicketPayload::eip712_domain(chain_id, contract_address);
     let domain_separator = eip712::DomainSeparator::new(&domain);
 
-    let ticket = "omJpZBuJOINiTrw1jGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImYCmn5n8Pp1OLU_iIu0et9VWzlF9Q8YhO_xcyORAj-paTEz0t52H0tvWtuxDK0ARF1BM209m57hTtVdp6JoM_luGw";
+    let ticket = "omJpZBs1sgbzHbbOBGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaWmnagrqD-_AABXUcDxquxmTfUsOFUl2fj5cppR7BXOjjCHn2RvRk64Nvdx3ZkT1DN1SvFTz7i39xHvzTls4OiHA";
     let (payload, signature) =
         TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator).unwrap();
     println!("{:#?}", payload);

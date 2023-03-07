@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1.0.69"
 chrono = { version = "0.4.23", default-features = false, features = ["std", "clock"] }
-clap = { version = "4.1", features = ["derive"] }
+clap = { version = "4.1.0", features = ["derive"] }
+ethers = { version = "2.0.0", default-features = false}
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
-ethers = { version = "1.0", default-features = false}
 hex = "0.4.3"
-rand = "0.8"
-serde = { version = "1.0" }
+rand = "0.8.0"
+serde = { version = "1.0.0" }
 tokio = { version = "1.24", features = ["macros", "rt"] }
 toolshed = { git = "https://github.com/edgeandnode/toolshed", tag = "v0.1.1", default-features = false, features = ["url"] }
