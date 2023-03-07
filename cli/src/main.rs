@@ -51,6 +51,14 @@ enum Commands {
         signer: Option<Address>,
         #[arg(long)]
         user: Option<Address>,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        allowed_subgraphs: Option<String>,
+        #[arg(long)]
+        allowed_deployments: Option<String>,
+        #[arg(long)]
+        allowed_domains: Option<String>,
     },
 }
 
@@ -160,18 +168,30 @@ async fn main() -> Result<()> {
             ensure!(status == 1, "Failed to remove the authorized signer");
         }
 
-        Commands::Ticket { id, signer, user } => {
+        Commands::Ticket {
+            id,
+            signer,
+            user,
+            name,
+            allowed_subgraphs,
+            allowed_deployments,
+            allowed_domains,
+        } => {
             let domain = TicketPayload::eip712_domain(opt.chain_id, subscriptions.address());
             let domain_separator = eip712::DomainSeparator::new(&domain);
 
-            let signer = signer.unwrap_or_else(|| wallet.address());
+            let signer = signer.unwrap_or(wallet.address());
             let payload = TicketPayload {
-                id: id.unwrap_or_else(|| thread_rng().next_u64()).to_be_bytes(),
-                signer: signer.to_fixed_bytes(),
-                user: user.map(|user| user.0),
+                id: id.unwrap_or_else(|| thread_rng().next_u64()),
+                signer,
+                user,
+                name,
+                allowed_subgraphs,
+                allowed_deployments,
+                allowed_domains,
             };
 
-            let user = Address::from(payload.user.unwrap_or(payload.signer));
+            let user = payload.user.unwrap_or(payload.signer);
             ensure!(subscriptions.check_authorized_signer(user, signer).await?);
 
             let ticket = payload.to_ticket_base64(

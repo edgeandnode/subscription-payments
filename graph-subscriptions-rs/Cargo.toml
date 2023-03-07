@@ -4,13 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-base64 = { version = "0.21", features = ["alloc"] }
-chrono = { version = "0.4", default-features = false }
-ciborium = "0.2.0"
-ethers = { version = "1.0", default-features = false, features = ['abigen'] }
+anyhow = "1.0.69"
+base64 = { version = "0.21.0", features = ["alloc"] }
+chrono = { version = "0.4.0", default-features = false }
 eip-712-derive = { git = "https://github.com/graphprotocol/eip-712-derive" }
-serde = { version = "1.0" }
-hex = "0.4"
+ethers = { version = "2.0.0", default-features = false, features = ["abigen"] }
+serde = "1.0.0"
+hex = "0.4.0"
 serde_cbor_2 = "0.12.0-dev"
-serde-byte-array = "0.1"
+serde_with = "2.2.0"

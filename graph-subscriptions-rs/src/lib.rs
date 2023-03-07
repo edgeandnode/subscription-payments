@@ -1,15 +1,16 @@
+pub use eip_712_derive as eip712;
+
 use anyhow::{anyhow, ensure, Context};
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use eip712::{DomainSeparator, Eip712Domain, PrivateKey};
-pub use eip_712_derive as eip712;
 use ethers::{
     abi::Address,
     contract::abigen,
     types::{RecoveryMessage, Signature},
 };
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use serde_with::{serde_as, skip_serializing_none, Bytes, FromInto};
 
 abigen!(
     Subscriptions,
@@ -20,39 +21,63 @@ abigen!(
     event_derives(serde::Deserialize, serde::Serialize);
 );
 
-#[derive(Deserialize, Serialize)]
+// This is necessary intermediary to get the Address wrapper type over bytes to serialize &
+// deserialize as bytes in the CBOR representation.
+// See https://github.com/jonasbb/serde_with/discussions/557
+#[serde_as]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(transparent)]
+struct AddressBytes(#[serde_as(as = "Bytes")] [u8; 20]);
+#[rustfmt::skip]
+impl From<AddressBytes> for Address { fn from(value: AddressBytes) -> Self { value.0.into() } }
+#[rustfmt::skip]
+impl From<Address> for AddressBytes { fn from(value: Address) -> Self { Self(value.0) } }
+
+// TODO: handle optional fields as `options: BTreeMap<String, String>,`
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TicketPayload {
-    /// Unique identifier.
-    #[serde(with = "serde_byte_array")]
-    pub id: [u8; 8],
+    /// Unique identifier, used in conjunction with additional options such as `max_uses`.
+    pub id: u64,
     /// Address associated with the secret key used to sign the ticket.
-    #[serde(with = "serde_byte_array")]
-    pub signer: [u8; 20],
+    #[serde_as(as = "FromInto<AddressBytes>")]
+    pub signer: Address,
     /// Disambiguates when an authorized signer is also a user. Defaults to `signer` when omitted.
-    #[serde(with = "serde_byte_array")]
-    pub user: Option<[u8; 20]>,
+    #[serde_as(as = "Option<FromInto<AddressBytes>>")]
+    pub user: Option<Address>,
+    /// Optional nice name.
+    pub name: Option<String>,
     // /// Maximum uses for tickets with matching identifiers. Defaults to 1 when omitted.
     // pub max_uses: Option<u64>,
     // /// Unix timestamp after which the ticket is invalid.
     // pub expiration: Option<u64>,
+    /// Comma-separated list of subgraphs that can be queried with this ticket.
+    pub allowed_subgraphs: Option<String>,
+    /// Comma-separated list of subgraph deployments that can be queried with this ticket.
+    pub allowed_deployments: Option<String>,
+    /// Comma-separated list of origin domains that can send queries with this ticket.
+    pub allowed_domains: Option<String>,
 }
 
 impl eip712::StructType for TicketPayload {
     const TYPE_NAME: &'static str = "Ticket";
     fn visit_members<T: eip712::MemberVisitor>(&self, visitor: &mut T) {
-        visitor.visit("id", &self.id);
-        visitor.visit("signer", &self.signer);
-        visitor.visit("user", &self.user.unwrap_or(self.signer));
-    }
-}
-
-impl fmt::Debug for TicketPayload {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TicketPayload")
-            .field("id", &hex::encode(self.id))
-            .field("signer", &hex::encode(self.signer))
-            .field("user", &self.user.map(hex::encode))
-            .finish()
+        visitor.visit("id", &self.id.to_be_bytes());
+        visitor.visit("signer", &eip712::Address(self.signer.0));
+        visitor.visit("user", &eip712::Address(self.user.unwrap_or(self.signer).0));
+        if let Some(name) = &self.name {
+            visitor.visit("name", name);
+        }
+        if let Some(allowed_subgraphs) = &self.allowed_subgraphs {
+            visitor.visit("allowed_subgraphs", allowed_subgraphs);
+        }
+        if let Some(allowed_deployments) = &self.allowed_deployments {
+            visitor.visit("allowed_deployments", allowed_deployments);
+        }
+        if let Some(allowed_domains) = &self.allowed_domains {
+            visitor.visit("allowed_domains", allowed_domains);
+        }
     }
 }
 
@@ -74,8 +99,7 @@ impl TicketPayload {
             serde_cbor_2::de::from_reader(&ticket[..signature_start]).context("invalid payload")?;
         let recovered_signer = payload
             .verify(domain_separator, signature)
-            .context("failed to recover signer")?
-            .0;
+            .context("failed to recover signer")?;
         ensure!(
             payload.signer == recovered_signer,
             "recovered signer does not match claim"
@@ -104,8 +128,8 @@ impl TicketPayload {
             v: signature[64].into(),
         };
         let recovered_signer = signature.recover(RecoveryMessage::Hash(hash.into()))?;
-        ensure!(&recovered_signer.0 == &self.signer);
-        Ok(self.signer.into())
+        ensure!(&recovered_signer == &self.signer);
+        Ok(self.signer)
     }
 
     pub fn encode(
@@ -173,7 +197,7 @@ fn test_ticket() {
     let domain = TicketPayload::eip712_domain(chain_id, contract_address);
     let domain_separator = eip712::DomainSeparator::new(&domain);
 
-    let ticket = "o2JpZEhrRXi4sZUWpGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImZkdXNlcvY9uE17zNUQpu6ElwD037VjBiHzFkk2WI3nvrV9eQcE7zDdDFgwetINM5QECDhQ6WaNnukJ6VPjAJroTVEjXMn0HA";
+    let ticket = "omJpZBs1sgbzHbbOBGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaWmnagrqD-_AABXUcDxquxmTfUsOFUl2fj5cppR7BXOjjCHn2RvRk64Nvdx3ZkT1DN1SvFTz7i39xHvzTls4OiHA";
     let (payload, signature) =
         TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator).unwrap();
     println!("{:#?}", payload);
