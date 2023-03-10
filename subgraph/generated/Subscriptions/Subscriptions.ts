@@ -925,20 +925,16 @@ export class SetPendingSubscriptionCall__Inputs {
     this._call = call;
   }
 
-  get user(): Address {
-    return this._call.inputValues[0].value.toAddress();
-  }
-
   get start(): BigInt {
-    return this._call.inputValues[1].value.toBigInt();
+    return this._call.inputValues[0].value.toBigInt();
   }
 
   get end(): BigInt {
-    return this._call.inputValues[2].value.toBigInt();
+    return this._call.inputValues[1].value.toBigInt();
   }
 
   get rate(): BigInt {
-    return this._call.inputValues[3].value.toBigInt();
+    return this._call.inputValues[2].value.toBigInt();
   }
 }
 
