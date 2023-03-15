@@ -32,6 +32,21 @@ of tokens recoverable by the user decreases at `rate` tokens per block until the
 when the recoverable amount becomes 0. The contract owner may only collect tokens that are no longer
 recoverable by any the user.
 
+### Epochs
+
+For the subscriptions contract, an epoch defines the minimum time frame after which tokens from user
+subscriptions can be collected by the contract owner (the gateway operator). The epoch length
+(`epochSeconds`) is set once, when the contract is deployed, and cannot be modified.
+
+For example:
+An epoch length is 2 hours and a user subscribes for 5 hours at a rate of 10 tokens per hour
+starting immediately upon contract creation. 20 tokens will become collectable after 2 hours, 20
+more after 4 hours, and 10 more after 6 hours.
+
+The tradeoff is that a longer epoch time is more gas-efficient for the owner to collect, but they
+obviously will have more lag before they can collect what they are owed from the contract. Doubling
+the epoch time approximately halves the gas cost of collection. (edited)
+
 ## Upgrade Strategy
 
 The expected strategy for upgrading or deploying a new contract is as follows:
