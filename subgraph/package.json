@@ -6,7 +6,7 @@
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "test": "graph test",
+    "test": "graph test subscriptions -v 0.5.4",
     "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ edgeandnode-subscriptions",
     "create-local": "graph create --node http://localhost:8020/ edgeandnode-subscriptions",
     "remove-local": "graph remove --node http://localhost:8020/ edgeandnode-subscriptions",

@@ -68,6 +68,9 @@ describe('Describe entity assertions', () => {
       'rate',
       '2000000000000000000'
     );
+
+    // validate UserSubscriptionCreatedEvent record created
+    assert.entityCount('UserSubscriptionCreatedEvent', 1);
   });
 
   test('handle Unsubscribe', () => {
@@ -80,6 +83,7 @@ describe('Describe entity assertions', () => {
     assert.entityCount('Subscribe', 1);
     assert.entityCount('Unsubscribe', 1);
     assert.entityCount('ActiveSubscription', 0);
+    assert.entityCount('UserSubscriptionCanceledEvent', 1);
   });
 
   test('update Subscription', () => {
@@ -108,6 +112,76 @@ describe('Describe entity assertions', () => {
       'rate',
       '3000000000000000000'
     );
+    // validate only 1 UserSubscriptionCreatedEvent record created
+    assert.entityCount('UserSubscriptionCreatedEvent', 1);
+    // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
+    assert.entityCount('UserSubscriptionRenewalEvent', 1);
+    // validate that the UserSubscriptionCanceledEvent is removed
+    assert.entityCount('UserSubscriptionCanceledEvent', 0);
+  });
+
+  test('upgrade Subscription', () => {
+    let event = createSubscribeEvent(
+      Address.fromString(user),
+      BigInt.fromU32(0),
+      BigInt.fromU32(3000),
+      BigInt.fromU32(8000),
+      BigInt.fromU32(10)
+        .pow(18)
+        .times(BigInt.fromU32(5))
+    );
+    event.logIndex = BigInt.fromU32(2);
+    handleSubscribe(event);
+
+    assert.entityCount('Subscribe', 2);
+    assert.entityCount('Unsubscribe', 1);
+
+    assert.entityCount('ActiveSubscription', 1);
+    assert.fieldEquals('ActiveSubscription', user, 'user', user);
+    assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
+    assert.fieldEquals('ActiveSubscription', user, 'end', '8000');
+    assert.fieldEquals(
+      'ActiveSubscription',
+      user,
+      'rate',
+      '5000000000000000000'
+    );
+    // validate only 1 UserSubscriptionCreatedEvent record created
+    assert.entityCount('UserSubscriptionCreatedEvent', 1);
+    // validate that a UserSubscriptionUpgradeEvent is created as the subscription was rate was increased
+    assert.entityCount('UserSubscriptionUpgradeEvent', 1);
+  });
+
+  test('downgrade Subscription', () => {
+    let event = createSubscribeEvent(
+      Address.fromString(user),
+      BigInt.fromU32(0),
+      BigInt.fromU32(3000),
+      BigInt.fromU32(8000),
+      BigInt.fromU32(10)
+        .pow(18)
+        .times(BigInt.fromU32(2))
+    );
+    event.logIndex = BigInt.fromU32(2);
+    handleSubscribe(event);
+
+    assert.entityCount('Subscribe', 2);
+    assert.entityCount('Unsubscribe', 1);
+
+    assert.entityCount('ActiveSubscription', 1);
+    assert.fieldEquals('ActiveSubscription', user, 'user', user);
+    assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
+    assert.fieldEquals('ActiveSubscription', user, 'end', '8000');
+    assert.fieldEquals(
+      'ActiveSubscription',
+      user,
+      'rate',
+      '2000000000000000000'
+    );
+    // validate only 1 UserSubscriptionCreatedEvent record created
+    assert.entityCount('UserSubscriptionCreatedEvent', 1);
+    // validate that a UserSubscriptionDowngradeEvent is created as the subscription was rate was increased
+    assert.entityCount('UserSubscriptionDowngradeEvent', 1);
   });
 
   test('should be able to add an AuthorizedSigner entity for the ActiveSubscription. but must be unique', () => {

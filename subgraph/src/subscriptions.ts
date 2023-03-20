@@ -1,4 +1,4 @@
-import {store} from '@graphprotocol/graph-ts';
+import {store, log} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -60,52 +60,54 @@ export function handleSubscribe(event: SubscribeEvent): void {
   let sub = ActiveSubscription.load(event.params.user);
   if (sub == null) {
     sub = new ActiveSubscription(event.params.user);
+    sub.user = user.id;
+    sub.start = event.params.start;
+    sub.end = event.params.end;
+    sub.rate = event.params.rate;
     sub.save();
     // Since ActiveSubscription record does not exist, the user is subscribing for the 1st time.
     // Create and store a UserSubscriptionCreatedEvent record.
     buildAndSaveUserSubscriptionCreatedEvent(user, sub, event);
-  } else {
-    // Check if the sub.end is < than the event.params.end value.
-    // If this is true, then the user is renewing their ActiveSubscription; create a UserSubscriptionRenewalEvent record.
-    if (sub.end < event.params.end) {
+    // If the user calls the subscribe function on the contract and the ActiveSubscription.end > block.timestamp,
+    // then the contract will call the unsubscribe function, which emits the Unsubscribe event.
+    // In the `handleUnsubscribe` fn below, we create a `UserSubscriptionCanceledEvent` record on the Unsubscribe event.
+    // The contract then recreates the ActiveSubscription and emits a Subscribe event; which is handled by this function.
+    // In this instance where an Unsubscribe is immediately followed by a Subscribe,
+    // the user did not intend to "Cancel" their subscription, they meant to renew it.
+    // As a result, find the created `UserSubscriptionCanceledEvent` record for the user and remove it from the store,
+    // and create a `UserSubscriptionRenewalEvent` record.
+    // NOTE:  preferably, we don't create the `UserSubscriptionCanceledEvent` record, but not sure how to ensure that.
+    //        alternatively, we create the `UserSubscriptionCanceledEvent` record but don't remove it to track that it occurred.
+    let canceledEventId = buildUserSubscriptionEventId(
+      user.id,
+      USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
+      event.block.timestamp
+    );
+    let canceledEvent = UserSubscriptionCanceledEvent.load(canceledEventId);
+    if (canceledEvent != null) {
       buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
+
+      store.remove(
+        'UserSubscriptionCanceledEvent',
+        canceledEventId.toHexString()
+      );
     }
+  } else {
     // Check if the sub.rate is > than the event.params.rate value.
     // If this is true, then the user is upgrading their ActiveSubscription; create a UserSubscriptionUpgradeEvent record.
-    if (sub.end < event.params.end) {
+    if (event.params.rate > sub.rate) {
       buildAndSaveUserSubscriptionUpgradeEvent(user, sub, event);
     }
     // Check if the sub.rate is < than the event.params.rate value.
     // If this is true, then the user is downgrading their ActiveSubscription; create a UserSubscriptionDowngradeEvent record.
-    if (sub.end < event.params.end) {
+    if (event.params.rate < sub.rate) {
       buildAndSaveUserSubscriptionDowngradeEvent(user, sub, event);
     }
-  }
-  sub.user = user.id;
-  sub.start = event.params.start;
-  sub.end = event.params.end;
-  sub.rate = event.params.rate;
-  sub.save();
-
-  // If the user calls the subscribe function on the contract and the ActiveSubscription.end > block.timestamp,
-  // then the contract will call the unsubscribe function, which emits the Unsubscribe event.
-  // In the `handleUnsubscribe` fn below, we create a `UserSubscriptionCanceledEvent` record on the Unsubscribe event.
-  // The contract then recreates the ActiveSubscription and emits a Subscribe event; which is handled by this function.
-  // In this instance where an Unsubscribe is immediately followed by a Subscribe,
-  // the user did not intend to "Cancel" their subscription.
-  // As a result, find the created `UserSubscriptionCanceledEvent` record for the user and remove it from the store.
-  // NOTE: preferably, we don't create the `UserSubscriptionCanceledEvent` record, but not sure how to ensure that.
-  let canceledEventId = buildUserSubscriptionEventId(
-    user.id,
-    USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
-    event.block.timestamp
-  );
-  let canceledEvent = UserSubscriptionCanceledEvent.load(canceledEventId);
-  if (canceledEvent != null) {
-    store.remove(
-      'UserSubscriptionCanceledEvent',
-      canceledEventId.toHexString()
-    );
+    sub.user = user.id;
+    sub.start = event.params.start;
+    sub.end = event.params.end;
+    sub.rate = event.params.rate;
+    sub.save();
   }
 }
 
