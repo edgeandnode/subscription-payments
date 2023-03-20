@@ -13,6 +13,7 @@ type User @entity(immutable: true) {
   extendEvents: [Unsubscribe!] @derivedFrom(field: "user")
   activeSubscriptions: [ActiveSubscription!] @derivedFrom(field: "user")
   authorizedSigners: [AuthorizedSigner!] @derivedFrom(field: "user")
+  events: [UserSubscriptionsEvent!] @derivedFrom(field: "user")
 }
 
 type Subscribe @entity(immutable: true) {
@@ -55,4 +56,129 @@ type AuthorizedSigner @entity {
   id: Bytes! #keccak256 hex string of user:signer
   user: User!
   signer: Bytes! #address
+}
+
+"""
+Enum of available User Subscription Event types based off the action the user performed
+"""
+enum UserSubscriptionsEventType {
+  # The user created a net-new Subscription
+  CREATED
+  # The user canceled their active Subscription
+  CANCELED
+  # The user renewed (extended the ending timestamp) of their active Subscription
+  RENEW
+  # The user upgraded (set the rate to a higher value -> more queries available) of their active Subscription
+  UPGRADE
+  # The user downgraded (set the rate to a lower value -> less queries available) of their active Subscription
+  DOWNGRADE
+}
+
+"""
+Generic interface that maps user events in the Subscriptions contract.
+
+Some example events:
+- User creates a net-new subscription -> UserSubscriptionCreatedEvent
+- User cancels their active subscription -> UserSubscriptionCanceledEvent
+- User renews their active subscription -> UserSubscriptionRenewalEvent
+- User upgrades their active subscription -> UserSubscriptionUpgradeEvent
+- User downgrades their active subscription -> UserSubscriptionDowngradeEvent
+"""
+interface UserSubscriptionsEvent {
+  # keccak256 hex string of user:{event type}:txHash
+  id: Bytes!
+  user: User!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+  eventType: UserSubscriptionsEventType!
+}
+
+"""
+User created a net-new active Subscription
+"""
+type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
+  @entity(immutable: true) {
+  # keccak256 hex string of user:created:timestamp
+  id: Bytes!
+  user: User!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+  # will always be UserSubscriptionsEventType.CREATED
+  eventType: UserSubscriptionsEventType!
+  # the created active subscription
+  activeSubscription: ActiveSubscription!
+}
+
+"""
+User canceled their active subscription
+"""
+type UserSubscriptionCanceledEvent implements UserSubscriptionsEvent
+  @entity(immutable: true) {
+  # keccak256 hex string of user:canceled:timestamp
+  id: Bytes!
+  user: User!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+  # will always be UserSubscriptionsEventType.CANCELED
+  eventType: UserSubscriptionsEventType!
+}
+
+"""
+User renewed their active Subscription.
+
+Renewing means that the user extended the end timestamp of their active Subscription to a later timestamp.
+"""
+type UserSubscriptionRenewalEvent implements UserSubscriptionsEvent
+  @entity(immutable: true) {
+  # keccak256 hex string of user:renew:timestamp
+  id: Bytes!
+  user: User!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+  # will always be UserSubscriptionsEventType.RENEW
+  eventType: UserSubscriptionsEventType!
+  # the user's active subscription
+  activeSubscription: ActiveSubscription!
+}
+
+"""
+User upgraded their active Subscription.
+
+Upgrading means that the user increased the `rate` on their active Subscription, granting them more query volume.
+"""
+type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
+  @entity(immutable: true) {
+  # keccak256 hex string of user:upgrade:timestamp
+  id: Bytes!
+  user: User!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+  # will always be UserSubscriptionsEventType.UPGRADE
+  eventType: UserSubscriptionsEventType!
+  # the user's active subscription
+  activeSubscription: ActiveSubscription!
+}
+
+"""
+User downgraded their active Subscription.
+
+Downgrading means that the user decreased the `rate` on their active Subscription, granting them less query volume.
+"""
+type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
+  @entity(immutable: true) {
+  # keccak256 hex string of user:downgrade:timestamp
+  id: Bytes!
+  user: User!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+  # will always be UserSubscriptionsEventType.DOWNGRADE
+  eventType: UserSubscriptionsEventType!
+  # the user's active subscription
+  activeSubscription: ActiveSubscription!
 }

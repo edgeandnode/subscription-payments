@@ -3,5 +3,11 @@
     "Subscriptions": {
       "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     }
+  },
+  "arbitrum-goerli": {
+    "Subscriptions": {
+      "address": "0x149ac4645a591bb3bE1255bFDA53f190EFe4f54C",
+      "startBlock": 9347980
+    }
   }
 }
