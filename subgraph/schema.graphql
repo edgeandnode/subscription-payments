@@ -6,7 +6,7 @@ type Init @entity(immutable: true) {
   token: Bytes! # address
 }
 
-type User @entity(immutable: true) {
+type User @entity {
   id: Bytes!
   subscribeEvents: [Subscribe!]! @derivedFrom(field: "user") # can't have a User with a subscribe
   unsubscribeEvents: [Unsubscribe!] @derivedFrom(field: "user")
