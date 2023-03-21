@@ -6,8 +6,8 @@
   },
   "arbitrum-goerli": {
     "Subscriptions": {
-      "address": "0x149ac4645a591bb3bE1255bFDA53f190EFe4f54C",
-      "startBlock": 9347980
+      "address": "0x29f49a438c747e7Dd1bfe7926b03783E47f9447B",
+      "startBlock": 10350834
     }
   }
 }
