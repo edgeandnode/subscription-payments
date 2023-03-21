@@ -100,8 +100,20 @@ describe('Describe entity assertions', () => {
     assert.fieldEquals(
       'UserSubscriptionCreatedEvent',
       createdEventId.toHex(),
-      'currentSubscription',
-      user
+      'currentSubscriptionStart',
+      '2000'
+    );
+    assert.fieldEquals(
+      'UserSubscriptionCreatedEvent',
+      createdEventId.toHex(),
+      'currentSubscriptionEnd',
+      '5000'
+    );
+    assert.fieldEquals(
+      'UserSubscriptionCreatedEvent',
+      createdEventId.toHex(),
+      'currentSubscriptionRate',
+      '2000000000000000000'
     );
   });
 

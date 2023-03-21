@@ -109,8 +109,12 @@ type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CREATED
   eventType: UserSubscriptionsEventType!
-  # the user's _current_ active subscription
-  currentSubscription: ActiveSubscription!
+  # the user's ActiveSubscription.start value at the time the event is created
+  currentSubscriptionStart: BigInt! # uint64
+  # the user's ActiveSubscription.end value at the time the event is created
+  currentSubscriptionEnd: BigInt! # uint64
+  # the user's ActiveSubscription.rate value at the time the event is created
+  currentSubscriptionRate: BigInt! # uint128
 }
 
 """
@@ -145,8 +149,12 @@ type UserSubscriptionRenewalEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.RENEW
   eventType: UserSubscriptionsEventType!
-  # the user's _current_ active subscription
-  currentSubscription: ActiveSubscription!
+  # the user's ActiveSubscription.start value at the time the event is created
+  currentSubscriptionStart: BigInt! # uint64
+  # the user's ActiveSubscription.end value at the time the event is created
+  currentSubscriptionEnd: BigInt! # uint64
+  # the user's ActiveSubscription.rate value at the time the event is created
+  currentSubscriptionRate: BigInt! # uint128
 }
 
 """
@@ -170,8 +178,12 @@ type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
   previousSubscriptionEnd: BigInt! # uint64
   # the ActiveSubscription.rate value before the user upgraded their subscription
   previousSubscriptionRate: BigInt! # uint128
-  # the user's _current_ active subscription
-  currentSubscription: ActiveSubscription!
+  # the user's ActiveSubscription.start value at the time the event is created
+  currentSubscriptionStart: BigInt! # uint64
+  # the user's ActiveSubscription.end value at the time the event is created
+  currentSubscriptionEnd: BigInt! # uint64
+  # the user's ActiveSubscription.rate value at the time the event is created
+  currentSubscriptionRate: BigInt! # uint128
 }
 
 """
@@ -195,6 +207,10 @@ type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
   previousSubscriptionEnd: BigInt! # uint64
   # the ActiveSubscription.rate value before the user downgraded their subscription
   previousSubscriptionRate: BigInt! # uint128
-  # the user's _current_ active subscription
-  currentSubscription: ActiveSubscription!
+  # the user's ActiveSubscription.start value at the time the event is created
+  currentSubscriptionStart: BigInt! # uint64
+  # the user's ActiveSubscription.end value at the time the event is created
+  currentSubscriptionEnd: BigInt! # uint64
+  # the user's ActiveSubscription.rate value at the time the event is created
+  currentSubscriptionRate: BigInt! # uint128
 }

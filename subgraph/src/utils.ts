@@ -38,7 +38,9 @@ export function buildUserSubscriptionEventId(
   blockTimestamp: BigInt
 ): Bytes {
   let hash = crypto.keccak256(
-    ByteArray.fromUTF8(`${user}:${eventType}:${blockTimestamp.toString()}`)
+    ByteArray.fromUTF8(
+      `${user.toHexString()}:${eventType}:${blockTimestamp.toString()}`
+    )
   );
   return Bytes.fromByteArray(hash);
 }
