@@ -189,6 +189,32 @@ export class User extends Entity {
       this.set("authorizedSigners", Value.fromBytesArray(<Array<Bytes>>value));
     }
   }
+
+  get eventCount(): i32 {
+    let value = this.get("eventCount");
+    return value!.toI32();
+  }
+
+  set eventCount(value: i32) {
+    this.set("eventCount", Value.fromI32(value));
+  }
+
+  get events(): Array<Bytes> | null {
+    let value = this.get("events");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set events(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("events");
+    } else {
+      this.set("events", Value.fromBytesArray(<Array<Bytes>>value));
+    }
+  }
 }
 
 export class Subscribe extends Entity {
@@ -554,5 +580,534 @@ export class AuthorizedSigner extends Entity {
 
   set signer(value: Bytes) {
     this.set("signer", Value.fromBytes(value));
+  }
+}
+
+export class UserSubscriptionCreatedEvent extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save UserSubscriptionCreatedEvent entity without an ID"
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type UserSubscriptionCreatedEvent must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set(
+        "UserSubscriptionCreatedEvent",
+        id.toBytes().toHexString(),
+        this
+      );
+    }
+  }
+
+  static load(id: Bytes): UserSubscriptionCreatedEvent | null {
+    return changetype<UserSubscriptionCreatedEvent | null>(
+      store.get("UserSubscriptionCreatedEvent", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get txHash(): Bytes {
+    let value = this.get("txHash");
+    return value!.toBytes();
+  }
+
+  set txHash(value: Bytes) {
+    this.set("txHash", Value.fromBytes(value));
+  }
+
+  get eventType(): string {
+    let value = this.get("eventType");
+    return value!.toString();
+  }
+
+  set eventType(value: string) {
+    this.set("eventType", Value.fromString(value));
+  }
+
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
+    return value!.toBytes();
+  }
+
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
+  }
+}
+
+export class UserSubscriptionCanceledEvent extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save UserSubscriptionCanceledEvent entity without an ID"
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type UserSubscriptionCanceledEvent must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set(
+        "UserSubscriptionCanceledEvent",
+        id.toBytes().toHexString(),
+        this
+      );
+    }
+  }
+
+  static load(id: Bytes): UserSubscriptionCanceledEvent | null {
+    return changetype<UserSubscriptionCanceledEvent | null>(
+      store.get("UserSubscriptionCanceledEvent", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get txHash(): Bytes {
+    let value = this.get("txHash");
+    return value!.toBytes();
+  }
+
+  set txHash(value: Bytes) {
+    this.set("txHash", Value.fromBytes(value));
+  }
+
+  get eventType(): string {
+    let value = this.get("eventType");
+    return value!.toString();
+  }
+
+  set eventType(value: string) {
+    this.set("eventType", Value.fromString(value));
+  }
+
+  get tokensReturned(): BigInt {
+    let value = this.get("tokensReturned");
+    return value!.toBigInt();
+  }
+
+  set tokensReturned(value: BigInt) {
+    this.set("tokensReturned", Value.fromBigInt(value));
+  }
+}
+
+export class UserSubscriptionRenewalEvent extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save UserSubscriptionRenewalEvent entity without an ID"
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type UserSubscriptionRenewalEvent must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set(
+        "UserSubscriptionRenewalEvent",
+        id.toBytes().toHexString(),
+        this
+      );
+    }
+  }
+
+  static load(id: Bytes): UserSubscriptionRenewalEvent | null {
+    return changetype<UserSubscriptionRenewalEvent | null>(
+      store.get("UserSubscriptionRenewalEvent", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get txHash(): Bytes {
+    let value = this.get("txHash");
+    return value!.toBytes();
+  }
+
+  set txHash(value: Bytes) {
+    this.set("txHash", Value.fromBytes(value));
+  }
+
+  get eventType(): string {
+    let value = this.get("eventType");
+    return value!.toString();
+  }
+
+  set eventType(value: string) {
+    this.set("eventType", Value.fromString(value));
+  }
+
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
+    return value!.toBytes();
+  }
+
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
+  }
+}
+
+export class UserSubscriptionUpgradeEvent extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save UserSubscriptionUpgradeEvent entity without an ID"
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type UserSubscriptionUpgradeEvent must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set(
+        "UserSubscriptionUpgradeEvent",
+        id.toBytes().toHexString(),
+        this
+      );
+    }
+  }
+
+  static load(id: Bytes): UserSubscriptionUpgradeEvent | null {
+    return changetype<UserSubscriptionUpgradeEvent | null>(
+      store.get("UserSubscriptionUpgradeEvent", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get txHash(): Bytes {
+    let value = this.get("txHash");
+    return value!.toBytes();
+  }
+
+  set txHash(value: Bytes) {
+    this.set("txHash", Value.fromBytes(value));
+  }
+
+  get eventType(): string {
+    let value = this.get("eventType");
+    return value!.toString();
+  }
+
+  set eventType(value: string) {
+    this.set("eventType", Value.fromString(value));
+  }
+
+  get previousSubscriptionStart(): BigInt {
+    let value = this.get("previousSubscriptionStart");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionStart(value: BigInt) {
+    this.set("previousSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionEnd(): BigInt {
+    let value = this.get("previousSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionEnd(value: BigInt) {
+    this.set("previousSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionRate(): BigInt {
+    let value = this.get("previousSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionRate(value: BigInt) {
+    this.set("previousSubscriptionRate", Value.fromBigInt(value));
+  }
+
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
+    return value!.toBytes();
+  }
+
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
+  }
+}
+
+export class UserSubscriptionDowngradeEvent extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save UserSubscriptionDowngradeEvent entity without an ID"
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type UserSubscriptionDowngradeEvent must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+      );
+      store.set(
+        "UserSubscriptionDowngradeEvent",
+        id.toBytes().toHexString(),
+        this
+      );
+    }
+  }
+
+  static load(id: Bytes): UserSubscriptionDowngradeEvent | null {
+    return changetype<UserSubscriptionDowngradeEvent | null>(
+      store.get("UserSubscriptionDowngradeEvent", id.toHexString())
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    return value!.toBytes();
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get user(): Bytes {
+    let value = this.get("user");
+    return value!.toBytes();
+  }
+
+  set user(value: Bytes) {
+    this.set("user", Value.fromBytes(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    return value!.toBigInt();
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    return value!.toBigInt();
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get txHash(): Bytes {
+    let value = this.get("txHash");
+    return value!.toBytes();
+  }
+
+  set txHash(value: Bytes) {
+    this.set("txHash", Value.fromBytes(value));
+  }
+
+  get eventType(): string {
+    let value = this.get("eventType");
+    return value!.toString();
+  }
+
+  set eventType(value: string) {
+    this.set("eventType", Value.fromString(value));
+  }
+
+  get previousSubscriptionStart(): BigInt {
+    let value = this.get("previousSubscriptionStart");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionStart(value: BigInt) {
+    this.set("previousSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionEnd(): BigInt {
+    let value = this.get("previousSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionEnd(value: BigInt) {
+    this.set("previousSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionRate(): BigInt {
+    let value = this.get("previousSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionRate(value: BigInt) {
+    this.set("previousSubscriptionRate", Value.fromBigInt(value));
+  }
+
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
+    return value!.toBytes();
+  }
+
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
   }
 }
