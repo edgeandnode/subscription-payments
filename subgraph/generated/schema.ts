@@ -190,6 +190,15 @@ export class User extends Entity {
     }
   }
 
+  get eventCount(): i32 {
+    let value = this.get("eventCount");
+    return value!.toI32();
+  }
+
+  set eventCount(value: i32) {
+    this.set("eventCount", Value.fromI32(value));
+  }
+
   get events(): Array<Bytes> | null {
     let value = this.get("events");
     if (!value || value.kind == ValueKind.NULL) {
@@ -753,6 +762,15 @@ export class UserSubscriptionCanceledEvent extends Entity {
   set eventType(value: string) {
     this.set("eventType", Value.fromString(value));
   }
+
+  get tokensReturned(): BigInt {
+    let value = this.get("tokensReturned");
+    return value!.toBigInt();
+  }
+
+  set tokensReturned(value: BigInt) {
+    this.set("tokensReturned", Value.fromBigInt(value));
+  }
 }
 
 export class UserSubscriptionRenewalEvent extends Entity {
@@ -943,6 +961,15 @@ export class UserSubscriptionUpgradeEvent extends Entity {
   set activeSubscription(value: Bytes) {
     this.set("activeSubscription", Value.fromBytes(value));
   }
+
+  get previousRate(): BigInt {
+    let value = this.get("previousRate");
+    return value!.toBigInt();
+  }
+
+  set previousRate(value: BigInt) {
+    this.set("previousRate", Value.fromBigInt(value));
+  }
 }
 
 export class UserSubscriptionDowngradeEvent extends Entity {
@@ -1037,5 +1064,14 @@ export class UserSubscriptionDowngradeEvent extends Entity {
 
   set activeSubscription(value: Bytes) {
     this.set("activeSubscription", Value.fromBytes(value));
+  }
+
+  get previousRate(): BigInt {
+    let value = this.get("previousRate");
+    return value!.toBigInt();
+  }
+
+  set previousRate(value: BigInt) {
+    this.set("previousRate", Value.fromBigInt(value));
   }
 }

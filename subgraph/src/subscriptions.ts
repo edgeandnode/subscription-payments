@@ -1,4 +1,4 @@
-import {store, log} from '@graphprotocol/graph-ts';
+import {store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -29,7 +29,11 @@ import {
   USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE,
 } from './constants';
 import {loadOrCreateUser} from './entity-loader';
-import {buildAuthorizedSignerId, buildUserSubscriptionEventId} from './utils';
+import {
+  buildAuthorizedSignerId,
+  buildUserSubscriptionEventId,
+  calculateUnlockedTokens,
+} from './utils';
 
 export function handleInit(event: InitEvent): void {
   let entity = new Init(
@@ -91,6 +95,9 @@ export function handleSubscribe(event: SubscribeEvent): void {
         'UserSubscriptionCanceledEvent',
         canceledEventId.toHexString()
       );
+      // decrement user event count
+      user.eventCount = user.eventCount - 1;
+      user.save();
     }
   } else {
     // Check if the sub.rate is > than the event.params.rate value.
@@ -123,7 +130,8 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.user = user.id;
   entity.save();
 
-  buildAndSaveUserSubscriptionCanceledEvent(user, event);
+  let sub = ActiveSubscription.load(event.params.user);
+  buildAndSaveUserSubscriptionCanceledEvent(user, sub!, event);
 
   store.remove('ActiveSubscription', event.params.user.toHexString());
 }
@@ -167,6 +175,9 @@ function buildAndSaveUserSubscriptionCreatedEvent(
     USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
     event.block.timestamp
   );
+  if (UserSubscriptionCreatedEvent.load(id) != null) {
+    return;
+  }
   let createdEvent = new UserSubscriptionCreatedEvent(id);
   createdEvent.user = user.id;
   createdEvent.blockNumber = event.block.number;
@@ -175,10 +186,13 @@ function buildAndSaveUserSubscriptionCreatedEvent(
   createdEvent.activeSubscription = activeSubscription.id;
   createdEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__CREATED;
   createdEvent.save();
+
+  incrementUserEventCount(user);
 }
 
 function buildAndSaveUserSubscriptionCanceledEvent(
   user: User,
+  activeSubscription: ActiveSubscription,
   event: UnsubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -192,7 +206,13 @@ function buildAndSaveUserSubscriptionCanceledEvent(
   canceledEvent.blockTimestamp = event.block.timestamp;
   canceledEvent.txHash = event.transaction.hash;
   canceledEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__CANCELED;
+  canceledEvent.tokensReturned = calculateUnlockedTokens(
+    activeSubscription,
+    event
+  );
   canceledEvent.save();
+
+  incrementUserEventCount(user);
 }
 
 function buildAndSaveUserSubscriptionRenewalEvent(
@@ -213,6 +233,8 @@ function buildAndSaveUserSubscriptionRenewalEvent(
   renewalEvent.activeSubscription = activeSubscription.id;
   renewalEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__RENEW;
   renewalEvent.save();
+
+  incrementUserEventCount(user);
 }
 
 function buildAndSaveUserSubscriptionUpgradeEvent(
@@ -232,7 +254,10 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
   upgradeEvent.txHash = event.transaction.hash;
   upgradeEvent.activeSubscription = activeSubscription.id;
   upgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE;
+  upgradeEvent.previousRate = activeSubscription.rate;
   upgradeEvent.save();
+
+  incrementUserEventCount(user);
 }
 
 function buildAndSaveUserSubscriptionDowngradeEvent(
@@ -252,5 +277,13 @@ function buildAndSaveUserSubscriptionDowngradeEvent(
   downgradeEvent.txHash = event.transaction.hash;
   downgradeEvent.activeSubscription = activeSubscription.id;
   downgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE;
+  downgradeEvent.previousRate = activeSubscription.rate;
   downgradeEvent.save();
+
+  incrementUserEventCount(user);
+}
+
+function incrementUserEventCount(user: User): void {
+  user.eventCount = user.eventCount + 1;
+  user.save();
 }

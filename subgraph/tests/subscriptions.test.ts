@@ -57,6 +57,7 @@ describe('Describe entity assertions', () => {
     assert.fieldEquals('Subscribe', id, 'rate', '2000000000000000000');
 
     assert.entityCount('User', 1);
+    assert.fieldEquals('User', user, 'eventCount', '1'); // 1 UserSubscriptionCreatedEvent
 
     assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals('ActiveSubscription', user, 'user', user);
@@ -84,6 +85,8 @@ describe('Describe entity assertions', () => {
     assert.entityCount('Unsubscribe', 1);
     assert.entityCount('ActiveSubscription', 0);
     assert.entityCount('UserSubscriptionCanceledEvent', 1);
+
+    assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionCanceledEvent
   });
 
   test('update Subscription', () => {
@@ -118,6 +121,7 @@ describe('Describe entity assertions', () => {
     assert.entityCount('UserSubscriptionRenewalEvent', 1);
     // validate that the UserSubscriptionCanceledEvent is removed
     assert.entityCount('UserSubscriptionCanceledEvent', 0);
+    assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent
   });
 
   test('upgrade Subscription', () => {
@@ -150,6 +154,7 @@ describe('Describe entity assertions', () => {
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionUpgradeEvent is created as the subscription was rate was increased
     assert.entityCount('UserSubscriptionUpgradeEvent', 1);
+    assert.fieldEquals('User', user, 'eventCount', '3'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent, 1 UserSubscriptionUpgradeEvent
   });
 
   test('downgrade Subscription', () => {
@@ -182,6 +187,7 @@ describe('Describe entity assertions', () => {
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionDowngradeEvent is created as the subscription was rate was increased
     assert.entityCount('UserSubscriptionDowngradeEvent', 1);
+    assert.fieldEquals('User', user, 'eventCount', '4'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent, 1 UserSubscriptionUpgradeEvent, 1 UserSubscriptionDowngradeEvent
   });
 
   test('should be able to add an AuthorizedSigner entity for the ActiveSubscription. but must be unique', () => {

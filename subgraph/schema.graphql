@@ -13,6 +13,8 @@ type User @entity(immutable: true) {
   extendEvents: [Unsubscribe!] @derivedFrom(field: "user")
   activeSubscriptions: [ActiveSubscription!] @derivedFrom(field: "user")
   authorizedSigners: [AuthorizedSigner!] @derivedFrom(field: "user")
+  # a total count of all events of all types. useful for pagination
+  eventCount: Int!
   events: [UserSubscriptionsEvent!] @derivedFrom(field: "user")
 }
 
@@ -124,6 +126,8 @@ type UserSubscriptionCanceledEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CANCELED
   eventType: UserSubscriptionsEventType!
+  # the amount of unlocked tokens transferred back to the user as a result of cancelling the ActiveSubscription
+  tokensReturned: BigInt!
 }
 
 """
@@ -162,6 +166,8 @@ type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
   eventType: UserSubscriptionsEventType!
   # the user's active subscription
   activeSubscription: ActiveSubscription!
+  # the previous ActiveSubscription.rate
+  previousRate: BigInt! # uint128
 }
 
 """
@@ -181,4 +187,6 @@ type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
   eventType: UserSubscriptionsEventType!
   # the user's active subscription
   activeSubscription: ActiveSubscription!
+  # the previous ActiveSubscription.rate
+  previousRate: BigInt! # uint128
 }

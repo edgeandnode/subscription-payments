@@ -6,6 +6,9 @@ import {
   crypto,
 } from '@graphprotocol/graph-ts';
 
+import {ActiveSubscription} from '../generated/schema';
+import {Unsubscribe as UnsubscribeEvent} from '../generated/Subscriptions/Subscriptions';
+
 /**
  * Generate a keccak256 hex string of the user:authorizedSigner
  * @param subscriptionOwner address of the ActiveSubscription owner
@@ -38,4 +41,22 @@ export function buildUserSubscriptionEventId(
     ByteArray.fromUTF8(`${user}:${eventType}:${blockTimestamp.toString()}`)
   );
   return Bytes.fromByteArray(hash);
+}
+
+/**
+ * Calculate the unlocked tokens being returned to the User for cancelling their ActiveSubscription.
+ */
+export function calculateUnlockedTokens(
+  sub: ActiveSubscription,
+  event: UnsubscribeEvent
+): BigInt {
+  let correctedStart = event.block.timestamp;
+  if (sub.start > event.block.timestamp) {
+    correctedStart = sub.start;
+  }
+  let diff = sub.end.minus(correctedStart);
+  if (diff < new BigInt(0)) {
+    diff = new BigInt(0);
+  }
+  return diff.times(sub.rate);
 }

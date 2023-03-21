@@ -6,6 +6,7 @@ export function loadOrCreateUser(address: Address): User {
   let user = User.load(address);
   if (user == null) {
     user = new User(address);
+    user.eventCount = 0;
     user.save();
   }
 
