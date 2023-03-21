@@ -668,13 +668,31 @@ export class UserSubscriptionCreatedEvent extends Entity {
     this.set("eventType", Value.fromString(value));
   }
 
-  get currentSubscription(): Bytes {
-    let value = this.get("currentSubscription");
-    return value!.toBytes();
+  get currentSubscriptionStart(): BigInt {
+    let value = this.get("currentSubscriptionStart");
+    return value!.toBigInt();
   }
 
-  set currentSubscription(value: Bytes) {
-    this.set("currentSubscription", Value.fromBytes(value));
+  set currentSubscriptionStart(value: BigInt) {
+    this.set("currentSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionEnd(): BigInt {
+    let value = this.get("currentSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionEnd(value: BigInt) {
+    this.set("currentSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionRate(): BigInt {
+    let value = this.get("currentSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionRate(value: BigInt) {
+    this.set("currentSubscriptionRate", Value.fromBigInt(value));
   }
 }
 
@@ -858,13 +876,31 @@ export class UserSubscriptionRenewalEvent extends Entity {
     this.set("eventType", Value.fromString(value));
   }
 
-  get currentSubscription(): Bytes {
-    let value = this.get("currentSubscription");
-    return value!.toBytes();
+  get currentSubscriptionStart(): BigInt {
+    let value = this.get("currentSubscriptionStart");
+    return value!.toBigInt();
   }
 
-  set currentSubscription(value: Bytes) {
-    this.set("currentSubscription", Value.fromBytes(value));
+  set currentSubscriptionStart(value: BigInt) {
+    this.set("currentSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionEnd(): BigInt {
+    let value = this.get("currentSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionEnd(value: BigInt) {
+    this.set("currentSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionRate(): BigInt {
+    let value = this.get("currentSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionRate(value: BigInt) {
+    this.set("currentSubscriptionRate", Value.fromBigInt(value));
   }
 }
 
@@ -980,13 +1016,31 @@ export class UserSubscriptionUpgradeEvent extends Entity {
     this.set("previousSubscriptionRate", Value.fromBigInt(value));
   }
 
-  get currentSubscription(): Bytes {
-    let value = this.get("currentSubscription");
-    return value!.toBytes();
+  get currentSubscriptionStart(): BigInt {
+    let value = this.get("currentSubscriptionStart");
+    return value!.toBigInt();
   }
 
-  set currentSubscription(value: Bytes) {
-    this.set("currentSubscription", Value.fromBytes(value));
+  set currentSubscriptionStart(value: BigInt) {
+    this.set("currentSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionEnd(): BigInt {
+    let value = this.get("currentSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionEnd(value: BigInt) {
+    this.set("currentSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionRate(): BigInt {
+    let value = this.get("currentSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionRate(value: BigInt) {
+    this.set("currentSubscriptionRate", Value.fromBigInt(value));
   }
 }
 
@@ -1102,12 +1156,30 @@ export class UserSubscriptionDowngradeEvent extends Entity {
     this.set("previousSubscriptionRate", Value.fromBigInt(value));
   }
 
-  get currentSubscription(): Bytes {
-    let value = this.get("currentSubscription");
-    return value!.toBytes();
+  get currentSubscriptionStart(): BigInt {
+    let value = this.get("currentSubscriptionStart");
+    return value!.toBigInt();
   }
 
-  set currentSubscription(value: Bytes) {
-    this.set("currentSubscription", Value.fromBytes(value));
+  set currentSubscriptionStart(value: BigInt) {
+    this.set("currentSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionEnd(): BigInt {
+    let value = this.get("currentSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionEnd(value: BigInt) {
+    this.set("currentSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get currentSubscriptionRate(): BigInt {
+    let value = this.get("currentSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set currentSubscriptionRate(value: BigInt) {
+    this.set("currentSubscriptionRate", Value.fromBigInt(value));
   }
 }

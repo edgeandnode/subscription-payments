@@ -191,7 +191,9 @@ function buildAndSaveUserSubscriptionCreatedEvent(
   createdEvent.blockNumber = event.block.number;
   createdEvent.blockTimestamp = event.block.timestamp;
   createdEvent.txHash = event.transaction.hash;
-  createdEvent.currentSubscription = activeSubscription.id;
+  createdEvent.currentSubscriptionStart = activeSubscription.start;
+  createdEvent.currentSubscriptionEnd = activeSubscription.end;
+  createdEvent.currentSubscriptionRate = activeSubscription.rate;
   createdEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__CREATED;
   createdEvent.save();
 
@@ -238,7 +240,9 @@ function buildAndSaveUserSubscriptionRenewalEvent(
   renewalEvent.blockNumber = event.block.number;
   renewalEvent.blockTimestamp = event.block.timestamp;
   renewalEvent.txHash = event.transaction.hash;
-  renewalEvent.currentSubscription = activeSubscription.id;
+  renewalEvent.currentSubscriptionStart = activeSubscription.start;
+  renewalEvent.currentSubscriptionEnd = activeSubscription.end;
+  renewalEvent.currentSubscriptionRate = activeSubscription.rate;
   renewalEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__RENEW;
   renewalEvent.save();
 
@@ -260,8 +264,10 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
   upgradeEvent.blockNumber = event.block.number;
   upgradeEvent.blockTimestamp = event.block.timestamp;
   upgradeEvent.txHash = event.transaction.hash;
-  upgradeEvent.currentSubscription = activeSubscription.id;
   upgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE;
+  upgradeEvent.currentSubscriptionStart = activeSubscription.start;
+  upgradeEvent.currentSubscriptionEnd = activeSubscription.end;
+  upgradeEvent.currentSubscriptionRate = activeSubscription.rate;
   upgradeEvent.previousSubscriptionStart = activeSubscription.start;
   upgradeEvent.previousSubscriptionEnd = activeSubscription.end;
   upgradeEvent.previousSubscriptionRate = activeSubscription.rate;
@@ -285,8 +291,10 @@ function buildAndSaveUserSubscriptionDowngradeEvent(
   downgradeEvent.blockNumber = event.block.number;
   downgradeEvent.blockTimestamp = event.block.timestamp;
   downgradeEvent.txHash = event.transaction.hash;
-  downgradeEvent.currentSubscription = activeSubscription.id;
   downgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE;
+  downgradeEvent.currentSubscriptionStart = activeSubscription.start;
+  downgradeEvent.currentSubscriptionEnd = activeSubscription.end;
+  downgradeEvent.currentSubscriptionRate = activeSubscription.rate;
   downgradeEvent.previousSubscriptionStart = activeSubscription.start;
   downgradeEvent.previousSubscriptionEnd = activeSubscription.end;
   downgradeEvent.previousSubscriptionRate = activeSubscription.rate;
