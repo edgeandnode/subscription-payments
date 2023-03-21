@@ -7,15 +7,28 @@ import {
   afterAll,
 } from 'matchstick-as/assembly/index';
 
-import {Address, BigInt} from '@graphprotocol/graph-ts';
+import {Address, BigInt, Bytes} from '@graphprotocol/graph-ts';
 
+import {ActiveSubscription} from '../generated/schema';
+
+import {
+  USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
+  USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
+  USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE,
+  USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE,
+} from '../src/constants';
 import {
   handleSubscribe,
   handleUnsubscribe,
   handleAuthorizedSignerAdded,
   handleAuthorizedSignerRemoved,
 } from '../src/subscriptions';
-import {buildAuthorizedSignerId} from '../src/utils';
+import {
+  buildAuthorizedSignerId,
+  buildUserSubscriptionEventId,
+  calculateUnlockedTokens,
+} from '../src/utils';
+
 import {
   createAuthorizedSignerAddedEvent,
   createAuthorizedSignerRemovedEvent,
@@ -28,6 +41,7 @@ import {
 
 describe('Describe entity assertions', () => {
   const user = '0x0000000000000000000000000000000000000001';
+  const timestamp = 1; // default block timestamp
 
   beforeAll(() => {
     let event = createSubscribeEvent(
@@ -72,9 +86,34 @@ describe('Describe entity assertions', () => {
 
     // validate UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
+    const createdEventId = buildUserSubscriptionEventId(
+      Bytes.fromHexString(user),
+      USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
+      BigInt.fromI32(timestamp)
+    );
+    assert.fieldEquals(
+      'UserSubscriptionCreatedEvent',
+      createdEventId.toHex(),
+      'eventType',
+      USER_SUBSCRIPTION_EVENT_TYPE__CREATED
+    );
+    assert.fieldEquals(
+      'UserSubscriptionCreatedEvent',
+      createdEventId.toHex(),
+      'currentSubscription',
+      user
+    );
   });
 
   test('handle Unsubscribe', () => {
+    // build ActiveSubscription that is being removed (this is the ActiveSub that gets build in the beforeAll hook)
+    let sub = new ActiveSubscription(Address.fromString(user));
+    sub.start = BigInt.fromU32(2000);
+    sub.end = BigInt.fromU32(5000);
+    sub.rate = BigInt.fromU32(10)
+      .pow(18)
+      .times(BigInt.fromU32(2));
+
     let event = createUnsubscribeEvent(
       Address.fromString(user),
       BigInt.fromU32(0)
@@ -85,6 +124,24 @@ describe('Describe entity assertions', () => {
     assert.entityCount('Unsubscribe', 1);
     assert.entityCount('ActiveSubscription', 0);
     assert.entityCount('UserSubscriptionCanceledEvent', 1);
+    const canceledEventId = buildUserSubscriptionEventId(
+      Bytes.fromHexString(user),
+      USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
+      BigInt.fromI32(timestamp)
+    );
+    assert.fieldEquals(
+      'UserSubscriptionCanceledEvent',
+      canceledEventId.toHex(),
+      'eventType',
+      USER_SUBSCRIPTION_EVENT_TYPE__CANCELED
+    );
+    let tokensReturned = calculateUnlockedTokens(sub, event);
+    assert.fieldEquals(
+      'UserSubscriptionCanceledEvent',
+      canceledEventId.toHex(),
+      'tokensReturned',
+      tokensReturned.toString()
+    );
 
     assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionCanceledEvent
   });
@@ -154,6 +211,30 @@ describe('Describe entity assertions', () => {
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionUpgradeEvent is created as the subscription was rate was increased
     assert.entityCount('UserSubscriptionUpgradeEvent', 1);
+    let upgradeEventId = buildUserSubscriptionEventId(
+      Bytes.fromHexString(user),
+      USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE,
+      BigInt.fromI32(timestamp)
+    );
+    assert.fieldEquals(
+      'UserSubscriptionUpgradeEvent',
+      upgradeEventId.toHex(),
+      'previousSubscriptionStart',
+      '3000' // value from `update Subscription` test above before this event is received
+    );
+    assert.fieldEquals(
+      'UserSubscriptionUpgradeEvent',
+      upgradeEventId.toHex(),
+      'previousSubscriptionEnd',
+      '8000' // value from `update Subscription` test above before this event is received
+    );
+    assert.fieldEquals(
+      'UserSubscriptionUpgradeEvent',
+      upgradeEventId.toHex(),
+      'previousSubscriptionRate',
+      '3000000000000000000' // value from `update Subscription` test above before this event is received
+    );
+
     assert.fieldEquals('User', user, 'eventCount', '3'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent, 1 UserSubscriptionUpgradeEvent
   });
 
@@ -187,6 +268,29 @@ describe('Describe entity assertions', () => {
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionDowngradeEvent is created as the subscription was rate was increased
     assert.entityCount('UserSubscriptionDowngradeEvent', 1);
+    let downgradeEventId = buildUserSubscriptionEventId(
+      Bytes.fromHexString(user),
+      USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE,
+      BigInt.fromI32(timestamp)
+    );
+    assert.fieldEquals(
+      'UserSubscriptionDowngradeEvent',
+      downgradeEventId.toHex(),
+      'previousSubscriptionStart',
+      '3000' // value from `upgrade Subscription` test above before this event is received
+    );
+    assert.fieldEquals(
+      'UserSubscriptionDowngradeEvent',
+      downgradeEventId.toHex(),
+      'previousSubscriptionEnd',
+      '8000' // value from `upgrade Subscription` test above before this event is received
+    );
+    assert.fieldEquals(
+      'UserSubscriptionDowngradeEvent',
+      downgradeEventId.toHex(),
+      'previousSubscriptionRate',
+      '5000000000000000000' // value from `upgrade Subscription` test above before this event is received
+    );
     assert.fieldEquals('User', user, 'eventCount', '4'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent, 1 UserSubscriptionUpgradeEvent, 1 UserSubscriptionDowngradeEvent
   });
 

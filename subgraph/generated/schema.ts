@@ -668,13 +668,13 @@ export class UserSubscriptionCreatedEvent extends Entity {
     this.set("eventType", Value.fromString(value));
   }
 
-  get activeSubscription(): Bytes {
-    let value = this.get("activeSubscription");
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
     return value!.toBytes();
   }
 
-  set activeSubscription(value: Bytes) {
-    this.set("activeSubscription", Value.fromBytes(value));
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
   }
 }
 
@@ -858,13 +858,13 @@ export class UserSubscriptionRenewalEvent extends Entity {
     this.set("eventType", Value.fromString(value));
   }
 
-  get activeSubscription(): Bytes {
-    let value = this.get("activeSubscription");
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
     return value!.toBytes();
   }
 
-  set activeSubscription(value: Bytes) {
-    this.set("activeSubscription", Value.fromBytes(value));
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
   }
 }
 
@@ -953,22 +953,40 @@ export class UserSubscriptionUpgradeEvent extends Entity {
     this.set("eventType", Value.fromString(value));
   }
 
-  get activeSubscription(): Bytes {
-    let value = this.get("activeSubscription");
-    return value!.toBytes();
-  }
-
-  set activeSubscription(value: Bytes) {
-    this.set("activeSubscription", Value.fromBytes(value));
-  }
-
-  get previousRate(): BigInt {
-    let value = this.get("previousRate");
+  get previousSubscriptionStart(): BigInt {
+    let value = this.get("previousSubscriptionStart");
     return value!.toBigInt();
   }
 
-  set previousRate(value: BigInt) {
-    this.set("previousRate", Value.fromBigInt(value));
+  set previousSubscriptionStart(value: BigInt) {
+    this.set("previousSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionEnd(): BigInt {
+    let value = this.get("previousSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionEnd(value: BigInt) {
+    this.set("previousSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionRate(): BigInt {
+    let value = this.get("previousSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionRate(value: BigInt) {
+    this.set("previousSubscriptionRate", Value.fromBigInt(value));
+  }
+
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
+    return value!.toBytes();
+  }
+
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
   }
 }
 
@@ -1057,21 +1075,39 @@ export class UserSubscriptionDowngradeEvent extends Entity {
     this.set("eventType", Value.fromString(value));
   }
 
-  get activeSubscription(): Bytes {
-    let value = this.get("activeSubscription");
-    return value!.toBytes();
-  }
-
-  set activeSubscription(value: Bytes) {
-    this.set("activeSubscription", Value.fromBytes(value));
-  }
-
-  get previousRate(): BigInt {
-    let value = this.get("previousRate");
+  get previousSubscriptionStart(): BigInt {
+    let value = this.get("previousSubscriptionStart");
     return value!.toBigInt();
   }
 
-  set previousRate(value: BigInt) {
-    this.set("previousRate", Value.fromBigInt(value));
+  set previousSubscriptionStart(value: BigInt) {
+    this.set("previousSubscriptionStart", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionEnd(): BigInt {
+    let value = this.get("previousSubscriptionEnd");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionEnd(value: BigInt) {
+    this.set("previousSubscriptionEnd", Value.fromBigInt(value));
+  }
+
+  get previousSubscriptionRate(): BigInt {
+    let value = this.get("previousSubscriptionRate");
+    return value!.toBigInt();
+  }
+
+  set previousSubscriptionRate(value: BigInt) {
+    this.set("previousSubscriptionRate", Value.fromBigInt(value));
+  }
+
+  get currentSubscription(): Bytes {
+    let value = this.get("currentSubscription");
+    return value!.toBytes();
+  }
+
+  set currentSubscription(value: Bytes) {
+    this.set("currentSubscription", Value.fromBytes(value));
   }
 }

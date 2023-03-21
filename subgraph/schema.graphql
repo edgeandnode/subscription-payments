@@ -109,8 +109,8 @@ type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CREATED
   eventType: UserSubscriptionsEventType!
-  # the created active subscription
-  activeSubscription: ActiveSubscription!
+  # the user's _current_ active subscription
+  currentSubscription: ActiveSubscription!
 }
 
 """
@@ -145,8 +145,8 @@ type UserSubscriptionRenewalEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.RENEW
   eventType: UserSubscriptionsEventType!
-  # the user's active subscription
-  activeSubscription: ActiveSubscription!
+  # the user's _current_ active subscription
+  currentSubscription: ActiveSubscription!
 }
 
 """
@@ -164,10 +164,14 @@ type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.UPGRADE
   eventType: UserSubscriptionsEventType!
-  # the user's active subscription
-  activeSubscription: ActiveSubscription!
-  # the previous ActiveSubscription.rate
-  previousRate: BigInt! # uint128
+  # the ActiveSubscription.start value before the user upgraded their subscription
+  previousSubscriptionStart: BigInt! # uint64
+  # the ActiveSubscription.end value before the user upgraded their subscription
+  previousSubscriptionEnd: BigInt! # uint64
+  # the ActiveSubscription.rate value before the user upgraded their subscription
+  previousSubscriptionRate: BigInt! # uint128
+  # the user's _current_ active subscription
+  currentSubscription: ActiveSubscription!
 }
 
 """
@@ -185,8 +189,12 @@ type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.DOWNGRADE
   eventType: UserSubscriptionsEventType!
-  # the user's active subscription
-  activeSubscription: ActiveSubscription!
-  # the previous ActiveSubscription.rate
-  previousRate: BigInt! # uint128
+  # the ActiveSubscription.start value before the user downgraded their subscription
+  previousSubscriptionStart: BigInt! # uint64
+  # the ActiveSubscription.end value before the user downgraded their subscription
+  previousSubscriptionEnd: BigInt! # uint64
+  # the ActiveSubscription.rate value before the user downgraded their subscription
+  previousSubscriptionRate: BigInt! # uint128
+  # the user's _current_ active subscription
+  currentSubscription: ActiveSubscription!
 }

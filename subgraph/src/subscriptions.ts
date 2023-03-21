@@ -74,14 +74,12 @@ export function handleSubscribe(event: SubscribeEvent): void {
     buildAndSaveUserSubscriptionCreatedEvent(user, sub, event);
     // If the user calls the subscribe function on the contract and the ActiveSubscription.end > block.timestamp,
     // then the contract will call the unsubscribe function, which emits the Unsubscribe event.
-    // In the `handleUnsubscribe` fn below, we create a `UserSubscriptionCanceledEvent` record on the Unsubscribe event.
+    // In the `handleUnsubscribe` function below, we create a `UserSubscriptionCanceledEvent` record on the Unsubscribe event.
     // The contract then recreates the ActiveSubscription and emits a Subscribe event; which is handled by this function.
     // In this instance where an Unsubscribe is immediately followed by a Subscribe,
     // the user did not intend to "Cancel" their subscription, they meant to renew it.
     // As a result, find the created `UserSubscriptionCanceledEvent` record for the user and remove it from the store,
     // and create a `UserSubscriptionRenewalEvent` record.
-    // NOTE:  preferably, we don't create the `UserSubscriptionCanceledEvent` record, but not sure how to ensure that.
-    //        alternatively, we create the `UserSubscriptionCanceledEvent` record but don't remove it to track that it occurred.
     let canceledEventId = buildUserSubscriptionEventId(
       user.id,
       USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
@@ -131,7 +129,17 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.save();
 
   let sub = ActiveSubscription.load(event.params.user);
-  buildAndSaveUserSubscriptionCanceledEvent(user, sub!, event);
+  // To handle an edge-case where the Subscribe/Unsubscribe events aren't received by the subgraph mapping in the same order they are emitted,
+  // if a `UserSubscriptionCreatedEvent` exists in the same timestamp, don't create the `UserSubscriptionCanceledEvent` record
+  let createdEventId = buildUserSubscriptionEventId(
+    user.id,
+    USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
+    event.block.timestamp
+  );
+  let createdEvent = UserSubscriptionCreatedEvent.load(createdEventId);
+  if (sub != null && createdEvent != null) {
+    buildAndSaveUserSubscriptionCanceledEvent(user, sub, event);
+  }
 
   store.remove('ActiveSubscription', event.params.user.toHexString());
 }
@@ -183,7 +191,7 @@ function buildAndSaveUserSubscriptionCreatedEvent(
   createdEvent.blockNumber = event.block.number;
   createdEvent.blockTimestamp = event.block.timestamp;
   createdEvent.txHash = event.transaction.hash;
-  createdEvent.activeSubscription = activeSubscription.id;
+  createdEvent.currentSubscription = activeSubscription.id;
   createdEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__CREATED;
   createdEvent.save();
 
@@ -230,7 +238,7 @@ function buildAndSaveUserSubscriptionRenewalEvent(
   renewalEvent.blockNumber = event.block.number;
   renewalEvent.blockTimestamp = event.block.timestamp;
   renewalEvent.txHash = event.transaction.hash;
-  renewalEvent.activeSubscription = activeSubscription.id;
+  renewalEvent.currentSubscription = activeSubscription.id;
   renewalEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__RENEW;
   renewalEvent.save();
 
@@ -252,9 +260,11 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
   upgradeEvent.blockNumber = event.block.number;
   upgradeEvent.blockTimestamp = event.block.timestamp;
   upgradeEvent.txHash = event.transaction.hash;
-  upgradeEvent.activeSubscription = activeSubscription.id;
+  upgradeEvent.currentSubscription = activeSubscription.id;
   upgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE;
-  upgradeEvent.previousRate = activeSubscription.rate;
+  upgradeEvent.previousSubscriptionStart = activeSubscription.start;
+  upgradeEvent.previousSubscriptionEnd = activeSubscription.end;
+  upgradeEvent.previousSubscriptionRate = activeSubscription.rate;
   upgradeEvent.save();
 
   incrementUserEventCount(user);
@@ -275,9 +285,11 @@ function buildAndSaveUserSubscriptionDowngradeEvent(
   downgradeEvent.blockNumber = event.block.number;
   downgradeEvent.blockTimestamp = event.block.timestamp;
   downgradeEvent.txHash = event.transaction.hash;
-  downgradeEvent.activeSubscription = activeSubscription.id;
+  downgradeEvent.currentSubscription = activeSubscription.id;
   downgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE;
-  downgradeEvent.previousRate = activeSubscription.rate;
+  downgradeEvent.previousSubscriptionStart = activeSubscription.start;
+  downgradeEvent.previousSubscriptionEnd = activeSubscription.end;
+  downgradeEvent.previousSubscriptionRate = activeSubscription.rate;
   downgradeEvent.save();
 
   incrementUserEventCount(user);
