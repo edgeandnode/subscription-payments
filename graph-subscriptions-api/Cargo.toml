@@ -1,0 +1,11 @@
+[package]
+name = "graph-subscriptions-api"
+version = "0.1.0"
+edition = "2021"
+description = "GraphQL API to expose graph subscription tickets and stats"
+
+[dependencies]
+async-graphql = "5.0.6"
+async-graphql-axum = "5.0.6"
+axum = { version = "0.6.11", features = ["headers"] }
+tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
