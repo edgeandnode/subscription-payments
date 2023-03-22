@@ -2,24 +2,35 @@ use async_graphql::{http::GraphiQLSource, EmptyMutation, EmptySubscription, Sche
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     extract::Extension,
+    http::{header, HeaderMap, Method},
     response::{self, IntoResponse},
     routing::get,
     Router, Server,
 };
+use graph_subscriptions::{eip712, TicketPayload};
 use std::net::SocketAddr;
+use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{self, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
+mod auth;
 mod config;
 mod schema;
 
+use crate::auth::AuthHandler;
 use crate::config::init_config;
 use crate::schema::{GraphSubscriptionsSchema, QueryRoot};
 
 async fn graphql_handler(
     schema: Extension<GraphSubscriptionsSchema>,
+    headers: HeaderMap,
     req: GraphQLRequest,
+    auth_handler: &AuthHandler,
 ) -> GraphQLResponse {
-    schema.execute(req.into_inner()).await.into()
+    let mut req = req.into_inner();
+    if let Ok(token) = auth_handler.parse_auth_header(&headers) {
+        req = req.data::<TicketPayload>(token);
+    }
+    schema.execute(req).await.into()
 }
 
 async fn graphiql(endpoint: String) -> impl IntoResponse {
@@ -29,23 +40,40 @@ async fn graphiql(endpoint: String) -> impl IntoResponse {
 #[tokio::main]
 async fn main() {
     let conf = init_config();
-    let graphql_endpoint = conf.graphql_endpoint.clone();
+    let graphql_endpoint = conf.graphql_endpoint;
 
     init_tracing(conf.log_json);
 
     tracing::info!("Graph Subscriptions API starting...");
 
-    let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription).finish();
+    let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
+        .limit_depth(5)
+        .limit_recursive_depth(5)
+        .finish();
 
+    let subscriptions_domain_separator =
+        eip712::DomainSeparator::new(&TicketPayload::eip712_domain(
+            conf.subscriptions_chain_id,
+            conf.subscriptions_contract_address.0.into(),
+        ));
+    let auth_handler = AuthHandler::create(subscriptions_domain_separator);
+
+    let cors = CorsLayer::new()
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_origin(Any);
     let app = Router::new()
         .route(
             graphql_endpoint.clone().as_str(),
-            get(|| graphiql(graphql_endpoint)).post(graphql_handler),
+            get(|| graphiql(graphql_endpoint))
+                .post(|(schema, headers, req)| graphql_handler(schema, headers, req, auth_handler)),
         )
-        .layer(Extension(schema));
+        .layer(Extension(schema))
+        .layer(cors);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], conf.api_port));
     tracing::info!("Graph Subscriptions API listening on [{}]", addr);
+
     Server::bind(&addr)
         .serve(app.into_make_service())
         .await
