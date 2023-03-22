@@ -1,5 +1,4 @@
 use anyhow::{ensure, Ok, Result};
-use async_graphql::ErrorExtensions;
 use axum::http::{header::AUTHORIZATION, HeaderMap};
 use graph_subscriptions::{eip712::DomainSeparator, TicketPayload};
 use thiserror::Error;
@@ -43,11 +42,4 @@ impl AuthHandler {
 pub enum AuthError {
     #[error("Authorization Header not found on request, or is invalid")]
     Unauthorized,
-}
-impl ErrorExtensions for AuthError {
-    fn extend(&self) -> async_graphql::Error {
-        async_graphql::Error::new(format!("{}", self)).extend_with(|_, e| match self {
-            AuthError::Unauthorized => e.set("code", "UNAUTHORIZED"),
-        })
-    }
 }
