@@ -10,7 +10,13 @@ async-graphql = "5.0.6"
 async-graphql-axum = "5.0.6"
 axum = { version = "0.6.11", features = ["headers"] }
 dotenv = "0.15.0"
+eventuals = "0.6.7"
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
+reqwest = { version = "0.11.15", default-features = false, features = [
+    "json",
+    "rustls-tls-native-roots",
+    "trust-dns",
+] }
 serde = "1.0.158"
 serde_json = "1.0.94"
 thiserror = "1.0.40"

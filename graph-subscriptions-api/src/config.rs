@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use dotenv::dotenv;
-use toolshed::bytes::Address;
+use toolshed::{bytes::Address, url::Url};
 
 #[derive(Debug)]
 pub struct Config {
@@ -11,6 +11,8 @@ pub struct Config {
     pub graphql_endpoint: String,
     /// Format log output as JSON
     pub log_json: bool,
+    /// The Graph Network Subgraph URL. For querying subgraphs published to the network
+    pub network_subgraph_url: Url,
     /// Subscriptions contract chain ID
     pub subscriptions_chain_id: u64,
     /// Subscriptions contract address
@@ -41,6 +43,13 @@ pub fn init_config() -> Config {
             },
             Err(_) => panic!("SUBSCRIPTIONS_CONTRACT_ADDRESS environment variable is required"),
         };
+    let network_subgraph_url: Url = match dotenv::var("NETWORK_SUBGRAPH_URL") {
+        Ok(url) => match Url::from_str(url.as_str()) {
+            Ok(url) => url,
+            Err(_) => panic!("NETWORK_SUBGRAPH_URL environment variable is invalid"),
+        },
+        Err(_) => panic!("NETWORK_SUBGRAPH_URL environment variable is required"),
+    };
 
     Config {
         api_port,
@@ -48,5 +57,6 @@ pub fn init_config() -> Config {
         log_json,
         subscriptions_chain_id,
         subscriptions_contract_address,
+        network_subgraph_url,
     }
 }

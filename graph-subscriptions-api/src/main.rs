@@ -1,3 +1,5 @@
+use std::{net::SocketAddr, time::Duration};
+
 use async_graphql::{http::GraphiQLSource, EmptyMutation, EmptySubscription, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
@@ -8,13 +10,14 @@ use axum::{
     Router, Server,
 };
 use graph_subscriptions::{eip712, TicketPayload};
-use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{self, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 mod auth;
 mod config;
+mod network_subgraph;
 mod schema;
+mod subgraph_client;
 
 use crate::auth::AuthHandler;
 use crate::config::init_config;
@@ -45,6 +48,14 @@ async fn main() {
     init_tracing(conf.log_json);
 
     tracing::info!("Graph Subscriptions API starting...");
+
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .unwrap();
+    let network_subgraph_client =
+        subgraph_client::Client::new(http_client.clone(), conf.network_subgraph_url.clone());
+    let _network_subgraph_data = network_subgraph::Client::create(network_subgraph_client);
 
     let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
         .limit_depth(5)
