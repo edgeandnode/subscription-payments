@@ -35,6 +35,7 @@ import {
   createSubscribeEvent,
   createUnsubscribeEvent,
 } from './subscriptions-utils';
+import {mockBlock} from './block-utils';
 
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/developer/matchstick/#tests-structure-0-5-0
@@ -47,7 +48,6 @@ const INITIAL_RATE = BigInt.fromU32(10)
 
 describe('Describe entity assertions', () => {
   const user = '0x0000000000000000000000000000000000000001';
-  const timestamp = 1; // default block timestamp
 
   beforeEach(() => {
     let event = createSubscribeEvent(
@@ -58,9 +58,11 @@ describe('Describe entity assertions', () => {
       INITIAL_RATE
     );
     handleSubscribe(event);
+    mockBlock.next();
   });
 
   afterEach(() => {
+    mockBlock.reset();
     clearStore();
   });
 
@@ -70,26 +72,23 @@ describe('Describe entity assertions', () => {
     // 0xa16081f360e3847006db660bae1c6d1b2e17ec2a is the default address used in newMockEvent() function
     const id = '0xa16081f360e3847006db660bae1c6d1b2e17ec2a' + '01000000';
     assert.fieldEquals('Subscribe', id, 'user', user);
-    assert.fieldEquals('Subscribe', id, 'start', '2000');
-    assert.fieldEquals('Subscribe', id, 'end', '5000');
-    assert.fieldEquals('Subscribe', id, 'rate', '2000000000000000000');
+    assert.fieldEquals('Subscribe', id, 'start', INITIAL_START.toString());
+    assert.fieldEquals('Subscribe', id, 'end', INITIAL_END.toString());
+    assert.fieldEquals('Subscribe', id, 'rate', INITIAL_RATE.toString());
 
     assert.entityCount('User', 1);
     assert.fieldEquals('User', user, 'eventCount', '1'); // 1 UserSubscriptionCreatedEvent
 
-    assert.entityCount('Subscription', 1);
-    assert.fieldEquals('Subscription', user, 'user', user);
-    assert.fieldEquals('Subscription', user, 'start', '2000');
-    assert.fieldEquals('Subscription', user, 'end', '5000');
-    assert.fieldEquals('Subscription', user, 'rate', '2000000000000000000');
+    assertSubscription(user, INITIAL_START, INITIAL_END, INITIAL_RATE);
 
     // validate UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     const createdEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
       USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
-      BigInt.fromI32(timestamp)
+      mockBlock.parent.timestamp
     );
+
     assert.fieldEquals(
       'UserSubscriptionCreatedEvent',
       createdEventId.toHex(),
@@ -100,19 +99,19 @@ describe('Describe entity assertions', () => {
       'UserSubscriptionCreatedEvent',
       createdEventId.toHex(),
       'currentSubscriptionStart',
-      '2000'
+      INITIAL_START.toString()
     );
     assert.fieldEquals(
       'UserSubscriptionCreatedEvent',
       createdEventId.toHex(),
       'currentSubscriptionEnd',
-      '5000'
+      INITIAL_END.toString()
     );
     assert.fieldEquals(
       'UserSubscriptionCreatedEvent',
       createdEventId.toHex(),
       'currentSubscriptionRate',
-      '2000000000000000000'
+      INITIAL_RATE.toString()
     );
   });
 
@@ -140,7 +139,7 @@ describe('Describe entity assertions', () => {
     const canceledEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
       USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
-      BigInt.fromI32(timestamp)
+      mockBlock.current.timestamp
     );
     assert.fieldEquals(
       'UserSubscriptionCanceledEvent',
@@ -166,25 +165,25 @@ describe('Describe entity assertions', () => {
       .pow(18)
       .times(BigInt.fromU32(2));
 
-    let event = createSubscribeEvent(
-      Address.fromString(user),
-      BigInt.fromU32(0),
-      start,
-      end,
-      rate
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
     );
-    event.logIndex = BigInt.fromU32(2);
-    handleSubscribe(event);
+    handleSubscribe(
+      createSubscribeEvent(
+        Address.fromString(user),
+        BigInt.fromU32(0),
+        start,
+        end,
+        rate,
+        2
+      )
+    );
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 0);
+    assert.entityCount('Unsubscribe', 1);
 
-    assert.entityCount('Subscription', 1);
-    assert.fieldEquals('Subscription', user, 'user', user);
-    assert.fieldEquals('Subscription', user, 'start', start.toString());
-    assert.fieldEquals('Subscription', user, 'end', end.toString());
+    assertSubscription(user, start, end, rate);
 
-    assert.fieldEquals('Subscription', user, 'rate', rate.toString());
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
@@ -200,24 +199,26 @@ describe('Describe entity assertions', () => {
     const rate = BigInt.fromU32(10)
       .pow(18)
       .times(BigInt.fromU32(5));
-    let event = createSubscribeEvent(
-      Address.fromString(user),
-      BigInt.fromU32(0),
-      start,
-      end,
-      rate
+
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
     );
-    event.logIndex = BigInt.fromU32(2);
-    handleSubscribe(event);
+    handleSubscribe(
+      createSubscribeEvent(
+        Address.fromString(user),
+        BigInt.fromU32(0),
+        start,
+        end,
+        rate,
+        2
+      )
+    );
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 0);
+    assert.entityCount('Unsubscribe', 1);
 
-    assert.entityCount('Subscription', 1);
-    assert.fieldEquals('Subscription', user, 'user', user);
-    assert.fieldEquals('Subscription', user, 'start', start.toString());
-    assert.fieldEquals('Subscription', user, 'end', end.toString());
-    assert.fieldEquals('Subscription', user, 'rate', rate.toString());
+    assertSubscription(user, start, end, rate);
+
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionUpgradeEvent is created as the subscription was rate was increased
@@ -225,7 +226,7 @@ describe('Describe entity assertions', () => {
     let upgradeEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
       USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE,
-      BigInt.fromI32(timestamp)
+      mockBlock.current.timestamp
     );
     assert.fieldEquals(
       'UserSubscriptionUpgradeEvent',
@@ -256,24 +257,24 @@ describe('Describe entity assertions', () => {
       .pow(18)
       .times(BigInt.fromU32(1));
 
-    let event = createSubscribeEvent(
-      Address.fromString(user),
-      BigInt.fromU32(0),
-      start,
-      end,
-      rate
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
     );
-    event.logIndex = BigInt.fromU32(2);
-    handleSubscribe(event);
+    handleSubscribe(
+      createSubscribeEvent(
+        Address.fromString(user),
+        BigInt.fromU32(0),
+        start,
+        end,
+        rate,
+        2
+      )
+    );
 
     assert.entityCount('Subscribe', 2);
     assert.entityCount('Unsubscribe', 0);
 
-    assert.entityCount('Subscription', 1);
-    assert.fieldEquals('Subscription', user, 'user', user);
-    assert.fieldEquals('Subscription', user, 'start', start.toString());
-    assert.fieldEquals('Subscription', user, 'end', end.toString());
-    assert.fieldEquals('Subscription', user, 'rate', rate.toString());
+    assertSubscription(user, start, end, rate);
 
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
@@ -283,7 +284,7 @@ describe('Describe entity assertions', () => {
     let downgradeEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
       USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE,
-      BigInt.fromI32(timestamp)
+      mockBlock.current.timestamp
     );
 
     assert.fieldEquals(
@@ -411,3 +412,16 @@ describe('Describe entity assertions', () => {
     );
   });
 });
+
+function assertSubscription(
+  user: string,
+  expectedStart: BigInt,
+  expectedEnd: BigInt,
+  expectedRate: BigInt
+): void {
+  assert.entityCount('Subscription', 1);
+  assert.fieldEquals('Subscription', user, 'user', user);
+  assert.fieldEquals('Subscription', user, 'start', expectedStart.toString());
+  assert.fieldEquals('Subscription', user, 'end', expectedEnd.toString());
+  assert.fieldEquals('Subscription', user, 'rate', expectedRate.toString());
+}
