@@ -3,8 +3,8 @@ import {
   describe,
   test,
   clearStore,
-  beforeAll,
-  afterAll,
+  beforeEach,
+  afterEach,
 } from 'matchstick-as/assembly/index';
 
 import {Address, BigInt, Bytes} from '@graphprotocol/graph-ts';
@@ -39,24 +39,28 @@ import {
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/developer/matchstick/#tests-structure-0-5-0
 
+const INITIAL_START = BigInt.fromU32(2000);
+const INITIAL_END = BigInt.fromU32(5000);
+const INITIAL_RATE = BigInt.fromU32(10)
+  .pow(18)
+  .times(BigInt.fromU32(2));
+
 describe('Describe entity assertions', () => {
   const user = '0x0000000000000000000000000000000000000001';
   const timestamp = 1; // default block timestamp
 
-  beforeAll(() => {
+  beforeEach(() => {
     let event = createSubscribeEvent(
       Address.fromString(user),
       BigInt.fromU32(0),
-      BigInt.fromU32(2000),
-      BigInt.fromU32(5000),
-      BigInt.fromU32(10)
-        .pow(18)
-        .times(BigInt.fromU32(2))
+      INITIAL_START,
+      INITIAL_END,
+      INITIAL_RATE
     );
     handleSubscribe(event);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     clearStore();
   });
 
@@ -134,8 +138,10 @@ describe('Describe entity assertions', () => {
 
     assert.entityCount('Subscribe', 1);
     assert.entityCount('Unsubscribe', 1);
-    assert.entityCount('ActiveSubscription', 0);
     assert.entityCount('UserSubscriptionCanceledEvent', 1);
+
+    assert.fieldEquals('ActiveSubscription', user, 'end', '0');
+
     const canceledEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
       USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
@@ -158,67 +164,65 @@ describe('Describe entity assertions', () => {
     assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionCanceledEvent
   });
 
-  test('update Subscription', () => {
+  test('renew Subscription', () => {
+    const start = BigInt.fromU32(5000);
+    const end = BigInt.fromU32(10000);
+    const rate = BigInt.fromU32(10)
+      .pow(18)
+      .times(BigInt.fromU32(2));
+
     let event = createSubscribeEvent(
       Address.fromString(user),
       BigInt.fromU32(0),
-      BigInt.fromU32(3000),
-      BigInt.fromU32(8000),
-      BigInt.fromU32(10)
-        .pow(18)
-        .times(BigInt.fromU32(3))
+      start,
+      end,
+      rate
     );
     event.logIndex = BigInt.fromU32(2);
     handleSubscribe(event);
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 1);
+    assert.entityCount('Unsubscribe', 0);
 
     assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals('ActiveSubscription', user, 'user', user);
-    assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
-    assert.fieldEquals('ActiveSubscription', user, 'end', '8000');
-    assert.fieldEquals(
-      'ActiveSubscription',
-      user,
-      'rate',
-      '3000000000000000000'
-    );
+    assert.fieldEquals('ActiveSubscription', user, 'start', start.toString());
+    assert.fieldEquals('ActiveSubscription', user, 'end', end.toString());
+
+    assert.fieldEquals('ActiveSubscription', user, 'rate', rate.toString());
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
-    // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
+    // // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
     assert.entityCount('UserSubscriptionRenewalEvent', 1);
-    // validate that the UserSubscriptionCanceledEvent is removed
+    // // validate that the UserSubscriptionCanceledEvent is removed
     assert.entityCount('UserSubscriptionCanceledEvent', 0);
     assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent
   });
 
   test('upgrade Subscription', () => {
+    const start = BigInt.fromU32(3000);
+    const end = BigInt.fromU32(8000);
+    const rate = BigInt.fromU32(10)
+      .pow(18)
+      .times(BigInt.fromU32(5));
     let event = createSubscribeEvent(
       Address.fromString(user),
       BigInt.fromU32(0),
-      BigInt.fromU32(3000),
-      BigInt.fromU32(8000),
-      BigInt.fromU32(10)
-        .pow(18)
-        .times(BigInt.fromU32(5))
+      start,
+      end,
+      rate
     );
     event.logIndex = BigInt.fromU32(2);
     handleSubscribe(event);
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 1);
+    assert.entityCount('Unsubscribe', 0);
 
     assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals('ActiveSubscription', user, 'user', user);
-    assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
-    assert.fieldEquals('ActiveSubscription', user, 'end', '8000');
-    assert.fieldEquals(
-      'ActiveSubscription',
-      user,
-      'rate',
-      '5000000000000000000'
-    );
+    assert.fieldEquals('ActiveSubscription', user, 'start', start.toString());
+    assert.fieldEquals('ActiveSubscription', user, 'end', end.toString());
+    assert.fieldEquals('ActiveSubscription', user, 'rate', rate.toString());
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionUpgradeEvent is created as the subscription was rate was increased
@@ -232,78 +236,80 @@ describe('Describe entity assertions', () => {
       'UserSubscriptionUpgradeEvent',
       upgradeEventId.toHex(),
       'previousSubscriptionStart',
-      '3000' // value from `update Subscription` test above before this event is received
+      INITIAL_START.toString() // value from `update Subscription` test above before this event is received
     );
     assert.fieldEquals(
       'UserSubscriptionUpgradeEvent',
       upgradeEventId.toHex(),
       'previousSubscriptionEnd',
-      '8000' // value from `update Subscription` test above before this event is received
+      INITIAL_END.toString() // value from `update Subscription` test above before this event is received
     );
     assert.fieldEquals(
       'UserSubscriptionUpgradeEvent',
       upgradeEventId.toHex(),
       'previousSubscriptionRate',
-      '3000000000000000000' // value from `update Subscription` test above before this event is received
+      INITIAL_RATE.toString() // value from `update Subscription` test above before this event is received
     );
 
-    assert.fieldEquals('User', user, 'eventCount', '3'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent, 1 UserSubscriptionUpgradeEvent
+    assert.fieldEquals('User', user, 'eventCount', '2');
   });
 
   test('downgrade Subscription', () => {
+    const start = BigInt.fromU32(3000);
+    const end = BigInt.fromU32(8000);
+    const rate = BigInt.fromU32(10)
+      .pow(18)
+      .times(BigInt.fromU32(1));
+
     let event = createSubscribeEvent(
       Address.fromString(user),
       BigInt.fromU32(0),
-      BigInt.fromU32(3000),
-      BigInt.fromU32(8000),
-      BigInt.fromU32(10)
-        .pow(18)
-        .times(BigInt.fromU32(2))
+      start,
+      end,
+      rate
     );
     event.logIndex = BigInt.fromU32(2);
     handleSubscribe(event);
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 1);
+    assert.entityCount('Unsubscribe', 0);
 
     assert.entityCount('ActiveSubscription', 1);
     assert.fieldEquals('ActiveSubscription', user, 'user', user);
-    assert.fieldEquals('ActiveSubscription', user, 'start', '3000');
-    assert.fieldEquals('ActiveSubscription', user, 'end', '8000');
-    assert.fieldEquals(
-      'ActiveSubscription',
-      user,
-      'rate',
-      '2000000000000000000'
-    );
+    assert.fieldEquals('ActiveSubscription', user, 'start', start.toString());
+    assert.fieldEquals('ActiveSubscription', user, 'end', end.toString());
+    assert.fieldEquals('ActiveSubscription', user, 'rate', rate.toString());
+
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionDowngradeEvent is created as the subscription was rate was increased
     assert.entityCount('UserSubscriptionDowngradeEvent', 1);
+
     let downgradeEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
       USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE,
       BigInt.fromI32(timestamp)
     );
+
     assert.fieldEquals(
       'UserSubscriptionDowngradeEvent',
       downgradeEventId.toHex(),
       'previousSubscriptionStart',
-      '3000' // value from `upgrade Subscription` test above before this event is received
+      INITIAL_START.toString() // value from `upgrade Subscription` test above before this event is received
     );
     assert.fieldEquals(
       'UserSubscriptionDowngradeEvent',
       downgradeEventId.toHex(),
       'previousSubscriptionEnd',
-      '8000' // value from `upgrade Subscription` test above before this event is received
+      INITIAL_END.toString() // value from `upgrade Subscription` test above before this event is received
     );
     assert.fieldEquals(
       'UserSubscriptionDowngradeEvent',
       downgradeEventId.toHex(),
       'previousSubscriptionRate',
-      '5000000000000000000' // value from `upgrade Subscription` test above before this event is received
+      INITIAL_RATE.toString() // value from `upgrade Subscription` test above before this event is received
     );
-    assert.fieldEquals('User', user, 'eventCount', '4'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent, 1 UserSubscriptionUpgradeEvent, 1 UserSubscriptionDowngradeEvent
+    assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionDowngradeEvent
   });
 
   test('should be able to add an AuthorizedSigner entity for the ActiveSubscription. but must be unique', () => {
@@ -348,10 +354,19 @@ describe('Describe entity assertions', () => {
   });
 
   test('should be able to remove an AuthorizedSigner entity', () => {
+    let subscriptionOwner = Address.fromString(user);
+
+    let event1 = createAuthorizedSignerAddedEvent(
+      subscriptionOwner,
+      Address.fromString('0x0000000000000000000000000000000000000002')
+    );
+    event1.logIndex = BigInt.fromU32(4);
+
+    handleAuthorizedSignerAdded(event1);
+
     assert.entityCount('AuthorizedSigner', 1);
     // create another AuthorizedSigner
     const signer2 = '0x0000000000000000000000000000000000000003';
-    let subscriptionOwner = Address.fromString(user);
     let authorizedSigner2 = Address.fromString(signer2);
     let authorizedSignerEntity2Id = buildAuthorizedSignerId(
       subscriptionOwner,

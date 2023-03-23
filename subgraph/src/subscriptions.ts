@@ -1,4 +1,4 @@
-import {store} from '@graphprotocol/graph-ts';
+import {BigInt, store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -72,47 +72,41 @@ export function handleSubscribe(event: SubscribeEvent): void {
     // Since ActiveSubscription record does not exist, the user is subscribing for the 1st time.
     // Create and store a UserSubscriptionCreatedEvent record.
     buildAndSaveUserSubscriptionCreatedEvent(user, sub, event);
-    // If the user calls the subscribe function on the contract and the ActiveSubscription.end > block.timestamp,
-    // then the contract will call the unsubscribe function, which emits the Unsubscribe event.
-    // In the `handleUnsubscribe` function below, we create a `UserSubscriptionCanceledEvent` record on the Unsubscribe event.
-    // The contract then recreates the ActiveSubscription and emits a Subscribe event; which is handled by this function.
-    // In this instance where an Unsubscribe is immediately followed by a Subscribe,
-    // the user did not intend to "Cancel" their subscription, they meant to renew it.
-    // As a result, find the created `UserSubscriptionCanceledEvent` record for the user and remove it from the store,
-    // and create a `UserSubscriptionRenewalEvent` record.
-    let canceledEventId = buildUserSubscriptionEventId(
+    return;
+  }
+
+  // Check if the sub.rate is > than the event.params.rate value.
+  // If this is true, then the user is upgrading their ActiveSubscription; create a UserSubscriptionUpgradeEvent record.
+  if (event.params.rate > sub.rate) {
+    buildAndSaveUserSubscriptionUpgradeEvent(user, sub, event);
+  }
+  // Check if the sub.rate is < than the event.params.rate value.
+  // If this is true, then the user is downgrading their ActiveSubscription; create a UserSubscriptionDowngradeEvent record.
+  else if (event.params.rate < sub.rate) {
+    buildAndSaveUserSubscriptionDowngradeEvent(user, sub, event);
+  } else {
+    buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
+  }
+
+  sub.user = user.id;
+  sub.start = event.params.start;
+  sub.end = event.params.end;
+  sub.rate = event.params.rate;
+  sub.save();
+
+  // If a CanceledEvent was created in the same block, we remove it.
+  const cancelEvent = UserSubscriptionCanceledEvent.load(
+    buildUserSubscriptionEventId(
       user.id,
       USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
       event.block.timestamp
-    );
-    let canceledEvent = UserSubscriptionCanceledEvent.load(canceledEventId);
-    if (canceledEvent != null) {
-      buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
+    )
+  );
 
-      store.remove(
-        'UserSubscriptionCanceledEvent',
-        canceledEventId.toHexString()
-      );
-      // decrement user event count
-      user.eventCount = user.eventCount - 1;
-      user.save();
-    }
-  } else {
-    // Check if the sub.rate is > than the event.params.rate value.
-    // If this is true, then the user is upgrading their ActiveSubscription; create a UserSubscriptionUpgradeEvent record.
-    if (event.params.rate > sub.rate) {
-      buildAndSaveUserSubscriptionUpgradeEvent(user, sub, event);
-    }
-    // Check if the sub.rate is < than the event.params.rate value.
-    // If this is true, then the user is downgrading their ActiveSubscription; create a UserSubscriptionDowngradeEvent record.
-    if (event.params.rate < sub.rate) {
-      buildAndSaveUserSubscriptionDowngradeEvent(user, sub, event);
-    }
-    sub.user = user.id;
-    sub.start = event.params.start;
-    sub.end = event.params.end;
-    sub.rate = event.params.rate;
-    sub.save();
+  if (cancelEvent != null) {
+    store.remove('UserSubscriptionCanceledEvent', cancelEvent.id.toHexString());
+    user.eventCount = user.eventCount - 1;
+    user.save();
   }
 }
 
@@ -129,6 +123,9 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.save();
 
   let sub = ActiveSubscription.load(event.params.user);
+
+  if (sub == null) return;
+
   // To handle an edge-case where the Subscribe/Unsubscribe events aren't received by the subgraph mapping in the same order they are emitted,
   // if a `UserSubscriptionCreatedEvent` exists in the same timestamp, don't create the `UserSubscriptionCanceledEvent` record
   let createdEventId = buildUserSubscriptionEventId(
@@ -136,12 +133,15 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
     USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
     event.block.timestamp
   );
+
   let createdEvent = UserSubscriptionCreatedEvent.load(createdEventId);
-  if (sub != null && createdEvent != null) {
+
+  if (createdEvent != null) {
     buildAndSaveUserSubscriptionCanceledEvent(user, sub, event);
   }
 
-  store.remove('ActiveSubscription', event.params.user.toHexString());
+  sub.end = BigInt.zero();
+  sub.save();
 }
 
 export function handleAuthorizedSignerAdded(
