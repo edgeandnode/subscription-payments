@@ -16,7 +16,7 @@ dataSources:
         - Init
         - Subscribe
         - Unsubscribe
-        - ActiveSubscription
+        - Subscription
       abis:
         - name: Subscriptions
           file: ./abis/Subscriptions.json
