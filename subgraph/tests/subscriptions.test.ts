@@ -134,7 +134,7 @@ describe('Describe entity assertions', () => {
     assert.entityCount('Unsubscribe', 1);
     assert.entityCount('UserSubscriptionCanceledEvent', 1);
 
-    assert.fieldEquals('Subscription', user, 'end', '0');
+    assertSubscription(user, sub.start, sub.end, sub.rate, true);
 
     const canceledEventId = buildUserSubscriptionEventId(
       Bytes.fromHexString(user),
@@ -147,6 +147,7 @@ describe('Describe entity assertions', () => {
       'eventType',
       USER_SUBSCRIPTION_EVENT_TYPE__CANCELED
     );
+
     let tokensReturned = calculateUnlockedTokens(sub, event);
     assert.fieldEquals(
       'UserSubscriptionCanceledEvent',
@@ -272,7 +273,7 @@ describe('Describe entity assertions', () => {
     );
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 0);
+    assert.entityCount('Unsubscribe', 1);
 
     assertSubscription(user, start, end, rate);
 
@@ -417,11 +418,13 @@ function assertSubscription(
   user: string,
   expectedStart: BigInt,
   expectedEnd: BigInt,
-  expectedRate: BigInt
+  expectedRate: BigInt,
+  cancelled: boolean = false
 ): void {
   assert.entityCount('Subscription', 1);
   assert.fieldEquals('Subscription', user, 'user', user);
   assert.fieldEquals('Subscription', user, 'start', expectedStart.toString());
   assert.fieldEquals('Subscription', user, 'end', expectedEnd.toString());
   assert.fieldEquals('Subscription', user, 'rate', expectedRate.toString());
+  assert.fieldEquals('Subscription', user, 'cancelled', cancelled.toString());
 }

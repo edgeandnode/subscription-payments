@@ -52,6 +52,9 @@ type Subscription @entity {
   start: BigInt! # uint64
   end: BigInt! # uint64
   rate: BigInt! # uint128
+  # The subgraph preserves `end` timestamp of cancelled subscriptions to enable showing it in UI
+  # Even if not cancelled an expired subscription is inactive.
+  cancelled: Boolean!
 }
 
 type AuthorizedSigner @entity {

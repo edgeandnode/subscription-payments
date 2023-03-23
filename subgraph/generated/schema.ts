@@ -166,10 +166,7 @@ export class User extends Entity {
     if (!value) {
       this.unset("subscriptions");
     } else {
-      this.set(
-        "subscriptions",
-        Value.fromBytesArray(<Array<Bytes>>value)
-      );
+      this.set("subscriptions", Value.fromBytesArray(<Array<Bytes>>value));
     }
   }
 
@@ -528,6 +525,15 @@ export class Subscription extends Entity {
 
   set rate(value: BigInt) {
     this.set("rate", Value.fromBigInt(value));
+  }
+
+  get cancelled(): boolean {
+    let value = this.get("cancelled");
+    return value!.toBoolean();
+  }
+
+  set cancelled(value: boolean) {
+    this.set("cancelled", Value.fromBoolean(value));
   }
 }
 

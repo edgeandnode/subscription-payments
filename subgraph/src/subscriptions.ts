@@ -68,6 +68,7 @@ export function handleSubscribe(event: SubscribeEvent): void {
     sub.start = event.params.start;
     sub.end = event.params.end;
     sub.rate = event.params.rate;
+    sub.cancelled = false;
     sub.save();
     // Since Subscription record does not exist, the user is subscribing for the 1st time.
     // Create and store a UserSubscriptionCreatedEvent record.
@@ -92,6 +93,7 @@ export function handleSubscribe(event: SubscribeEvent): void {
   sub.start = event.params.start;
   sub.end = event.params.end;
   sub.rate = event.params.rate;
+  sub.cancelled = false;
   sub.save();
 
   // If a CanceledEvent was created in the same block, we remove it.
@@ -123,24 +125,16 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.save();
 
   let sub = Subscription.load(event.params.user);
-
   if (sub == null) return;
 
   // To handle an edge-case where the Subscribe/Unsubscribe events aren't received by the subgraph mapping in the same order they are emitted,
   // if a `UserSubscriptionCreatedEvent` exists in the same timestamp, don't create the `UserSubscriptionCanceledEvent` record
-  let createdEventId = buildUserSubscriptionEventId(
-    user.id,
-    USER_SUBSCRIPTION_EVENT_TYPE__CREATED,
-    event.block.timestamp
-  );
+  let subscribeEvent = Subscribe.load(event.transaction.hash);
+  if (subscribeEvent != null) return;
 
-  let createdEvent = UserSubscriptionCreatedEvent.load(createdEventId);
+  buildAndSaveUserSubscriptionCanceledEvent(user, sub, event);
 
-  if (createdEvent != null) {
-    buildAndSaveUserSubscriptionCanceledEvent(user, sub, event);
-  }
-
-  sub.end = BigInt.zero();
+  sub.cancelled = true;
   sub.save();
 }
 
