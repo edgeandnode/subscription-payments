@@ -1,16 +1,27 @@
-use anyhow::{ensure, Ok, Result};
+use std::collections::HashMap;
+
+use anyhow::{anyhow, ensure, Ok, Result};
 use axum::http::{header::AUTHORIZATION, HeaderMap};
+use eventuals::{Eventual, Ptr};
 use graph_subscriptions::{eip712::DomainSeparator, TicketPayload};
 use thiserror::Error;
+use toolshed::bytes::Address;
+
+use crate::subscriptions_subgraph::Subscription;
 
 pub struct AuthHandler {
     pub subscriptions_domain_separator: DomainSeparator,
+    pub subscriptions: Eventual<Ptr<HashMap<Address, Subscription>>>,
 }
 
 impl AuthHandler {
-    pub fn create(subscriptions_domain_separator: DomainSeparator) -> &'static Self {
+    pub fn create(
+        subscriptions_domain_separator: DomainSeparator,
+        subscriptions: Eventual<Ptr<HashMap<Address, Subscription>>>,
+    ) -> &'static Self {
         Box::leak(Box::new(Self {
             subscriptions_domain_separator,
+            subscriptions,
         }))
     }
 
@@ -33,6 +44,22 @@ impl AuthHandler {
             raw_auth_header.as_bytes(),
             &self.subscriptions_domain_separator,
         )?;
+
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
+        let subscription = self
+            .subscriptions
+            .value_immediate()
+            .unwrap_or_default()
+            .get(&user)
+            .cloned()
+            .ok_or_else(|| anyhow!("Subscription not found for user {}", user))?;
+        let signer = Address(payload.signer.0);
+        ensure!(
+            (signer == user) || subscription.signers.contains(&signer),
+            "Signer {} not authorized for user {}",
+            signer,
+            user,
+        );
 
         Ok(payload)
     }

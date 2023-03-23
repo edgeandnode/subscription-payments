@@ -17,6 +17,8 @@ pub struct Config {
     pub subscriptions_chain_id: u64,
     /// Subscriptions contract address
     pub subscriptions_contract_address: Address,
+    /// Subscriptions subgraph url
+    pub subscriptions_subgraph_url: Url,
 }
 
 pub fn init_config() -> Config {
@@ -43,6 +45,13 @@ pub fn init_config() -> Config {
             },
             Err(_) => panic!("SUBSCRIPTIONS_CONTRACT_ADDRESS environment variable is required"),
         };
+    let subscriptions_subgraph_url: Url = match dotenv::var("SUBSCRIPTIONS_SUBGRAPH_URL") {
+        Ok(url) => match Url::from_str(url.as_str()) {
+            Ok(url) => url,
+            Err(_) => panic!("SUBSCRIPTIONS_SUBGRAPH_URL environment variable is invalid"),
+        },
+        Err(_) => panic!("SUBSCRIPTIONS_SUBGRAPH_URL environment variable is required"),
+    };
     let network_subgraph_url: Url = match dotenv::var("NETWORK_SUBGRAPH_URL") {
         Ok(url) => match Url::from_str(url.as_str()) {
             Ok(url) => url,
@@ -57,6 +66,7 @@ pub fn init_config() -> Config {
         log_json,
         subscriptions_chain_id,
         subscriptions_contract_address,
+        subscriptions_subgraph_url,
         network_subgraph_url,
     }
 }

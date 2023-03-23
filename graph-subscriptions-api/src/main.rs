@@ -18,6 +18,7 @@ mod config;
 mod network_subgraph;
 mod schema;
 mod subgraph_client;
+mod subscriptions_subgraph;
 
 use crate::auth::AuthHandler;
 use crate::config::init_config;
@@ -56,6 +57,10 @@ async fn main() {
     let network_subgraph_client =
         subgraph_client::Client::new(http_client.clone(), conf.network_subgraph_url.clone());
     let network_subgraph_data = network_subgraph::Client::create(network_subgraph_client);
+    let subscriptions = subscriptions_subgraph::Client::create(subgraph_client::Client::new(
+        http_client.clone(),
+        conf.subscriptions_subgraph_url.clone(),
+    ));
 
     // instantiate a context instance that will be passed as data to the graphql resolver functions in the context instance
     let ctx = GraphSubscriptionsSchemaCtx {
@@ -72,7 +77,7 @@ async fn main() {
             conf.subscriptions_chain_id,
             conf.subscriptions_contract_address.0.into(),
         ));
-    let auth_handler = AuthHandler::create(subscriptions_domain_separator);
+    let auth_handler = AuthHandler::create(subscriptions_domain_separator, subscriptions);
 
     let cors = CorsLayer::new()
         .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
