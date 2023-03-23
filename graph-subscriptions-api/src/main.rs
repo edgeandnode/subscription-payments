@@ -21,7 +21,7 @@ mod subgraph_client;
 
 use crate::auth::AuthHandler;
 use crate::config::init_config;
-use crate::schema::{GraphSubscriptionsSchema, QueryRoot};
+use crate::schema::{GraphSubscriptionsSchema, GraphSubscriptionsSchemaCtx, QueryRoot};
 
 async fn graphql_handler(
     schema: Extension<GraphSubscriptionsSchema>,
@@ -55,11 +55,16 @@ async fn main() {
         .unwrap();
     let network_subgraph_client =
         subgraph_client::Client::new(http_client.clone(), conf.network_subgraph_url.clone());
-    let _network_subgraph_data = network_subgraph::Client::create(network_subgraph_client);
+    let network_subgraph_data = network_subgraph::Client::create(network_subgraph_client);
+
+    // instantiate a context instance that will be passed as data to the graphql resolver functions in the context instance
+    let ctx = GraphSubscriptionsSchemaCtx {
+        subgraph_deployments: network_subgraph_data.subgraph_deployments,
+    };
 
     let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
-        .limit_depth(5)
-        .limit_recursive_depth(5)
+        .data::<GraphSubscriptionsSchemaCtx>(ctx)
+        .limit_depth(32)
         .finish();
 
     let subscriptions_domain_separator =

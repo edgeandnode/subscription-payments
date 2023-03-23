@@ -9,6 +9,7 @@ anyhow = "1.0.70"
 async-graphql = "5.0.6"
 async-graphql-axum = "5.0.6"
 axum = { version = "0.6.11", features = ["headers"] }
+chrono = "0.4.24"
 dotenv = "0.15.0"
 eventuals = "0.6.7"
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
