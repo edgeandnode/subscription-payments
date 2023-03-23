@@ -9,6 +9,12 @@ use toolshed::bytes::Address;
 
 use crate::subscriptions_subgraph::Subscription;
 
+#[derive(Clone, Debug)]
+pub struct TicketPayloadWrapper {
+    pub ticket_payload: TicketPayload,
+    pub subscription: Subscription,
+}
+
 pub struct AuthHandler {
     pub subscriptions_domain_separator: DomainSeparator,
     pub subscriptions: Eventual<Ptr<HashMap<Address, Subscription>>>,
@@ -25,7 +31,7 @@ impl AuthHandler {
         }))
     }
 
-    pub fn parse_auth_header(&self, headers: &HeaderMap) -> Result<TicketPayload> {
+    pub fn parse_auth_header(&self, headers: &HeaderMap) -> Result<TicketPayloadWrapper> {
         // grab the Authorization header out of the request headers map.
         // trim out "Bearer" from beginning of header, which should be in format: Beader {token}
         let raw_auth_header = headers
@@ -61,7 +67,10 @@ impl AuthHandler {
             user,
         );
 
-        Ok(payload)
+        Ok(TicketPayloadWrapper {
+            ticket_payload: payload,
+            subscription,
+        })
     }
 }
 

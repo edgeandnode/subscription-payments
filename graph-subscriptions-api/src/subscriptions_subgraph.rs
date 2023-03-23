@@ -13,7 +13,7 @@ use toolshed::bytes::Address;
 
 use crate::subgraph_client;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Subscription {
     pub signers: Vec<Address>,
 }

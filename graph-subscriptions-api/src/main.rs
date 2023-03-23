@@ -2,6 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use async_graphql::{http::GraphiQLSource, EmptyMutation, EmptySubscription, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use auth::TicketPayloadWrapper;
 use axum::{
     extract::Extension,
     http::{header, HeaderMap, Method},
@@ -32,7 +33,7 @@ async fn graphql_handler(
 ) -> GraphQLResponse {
     let mut req = req.into_inner();
     if let Ok(token) = auth_handler.parse_auth_header(&headers) {
-        req = req.data::<TicketPayload>(token);
+        req = req.data::<TicketPayloadWrapper>(token);
     }
     schema.execute(req).await.into()
 }
