@@ -42,6 +42,15 @@ pub struct ActiveSubscription {
     pub rate: u128,
 }
 
+#[derive(Clone, Debug)]
+pub struct ActiveSubscriptionWithSigners {
+    pub user: Address,
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub rate: u128,
+    pub signers: Vec<Address>,
+}
+
 fn deserialize_datetime_utc<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
 where
     D: Deserializer<'de>,
@@ -63,13 +72,13 @@ where
 
 pub struct Client {
     subgraph_client: subgraph_client::Client,
-    subscriptions: EventualWriter<Ptr<HashMap<Address, Subscription>>>,
+    subscriptions: EventualWriter<Ptr<HashMap<Address, ActiveSubscriptionWithSigners>>>,
 }
 
 impl Client {
     pub fn create(
         subgraph_client: subgraph_client::Client,
-    ) -> Eventual<Ptr<HashMap<Address, Subscription>>> {
+    ) -> Eventual<Ptr<HashMap<Address, ActiveSubscriptionWithSigners>>> {
         let (subscriptions_tx, subscriptions_rx) = Eventual::new();
         let client = Arc::new(Mutex::new(Client {
             subgraph_client,
@@ -142,7 +151,11 @@ impl Client {
                     .into_iter()
                     .map(|signer| signer.signer)
                     .chain([user.id]);
-                let sub = Subscription {
+                let sub = ActiveSubscriptionWithSigners {
+                    user: user.id,
+                    start: active_sub.start,
+                    end: active_sub.end,
+                    rate: active_sub.rate,
                     signers: signers.collect(),
                 };
                 (user.id, sub)
