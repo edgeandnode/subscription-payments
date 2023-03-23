@@ -11,7 +11,7 @@ type User @entity {
   subscribeEvents: [Subscribe!]! @derivedFrom(field: "user") # can't have a User with a subscribe
   unsubscribeEvents: [Unsubscribe!] @derivedFrom(field: "user")
   extendEvents: [Unsubscribe!] @derivedFrom(field: "user")
-  subscriptions: [Subscription!] @derivedFrom(field: "user")
+  userSubscriptions: [UserSubscription!] @derivedFrom(field: "user")
   authorizedSigners: [AuthorizedSigner!] @derivedFrom(field: "user")
   # a total count of all events of all types. useful for pagination
   eventCount: Int!
@@ -46,14 +46,14 @@ type Extend @entity(immutable: true) {
   end: BigInt! # uint64
 }
 
-type Subscription @entity {
+type UserSubscription @entity {
   id: Bytes!
   user: User!
   start: BigInt! # uint64
   end: BigInt! # uint64
   rate: BigInt! # uint128
-  # The subgraph preserves `end` timestamp of cancelled subscriptions to enable showing it in UI
-  # Even if not cancelled an expired subscription is inactive.
+  # The subgraph preserves `end` timestamp of cancelled UserSubscriptions to enable showing it in UI
+  # Even if not cancelled an expired UserSubscription is inactive.
   cancelled: Boolean!
 }
 
@@ -64,30 +64,30 @@ type AuthorizedSigner @entity {
 }
 
 """
-Enum of available User Subscription Event types based off the action the user performed
+Enum of available User UserSubscription Event types based off the action the user performed
 """
 enum UserSubscriptionsEventType {
-  # The user created a net-new Subscription
+  # The user created a net-new UserSubscription
   CREATED
-  # The user canceled their active Subscription
+  # The user canceled their active UserSubscription
   CANCELED
-  # The user renewed (extended the ending timestamp) of their active Subscription
+  # The user renewed (extended the ending timestamp) of their active UserSubscription
   RENEW
-  # The user upgraded (set the rate to a higher value -> more queries available) of their active Subscription
+  # The user upgraded (set the rate to a higher value -> more queries available) of their active UserSubscription
   UPGRADE
-  # The user downgraded (set the rate to a lower value -> less queries available) of their active Subscription
+  # The user downgraded (set the rate to a lower value -> less queries available) of their active UserSubscription
   DOWNGRADE
 }
 
 """
-Generic interface that maps user events in the Subscriptions contract.
+Generic interface that maps user events in the UserSubscriptions contract.
 
 Some example events:
-- User creates a net-new subscription -> UserSubscriptionCreatedEvent
-- User cancels their active subscription -> UserSubscriptionCanceledEvent
-- User renews their active subscription -> UserSubscriptionRenewalEvent
-- User upgrades their active subscription -> UserSubscriptionUpgradeEvent
-- User downgrades their active subscription -> UserSubscriptionDowngradeEvent
+- User creates a net-new UserSubscription -> UserSubscriptionCreatedEvent
+- User cancels their active UserSubscription -> UserSubscriptionCanceledEvent
+- User renews their active UserSubscription -> UserSubscriptionRenewalEvent
+- User upgrades their active UserSubscription -> UserSubscriptionUpgradeEvent
+- User downgrades their active UserSubscription -> UserSubscriptionDowngradeEvent
 """
 interface UserSubscriptionsEvent {
   # keccak256 hex string of user:{event type}:txHash
@@ -100,7 +100,7 @@ interface UserSubscriptionsEvent {
 }
 
 """
-User created a net-new active Subscription
+User created a net-new active UserSubscription
 """
 type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
   @entity(immutable: true) {
@@ -112,16 +112,16 @@ type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CREATED
   eventType: UserSubscriptionsEventType!
-  # the user's Subscription.start value at the time the event is created
+  # the user's UserSubscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's Subscription.end value at the time the event is created
+  # the user's UserSubscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's Subscription.rate value at the time the event is created
+  # the user's UserSubscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
 """
-User canceled their active subscription
+User canceled their active UserSubscription
 """
 type UserSubscriptionCanceledEvent implements UserSubscriptionsEvent
   @entity(immutable: true) {
@@ -133,14 +133,14 @@ type UserSubscriptionCanceledEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CANCELED
   eventType: UserSubscriptionsEventType!
-  # the amount of unlocked tokens transferred back to the user as a result of cancelling the Subscription
+  # the amount of unlocked tokens transferred back to the user as a result of cancelling the UserSubscription
   tokensReturned: BigInt!
 }
 
 """
-User renewed their active Subscription.
+User renewed their active UserSubscription.
 
-Renewing means that the user extended the end timestamp of their active Subscription to a later timestamp.
+Renewing means that the user extended the end timestamp of their active UserSubscription to a later timestamp.
 """
 type UserSubscriptionRenewalEvent implements UserSubscriptionsEvent
   @entity(immutable: true) {
@@ -152,18 +152,18 @@ type UserSubscriptionRenewalEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.RENEW
   eventType: UserSubscriptionsEventType!
-  # the user's Subscription.start value at the time the event is created
+  # the user's UserSubscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's Subscription.end value at the time the event is created
+  # the user's UserSubscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's Subscription.rate value at the time the event is created
+  # the user's UserSubscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
 """
-User upgraded their active Subscription.
+User upgraded their active UserSubscription.
 
-Upgrading means that the user increased the `rate` on their active Subscription, granting them more query volume.
+Upgrading means that the user increased the `rate` on their active UserSubscription, granting them more query volume.
 """
 type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
   @entity(immutable: true) {
@@ -175,24 +175,24 @@ type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.UPGRADE
   eventType: UserSubscriptionsEventType!
-  # the Subscription.start value before the user upgraded their subscription
+  # the UserSubscription.start value before the user upgraded their UserSubscription
   previousSubscriptionStart: BigInt! # uint64
-  # the Subscription.end value before the user upgraded their subscription
+  # the UserSubscription.end value before the user upgraded their UserSubscription
   previousSubscriptionEnd: BigInt! # uint64
-  # the Subscription.rate value before the user upgraded their subscription
+  # the UserSubscription.rate value before the user upgraded their UserSubscription
   previousSubscriptionRate: BigInt! # uint128
-  # the user's Subscription.start value at the time the event is created
+  # the user's UserSubscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's Subscription.end value at the time the event is created
+  # the user's UserSubscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's Subscription.rate value at the time the event is created
+  # the user's UserSubscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
 """
-User downgraded their active Subscription.
+User downgraded their active UserSubscription.
 
-Downgrading means that the user decreased the `rate` on their active Subscription, granting them less query volume.
+Downgrading means that the user decreased the `rate` on their active UserSubscription, granting them less query volume.
 """
 type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
   @entity(immutable: true) {
@@ -204,16 +204,16 @@ type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.DOWNGRADE
   eventType: UserSubscriptionsEventType!
-  # the Subscription.start value before the user downgraded their subscription
+  # the UserSubscription.start value before the user downgraded their UserSubscription
   previousSubscriptionStart: BigInt! # uint64
-  # the Subscription.end value before the user downgraded their subscription
+  # the UserSubscription.end value before the user downgraded their UserSubscription
   previousSubscriptionEnd: BigInt! # uint64
-  # the Subscription.rate value before the user downgraded their subscription
+  # the UserSubscription.rate value before the user downgraded their UserSubscription
   previousSubscriptionRate: BigInt! # uint128
-  # the user's Subscription.start value at the time the event is created
+  # the user's UserSubscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's Subscription.end value at the time the event is created
+  # the user's UserSubscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's Subscription.rate value at the time the event is created
+  # the user's UserSubscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }

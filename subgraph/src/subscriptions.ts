@@ -8,7 +8,7 @@ import {
   AuthorizedSignerRemoved as AuthorizedSignerRemovedEvent,
 } from '../generated/Subscriptions/Subscriptions';
 import {
-  Subscription,
+  UserSubscription,
   Init,
   Subscribe,
   Unsubscribe,
@@ -61,9 +61,9 @@ export function handleSubscribe(event: SubscribeEvent): void {
 
   let user = loadOrCreateUser(event.params.user);
 
-  let sub = Subscription.load(event.params.user);
+  let sub = UserSubscription.load(event.params.user);
   if (sub == null) {
-    sub = new Subscription(event.params.user);
+    sub = new UserSubscription(event.params.user);
     sub.user = user.id;
     sub.start = event.params.start;
     sub.end = event.params.end;
@@ -124,7 +124,7 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.user = user.id;
   entity.save();
 
-  let sub = Subscription.load(event.params.user);
+  let sub = UserSubscription.load(event.params.user);
   if (sub == null) return;
 
   // To handle an edge-case where the Subscribe/Unsubscribe events aren't received by the subgraph mapping in the same order they are emitted,
@@ -172,7 +172,7 @@ export function handleAuthorizedSignerRemoved(
 
 function buildAndSaveUserSubscriptionCreatedEvent(
   user: User,
-  sub: Subscription,
+  sub: UserSubscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -199,7 +199,7 @@ function buildAndSaveUserSubscriptionCreatedEvent(
 
 function buildAndSaveUserSubscriptionCanceledEvent(
   user: User,
-  sub: Subscription,
+  sub: UserSubscription,
   event: UnsubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -221,7 +221,7 @@ function buildAndSaveUserSubscriptionCanceledEvent(
 
 function buildAndSaveUserSubscriptionRenewalEvent(
   user: User,
-  sub: Subscription,
+  sub: UserSubscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -245,7 +245,7 @@ function buildAndSaveUserSubscriptionRenewalEvent(
 
 function buildAndSaveUserSubscriptionUpgradeEvent(
   user: User,
-  sub: Subscription,
+  sub: UserSubscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -272,7 +272,7 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
 
 function buildAndSaveUserSubscriptionDowngradeEvent(
   user: User,
-  sub: Subscription,
+  sub: UserSubscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(

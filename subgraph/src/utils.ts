@@ -6,7 +6,7 @@ import {
   crypto,
 } from '@graphprotocol/graph-ts';
 
-import {Subscription} from '../generated/schema';
+import {UserSubscription} from '../generated/schema';
 import {Unsubscribe as UnsubscribeEvent} from '../generated/Subscriptions/Subscriptions';
 
 /**
@@ -49,7 +49,7 @@ export function buildUserSubscriptionEventId(
  * Calculate the unlocked tokens being returned to the User for cancelling their Subscription.
  */
 export function calculateUnlockedTokens(
-  sub: Subscription,
+  sub: UserSubscription,
   event: UnsubscribeEvent
 ): BigInt {
   let correctedStart = event.block.timestamp;

@@ -153,8 +153,8 @@ export class User extends Entity {
     }
   }
 
-  get subscriptions(): Array<Bytes> | null {
-    let value = this.get("subscriptions");
+  get userSubscriptions(): Array<Bytes> | null {
+    let value = this.get("userSubscriptions");
     if (!value || value.kind == ValueKind.NULL) {
       return null;
     } else {
@@ -162,11 +162,11 @@ export class User extends Entity {
     }
   }
 
-  set subscriptions(value: Array<Bytes> | null) {
+  set userSubscriptions(value: Array<Bytes> | null) {
     if (!value) {
-      this.unset("subscriptions");
+      this.unset("userSubscriptions");
     } else {
-      this.set("subscriptions", Value.fromBytesArray(<Array<Bytes>>value));
+      this.set("userSubscriptions", Value.fromBytesArray(<Array<Bytes>>value));
     }
   }
 
@@ -458,7 +458,7 @@ export class Extend extends Entity {
   }
 }
 
-export class Subscription extends Entity {
+export class UserSubscription extends Entity {
   constructor(id: Bytes) {
     super();
     this.set("id", Value.fromBytes(id));
@@ -466,19 +466,19 @@ export class Subscription extends Entity {
 
   save(): void {
     let id = this.get("id");
-    assert(id != null, "Cannot save Subscription entity without an ID");
+    assert(id != null, "Cannot save UserSubscription entity without an ID");
     if (id) {
       assert(
         id.kind == ValueKind.BYTES,
-        `Entities of type Subscription must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+        `Entities of type UserSubscription must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
       );
-      store.set("Subscription", id.toBytes().toHexString(), this);
+      store.set("UserSubscription", id.toBytes().toHexString(), this);
     }
   }
 
-  static load(id: Bytes): Subscription | null {
-    return changetype<Subscription | null>(
-      store.get("Subscription", id.toHexString())
+  static load(id: Bytes): UserSubscription | null {
+    return changetype<UserSubscription | null>(
+      store.get("UserSubscription", id.toHexString())
     );
   }
 

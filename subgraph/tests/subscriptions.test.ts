@@ -9,7 +9,7 @@ import {
 
 import {Address, BigInt, Bytes} from '@graphprotocol/graph-ts';
 
-import {Subscription} from '../generated/schema';
+import {UserSubscription} from '../generated/schema';
 
 import {
   USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
@@ -117,7 +117,7 @@ describe('Describe entity assertions', () => {
 
   test('handle Unsubscribe', () => {
     // build Subscription that is being removed (this is the ActiveSub that gets build in the beforeAll hook)
-    let sub = new Subscription(Address.fromString(user));
+    let sub = new UserSubscription(Address.fromString(user));
     sub.start = BigInt.fromU32(2000);
     sub.end = BigInt.fromU32(5000);
     sub.rate = BigInt.fromU32(10)
@@ -421,10 +421,20 @@ function assertSubscription(
   expectedRate: BigInt,
   cancelled: boolean = false
 ): void {
-  assert.entityCount('Subscription', 1);
-  assert.fieldEquals('Subscription', user, 'user', user);
-  assert.fieldEquals('Subscription', user, 'start', expectedStart.toString());
-  assert.fieldEquals('Subscription', user, 'end', expectedEnd.toString());
-  assert.fieldEquals('Subscription', user, 'rate', expectedRate.toString());
-  assert.fieldEquals('Subscription', user, 'cancelled', cancelled.toString());
+  assert.entityCount('UserSubscription', 1);
+  assert.fieldEquals('UserSubscription', user, 'user', user);
+  assert.fieldEquals(
+    'UserSubscription',
+    user,
+    'start',
+    expectedStart.toString()
+  );
+  assert.fieldEquals('UserSubscription', user, 'end', expectedEnd.toString());
+  assert.fieldEquals('UserSubscription', user, 'rate', expectedRate.toString());
+  assert.fieldEquals(
+    'UserSubscription',
+    user,
+    'cancelled',
+    cancelled.toString()
+  );
 }
