@@ -1,4 +1,5 @@
 import {newMockEvent} from 'matchstick-as';
+
 import {ethereum, Address, BigInt} from '@graphprotocol/graph-ts';
 import {
   AuthorizedSignerAdded,
@@ -6,15 +7,26 @@ import {
   Subscribe,
   Unsubscribe,
 } from '../generated/Subscriptions/Subscriptions';
+import {mockBlock} from './block-utils';
+
+function mockEvent(): ethereum.Event {
+  const event = newMockEvent();
+  event.block = mockBlock.current;
+  return event;
+}
 
 export function createSubscribeEvent(
   user: Address,
   epoch: BigInt,
   start: BigInt,
   end: BigInt,
-  pricePerBlock: BigInt
+  pricePerBlock: BigInt,
+  logIndex: u32 = 0
 ): Subscribe {
-  let subscribeEvent = changetype<Subscribe>(newMockEvent());
+  let subscribeEvent = changetype<Subscribe>(mockEvent());
+  if (logIndex != null) {
+    subscribeEvent.logIndex = BigInt.fromU32(logIndex);
+  }
 
   subscribeEvent.parameters = new Array();
 
@@ -44,9 +56,7 @@ export function createUnsubscribeEvent(
   user: Address,
   epoch: BigInt
 ): Unsubscribe {
-  let unsubscribeEvent = changetype<Unsubscribe>(newMockEvent());
-
-  unsubscribeEvent.parameters = new Array();
+  let unsubscribeEvent = changetype<Unsubscribe>(mockEvent());
 
   unsubscribeEvent.parameters.push(
     new ethereum.EventParam('user', ethereum.Value.fromAddress(user))
@@ -63,7 +73,7 @@ export function createAuthorizedSignerAddedEvent(
   authorizedSigner: Address
 ): AuthorizedSignerAdded {
   let authorizedSignerAddedEvent = changetype<AuthorizedSignerAdded>(
-    newMockEvent()
+    mockEvent()
   );
 
   authorizedSignerAddedEvent.parameters = new Array();
@@ -89,7 +99,7 @@ export function createAuthorizedSignerRemovedEvent(
   authorizedSigner: Address
 ): AuthorizedSignerRemoved {
   let authorizedSignerRemovedEvent = changetype<AuthorizedSignerRemoved>(
-    newMockEvent()
+    mockEvent()
   );
 
   authorizedSignerRemovedEvent.parameters = new Array();
