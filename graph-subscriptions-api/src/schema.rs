@@ -3,7 +3,10 @@ use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Sch
 use chrono::Utc;
 use toolshed::bytes::{Address, Bytes32, DeploymentId};
 
-use crate::network_subgraph::{GraphAccount, Subgraph, SubgraphDeployments};
+use crate::{
+    auth::{AuthError, TicketPayloadWrapper},
+    network_subgraph::{GraphAccount, Subgraph, SubgraphDeployments},
+};
 
 pub struct GraphSubscriptionsSchemaCtx {
     pub subgraph_deployments: SubgraphDeployments,
@@ -215,35 +218,47 @@ impl QueryRoot {
     /// A list of Request Tickets for the authenticated user, found by their wallet address (parsed from the Authorization header).
     async fn user_request_tickets<'ctx>(
         &self,
-        _ctx: &Context<'ctx>,
+        ctx: &Context<'ctx>,
         _first: Option<i32>,
         _skip: Option<i32>,
         _order_by: Option<RequestTicketOrderBy>,
         _order_direction: Option<OrderDirection>,
     ) -> Result<Vec<RequestTicket>> {
+        let ticket_payload = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
         Ok(vec![])
     }
     /// A list of aggregated query stats, by timerange, for the request ticket parsed from the Authorization header.
     async fn request_ticket_stats<'ctx>(
         &self,
-        _ctx: &Context<'ctx>,
+        ctx: &Context<'ctx>,
         _first: Option<i32>,
         _skip: Option<i32>,
         _order_by: Option<RequestTicketStatOrderBy>,
         _order_direction: Option<OrderDirection>,
     ) -> Result<Vec<RequestTicketStat>> {
+        let ticket_payload = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
         Ok(vec![])
     }
     /// A list of aggregated query stats, by timerange, for a specific subgraph deployment, for the request ticket parsed from the Authorization header.
     async fn request_ticket_subgraph_stats<'ctx>(
         &self,
-        _ctx: &Context<'ctx>,
+        ctx: &Context<'ctx>,
         _subgraph_deployment_id: String,
         _first: Option<i32>,
         _skip: Option<i32>,
         _order_by: Option<RequestTicketSubgraphStatOrderBy>,
         _order_direction: Option<OrderDirection>,
     ) -> Result<Vec<RequestTicketSubgraphStat>> {
+        let ticket_payload = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
         Ok(vec![])
     }
 }
