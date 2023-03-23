@@ -1,4 +1,4 @@
-import {BigInt, store} from '@graphprotocol/graph-ts';
+import {store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -129,7 +129,10 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
 
   // To handle an edge-case where the Subscribe/Unsubscribe events aren't received by the subgraph mapping in the same order they are emitted,
   // if a `UserSubscriptionCreatedEvent` exists in the same timestamp, don't create the `UserSubscriptionCanceledEvent` record
-  let subscribeEvent = Subscribe.load(event.transaction.hash);
+  let subscribeEvent = Subscribe.load(
+    event.transaction.hash.concatI32(event.logIndex.toI32())
+  );
+
   if (subscribeEvent != null) return;
 
   buildAndSaveUserSubscriptionCanceledEvent(user, sub, event);

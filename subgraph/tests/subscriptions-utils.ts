@@ -54,9 +54,13 @@ export function createSubscribeEvent(
 
 export function createUnsubscribeEvent(
   user: Address,
-  epoch: BigInt
+  epoch: BigInt,
+  logIndex: u32 = 2
 ): Unsubscribe {
   let unsubscribeEvent = changetype<Unsubscribe>(mockEvent());
+  if (logIndex != null) {
+    unsubscribeEvent.logIndex = BigInt.fromU32(logIndex);
+  }
 
   unsubscribeEvent.parameters.push(
     new ethereum.EventParam('user', ethereum.Value.fromAddress(user))
