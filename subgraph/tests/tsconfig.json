@@ -1,0 +1,5 @@
+{
+  // This file is needed for the IDE to find the AssemblyScript types for tests
+  "extends": "../tsconfig.json",
+  "include": ["."]
+}
