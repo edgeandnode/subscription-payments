@@ -11,7 +11,7 @@ type User @entity {
   subscribeEvents: [Subscribe!]! @derivedFrom(field: "user") # can't have a User with a subscribe
   unsubscribeEvents: [Unsubscribe!] @derivedFrom(field: "user")
   extendEvents: [Unsubscribe!] @derivedFrom(field: "user")
-  activeSubscriptions: [ActiveSubscription!] @derivedFrom(field: "user")
+  subscriptions: [Subscription!] @derivedFrom(field: "user")
   authorizedSigners: [AuthorizedSigner!] @derivedFrom(field: "user")
   # a total count of all events of all types. useful for pagination
   eventCount: Int!
@@ -46,7 +46,7 @@ type Extend @entity(immutable: true) {
   end: BigInt! # uint64
 }
 
-type ActiveSubscription @entity {
+type Subscription @entity {
   id: Bytes!
   user: User!
   start: BigInt! # uint64
@@ -109,11 +109,11 @@ type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CREATED
   eventType: UserSubscriptionsEventType!
-  # the user's ActiveSubscription.start value at the time the event is created
+  # the user's Subscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's ActiveSubscription.end value at the time the event is created
+  # the user's Subscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's ActiveSubscription.rate value at the time the event is created
+  # the user's Subscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
@@ -130,7 +130,7 @@ type UserSubscriptionCanceledEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.CANCELED
   eventType: UserSubscriptionsEventType!
-  # the amount of unlocked tokens transferred back to the user as a result of cancelling the ActiveSubscription
+  # the amount of unlocked tokens transferred back to the user as a result of cancelling the Subscription
   tokensReturned: BigInt!
 }
 
@@ -149,11 +149,11 @@ type UserSubscriptionRenewalEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.RENEW
   eventType: UserSubscriptionsEventType!
-  # the user's ActiveSubscription.start value at the time the event is created
+  # the user's Subscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's ActiveSubscription.end value at the time the event is created
+  # the user's Subscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's ActiveSubscription.rate value at the time the event is created
+  # the user's Subscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
@@ -172,17 +172,17 @@ type UserSubscriptionUpgradeEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.UPGRADE
   eventType: UserSubscriptionsEventType!
-  # the ActiveSubscription.start value before the user upgraded their subscription
+  # the Subscription.start value before the user upgraded their subscription
   previousSubscriptionStart: BigInt! # uint64
-  # the ActiveSubscription.end value before the user upgraded their subscription
+  # the Subscription.end value before the user upgraded their subscription
   previousSubscriptionEnd: BigInt! # uint64
-  # the ActiveSubscription.rate value before the user upgraded their subscription
+  # the Subscription.rate value before the user upgraded their subscription
   previousSubscriptionRate: BigInt! # uint128
-  # the user's ActiveSubscription.start value at the time the event is created
+  # the user's Subscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's ActiveSubscription.end value at the time the event is created
+  # the user's Subscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's ActiveSubscription.rate value at the time the event is created
+  # the user's Subscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
@@ -201,16 +201,16 @@ type UserSubscriptionDowngradeEvent implements UserSubscriptionsEvent
   txHash: Bytes!
   # will always be UserSubscriptionsEventType.DOWNGRADE
   eventType: UserSubscriptionsEventType!
-  # the ActiveSubscription.start value before the user downgraded their subscription
+  # the Subscription.start value before the user downgraded their subscription
   previousSubscriptionStart: BigInt! # uint64
-  # the ActiveSubscription.end value before the user downgraded their subscription
+  # the Subscription.end value before the user downgraded their subscription
   previousSubscriptionEnd: BigInt! # uint64
-  # the ActiveSubscription.rate value before the user downgraded their subscription
+  # the Subscription.rate value before the user downgraded their subscription
   previousSubscriptionRate: BigInt! # uint128
-  # the user's ActiveSubscription.start value at the time the event is created
+  # the user's Subscription.start value at the time the event is created
   currentSubscriptionStart: BigInt! # uint64
-  # the user's ActiveSubscription.end value at the time the event is created
+  # the user's Subscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's ActiveSubscription.rate value at the time the event is created
+  # the user's Subscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }

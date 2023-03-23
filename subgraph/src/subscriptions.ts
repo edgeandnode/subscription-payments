@@ -8,7 +8,7 @@ import {
   AuthorizedSignerRemoved as AuthorizedSignerRemovedEvent,
 } from '../generated/Subscriptions/Subscriptions';
 import {
-  ActiveSubscription,
+  Subscription,
   Init,
   Subscribe,
   Unsubscribe,
@@ -61,27 +61,27 @@ export function handleSubscribe(event: SubscribeEvent): void {
 
   let user = loadOrCreateUser(event.params.user);
 
-  let sub = ActiveSubscription.load(event.params.user);
+  let sub = Subscription.load(event.params.user);
   if (sub == null) {
-    sub = new ActiveSubscription(event.params.user);
+    sub = new Subscription(event.params.user);
     sub.user = user.id;
     sub.start = event.params.start;
     sub.end = event.params.end;
     sub.rate = event.params.rate;
     sub.save();
-    // Since ActiveSubscription record does not exist, the user is subscribing for the 1st time.
+    // Since Subscription record does not exist, the user is subscribing for the 1st time.
     // Create and store a UserSubscriptionCreatedEvent record.
     buildAndSaveUserSubscriptionCreatedEvent(user, sub, event);
     return;
   }
 
   // Check if the sub.rate is > than the event.params.rate value.
-  // If this is true, then the user is upgrading their ActiveSubscription; create a UserSubscriptionUpgradeEvent record.
+  // If this is true, then the user is upgrading their Subscription; create a UserSubscriptionUpgradeEvent record.
   if (event.params.rate > sub.rate) {
     buildAndSaveUserSubscriptionUpgradeEvent(user, sub, event);
   }
   // Check if the sub.rate is < than the event.params.rate value.
-  // If this is true, then the user is downgrading their ActiveSubscription; create a UserSubscriptionDowngradeEvent record.
+  // If this is true, then the user is downgrading their Subscription; create a UserSubscriptionDowngradeEvent record.
   else if (event.params.rate < sub.rate) {
     buildAndSaveUserSubscriptionDowngradeEvent(user, sub, event);
   } else {
@@ -122,7 +122,7 @@ export function handleUnsubscribe(event: UnsubscribeEvent): void {
   entity.user = user.id;
   entity.save();
 
-  let sub = ActiveSubscription.load(event.params.user);
+  let sub = Subscription.load(event.params.user);
 
   if (sub == null) return;
 
@@ -175,7 +175,7 @@ export function handleAuthorizedSignerRemoved(
 
 function buildAndSaveUserSubscriptionCreatedEvent(
   user: User,
-  activeSubscription: ActiveSubscription,
+  sub: Subscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -191,9 +191,9 @@ function buildAndSaveUserSubscriptionCreatedEvent(
   createdEvent.blockNumber = event.block.number;
   createdEvent.blockTimestamp = event.block.timestamp;
   createdEvent.txHash = event.transaction.hash;
-  createdEvent.currentSubscriptionStart = activeSubscription.start;
-  createdEvent.currentSubscriptionEnd = activeSubscription.end;
-  createdEvent.currentSubscriptionRate = activeSubscription.rate;
+  createdEvent.currentSubscriptionStart = sub.start;
+  createdEvent.currentSubscriptionEnd = sub.end;
+  createdEvent.currentSubscriptionRate = sub.rate;
   createdEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__CREATED;
   createdEvent.save();
 
@@ -202,7 +202,7 @@ function buildAndSaveUserSubscriptionCreatedEvent(
 
 function buildAndSaveUserSubscriptionCanceledEvent(
   user: User,
-  activeSubscription: ActiveSubscription,
+  sub: Subscription,
   event: UnsubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -216,10 +216,7 @@ function buildAndSaveUserSubscriptionCanceledEvent(
   canceledEvent.blockTimestamp = event.block.timestamp;
   canceledEvent.txHash = event.transaction.hash;
   canceledEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__CANCELED;
-  canceledEvent.tokensReturned = calculateUnlockedTokens(
-    activeSubscription,
-    event
-  );
+  canceledEvent.tokensReturned = calculateUnlockedTokens(sub, event);
   canceledEvent.save();
 
   incrementUserEventCount(user);
@@ -227,7 +224,7 @@ function buildAndSaveUserSubscriptionCanceledEvent(
 
 function buildAndSaveUserSubscriptionRenewalEvent(
   user: User,
-  activeSubscription: ActiveSubscription,
+  sub: Subscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -240,9 +237,9 @@ function buildAndSaveUserSubscriptionRenewalEvent(
   renewalEvent.blockNumber = event.block.number;
   renewalEvent.blockTimestamp = event.block.timestamp;
   renewalEvent.txHash = event.transaction.hash;
-  renewalEvent.currentSubscriptionStart = activeSubscription.start;
-  renewalEvent.currentSubscriptionEnd = activeSubscription.end;
-  renewalEvent.currentSubscriptionRate = activeSubscription.rate;
+  renewalEvent.currentSubscriptionStart = sub.start;
+  renewalEvent.currentSubscriptionEnd = sub.end;
+  renewalEvent.currentSubscriptionRate = sub.rate;
   renewalEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__RENEW;
   renewalEvent.save();
 
@@ -251,7 +248,7 @@ function buildAndSaveUserSubscriptionRenewalEvent(
 
 function buildAndSaveUserSubscriptionUpgradeEvent(
   user: User,
-  activeSubscription: ActiveSubscription,
+  sub: Subscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -265,12 +262,12 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
   upgradeEvent.blockTimestamp = event.block.timestamp;
   upgradeEvent.txHash = event.transaction.hash;
   upgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE;
-  upgradeEvent.currentSubscriptionStart = activeSubscription.start;
-  upgradeEvent.currentSubscriptionEnd = activeSubscription.end;
-  upgradeEvent.currentSubscriptionRate = activeSubscription.rate;
-  upgradeEvent.previousSubscriptionStart = activeSubscription.start;
-  upgradeEvent.previousSubscriptionEnd = activeSubscription.end;
-  upgradeEvent.previousSubscriptionRate = activeSubscription.rate;
+  upgradeEvent.currentSubscriptionStart = sub.start;
+  upgradeEvent.currentSubscriptionEnd = sub.end;
+  upgradeEvent.currentSubscriptionRate = sub.rate;
+  upgradeEvent.previousSubscriptionStart = sub.start;
+  upgradeEvent.previousSubscriptionEnd = sub.end;
+  upgradeEvent.previousSubscriptionRate = sub.rate;
   upgradeEvent.save();
 
   incrementUserEventCount(user);
@@ -278,7 +275,7 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
 
 function buildAndSaveUserSubscriptionDowngradeEvent(
   user: User,
-  activeSubscription: ActiveSubscription,
+  sub: Subscription,
   event: SubscribeEvent
 ): void {
   let id = buildUserSubscriptionEventId(
@@ -292,12 +289,12 @@ function buildAndSaveUserSubscriptionDowngradeEvent(
   downgradeEvent.blockTimestamp = event.block.timestamp;
   downgradeEvent.txHash = event.transaction.hash;
   downgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE;
-  downgradeEvent.currentSubscriptionStart = activeSubscription.start;
-  downgradeEvent.currentSubscriptionEnd = activeSubscription.end;
-  downgradeEvent.currentSubscriptionRate = activeSubscription.rate;
-  downgradeEvent.previousSubscriptionStart = activeSubscription.start;
-  downgradeEvent.previousSubscriptionEnd = activeSubscription.end;
-  downgradeEvent.previousSubscriptionRate = activeSubscription.rate;
+  downgradeEvent.currentSubscriptionStart = sub.start;
+  downgradeEvent.currentSubscriptionEnd = sub.end;
+  downgradeEvent.currentSubscriptionRate = sub.rate;
+  downgradeEvent.previousSubscriptionStart = sub.start;
+  downgradeEvent.previousSubscriptionEnd = sub.end;
+  downgradeEvent.previousSubscriptionRate = sub.rate;
   downgradeEvent.save();
 
   incrementUserEventCount(user);

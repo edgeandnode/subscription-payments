@@ -153,8 +153,8 @@ export class User extends Entity {
     }
   }
 
-  get activeSubscriptions(): Array<Bytes> | null {
-    let value = this.get("activeSubscriptions");
+  get subscriptions(): Array<Bytes> | null {
+    let value = this.get("subscriptions");
     if (!value || value.kind == ValueKind.NULL) {
       return null;
     } else {
@@ -162,12 +162,12 @@ export class User extends Entity {
     }
   }
 
-  set activeSubscriptions(value: Array<Bytes> | null) {
+  set subscriptions(value: Array<Bytes> | null) {
     if (!value) {
-      this.unset("activeSubscriptions");
+      this.unset("subscriptions");
     } else {
       this.set(
-        "activeSubscriptions",
+        "subscriptions",
         Value.fromBytesArray(<Array<Bytes>>value)
       );
     }
@@ -461,7 +461,7 @@ export class Extend extends Entity {
   }
 }
 
-export class ActiveSubscription extends Entity {
+export class Subscription extends Entity {
   constructor(id: Bytes) {
     super();
     this.set("id", Value.fromBytes(id));
@@ -469,19 +469,19 @@ export class ActiveSubscription extends Entity {
 
   save(): void {
     let id = this.get("id");
-    assert(id != null, "Cannot save ActiveSubscription entity without an ID");
+    assert(id != null, "Cannot save Subscription entity without an ID");
     if (id) {
       assert(
         id.kind == ValueKind.BYTES,
-        `Entities of type ActiveSubscription must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
+        `Entities of type Subscription must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
       );
-      store.set("ActiveSubscription", id.toBytes().toHexString(), this);
+      store.set("Subscription", id.toBytes().toHexString(), this);
     }
   }
 
-  static load(id: Bytes): ActiveSubscription | null {
-    return changetype<ActiveSubscription | null>(
-      store.get("ActiveSubscription", id.toHexString())
+  static load(id: Bytes): Subscription | null {
+    return changetype<Subscription | null>(
+      store.get("Subscription", id.toHexString())
     );
   }
 

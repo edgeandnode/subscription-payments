@@ -6,13 +6,13 @@ import {
   crypto,
 } from '@graphprotocol/graph-ts';
 
-import {ActiveSubscription} from '../generated/schema';
+import {Subscription} from '../generated/schema';
 import {Unsubscribe as UnsubscribeEvent} from '../generated/Subscriptions/Subscriptions';
 
 /**
  * Generate a keccak256 hex string of the user:authorizedSigner
- * @param subscriptionOwner address of the ActiveSubscription owner
- * @param authorizedSigner address of the user authorized to sign for the owner of the ActiveSubscription
+ * @param subscriptionOwner address of the Subscription owner
+ * @param authorizedSigner address of the user authorized to sign for the owner of the Subscription
  * @returns Bytes representation of a hex string concatenation of the `user:authorizedSigner` to create a unique id
  */
 export function buildAuthorizedSignerId(
@@ -46,10 +46,10 @@ export function buildUserSubscriptionEventId(
 }
 
 /**
- * Calculate the unlocked tokens being returned to the User for cancelling their ActiveSubscription.
+ * Calculate the unlocked tokens being returned to the User for cancelling their Subscription.
  */
 export function calculateUnlockedTokens(
-  sub: ActiveSubscription,
+  sub: Subscription,
   event: UnsubscribeEvent
 ): BigInt {
   let correctedStart = event.block.timestamp;
