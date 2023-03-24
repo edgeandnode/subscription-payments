@@ -119,6 +119,7 @@ impl Client {
                 where: {{
                     id_gt: $last
                     end_gte: {active_sub_end}
+                    cancelled: false
                 }}
             ) {{
                 id
