@@ -229,24 +229,30 @@ describe('Describe entity assertions', () => {
       USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE,
       mockBlock.current.timestamp
     );
-    assert.fieldEquals(
-      'UserSubscriptionUpgradeEvent',
-      upgradeEventId.toHex(),
+
+    const expectedFields = [
       'previousSubscriptionStart',
-      INITIAL_START.toString() // value from `update Subscription` test above before this event is received
-    );
-    assert.fieldEquals(
-      'UserSubscriptionUpgradeEvent',
-      upgradeEventId.toHex(),
+      INITIAL_START.toString(),
       'previousSubscriptionEnd',
-      INITIAL_END.toString() // value from `update Subscription` test above before this event is received
-    );
-    assert.fieldEquals(
-      'UserSubscriptionUpgradeEvent',
-      upgradeEventId.toHex(),
+      INITIAL_END.toString(),
       'previousSubscriptionRate',
-      INITIAL_RATE.toString() // value from `update Subscription` test above before this event is received
-    );
+      INITIAL_RATE.toString(),
+      'currentSubscriptionStart',
+      start.toString(),
+      'currentSubscriptionEnd',
+      end.toString(),
+      'currentSubscriptionRate',
+      rate.toString(),
+    ];
+
+    for (let i = 0; i < expectedFields.length; i += 2) {
+      assert.fieldEquals(
+        'UserSubscriptionUpgradeEvent',
+        upgradeEventId.toHex(),
+        expectedFields[i],
+        expectedFields[i + 1]
+      );
+    }
 
     assert.fieldEquals('User', user, 'eventCount', '2');
   });
