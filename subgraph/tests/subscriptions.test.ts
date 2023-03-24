@@ -36,6 +36,7 @@ import {
   createUnsubscribeEvent,
 } from './subscriptions-utils';
 import {mockBlock} from './block-utils';
+import {assertFields} from './test-utils';
 
 // Tests structure (matchstick-as >=0.5.0)
 // https://thegraph.com/docs/en/developer/matchstick/#tests-structure-0-5-0
@@ -230,7 +231,7 @@ describe('Describe entity assertions', () => {
       mockBlock.current.timestamp
     );
 
-    const expectedFields = [
+    assertFields('UserSubscriptionUpgradeEvent', upgradeEventId.toHex(), [
       'previousSubscriptionStart',
       INITIAL_START.toString(),
       'previousSubscriptionEnd',
@@ -243,16 +244,7 @@ describe('Describe entity assertions', () => {
       end.toString(),
       'currentSubscriptionRate',
       rate.toString(),
-    ];
-
-    for (let i = 0; i < expectedFields.length; i += 2) {
-      assert.fieldEquals(
-        'UserSubscriptionUpgradeEvent',
-        upgradeEventId.toHex(),
-        expectedFields[i],
-        expectedFields[i + 1]
-      );
-    }
+    ]);
 
     assert.fieldEquals('User', user, 'eventCount', '2');
   });
@@ -294,24 +286,21 @@ describe('Describe entity assertions', () => {
       mockBlock.current.timestamp
     );
 
-    assert.fieldEquals(
-      'UserSubscriptionDowngradeEvent',
-      downgradeEventId.toHex(),
+    assertFields('UserSubscriptionDowngradeEvent', downgradeEventId.toHex(), [
       'previousSubscriptionStart',
-      INITIAL_START.toString() // value from `upgrade Subscription` test above before this event is received
-    );
-    assert.fieldEquals(
-      'UserSubscriptionDowngradeEvent',
-      downgradeEventId.toHex(),
+      INITIAL_START.toString(),
       'previousSubscriptionEnd',
-      INITIAL_END.toString() // value from `upgrade Subscription` test above before this event is received
-    );
-    assert.fieldEquals(
-      'UserSubscriptionDowngradeEvent',
-      downgradeEventId.toHex(),
+      INITIAL_END.toString(),
       'previousSubscriptionRate',
-      INITIAL_RATE.toString() // value from `upgrade Subscription` test above before this event is received
-    );
+      INITIAL_RATE.toString(),
+      'currentSubscriptionStart',
+      start.toString(),
+      'currentSubscriptionEnd',
+      end.toString(),
+      'currentSubscriptionRate',
+      rate.toString(),
+    ]);
+
     assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionDowngradeEvent
   });
 
