@@ -259,12 +259,14 @@ function buildAndSaveUserSubscriptionUpgradeEvent(
   upgradeEvent.blockTimestamp = event.block.timestamp;
   upgradeEvent.txHash = event.transaction.hash;
   upgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__UPGRADE;
-  upgradeEvent.currentSubscriptionStart = sub.start;
-  upgradeEvent.currentSubscriptionEnd = sub.end;
-  upgradeEvent.currentSubscriptionRate = sub.rate;
+
   upgradeEvent.previousSubscriptionStart = sub.start;
   upgradeEvent.previousSubscriptionEnd = sub.end;
   upgradeEvent.previousSubscriptionRate = sub.rate;
+
+  upgradeEvent.currentSubscriptionStart = event.params.start;
+  upgradeEvent.currentSubscriptionEnd = event.params.end;
+  upgradeEvent.currentSubscriptionRate = event.params.rate;
   upgradeEvent.save();
 
   incrementUserEventCount(user);
@@ -286,12 +288,15 @@ function buildAndSaveUserSubscriptionDowngradeEvent(
   downgradeEvent.blockTimestamp = event.block.timestamp;
   downgradeEvent.txHash = event.transaction.hash;
   downgradeEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__DOWNGRADE;
-  downgradeEvent.currentSubscriptionStart = sub.start;
-  downgradeEvent.currentSubscriptionEnd = sub.end;
-  downgradeEvent.currentSubscriptionRate = sub.rate;
+
   downgradeEvent.previousSubscriptionStart = sub.start;
   downgradeEvent.previousSubscriptionEnd = sub.end;
   downgradeEvent.previousSubscriptionRate = sub.rate;
+
+  downgradeEvent.currentSubscriptionStart = event.params.start;
+  downgradeEvent.currentSubscriptionEnd = event.params.end;
+  downgradeEvent.currentSubscriptionRate = event.params.rate;
+
   downgradeEvent.save();
 
   incrementUserEventCount(user);
