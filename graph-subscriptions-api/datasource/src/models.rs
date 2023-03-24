@@ -17,7 +17,7 @@ pub struct RequestTicketStat {
     pub ticket_signer: Address,
     /// An aggregate count of queries performed using the request ticket in the given timeframe.
     /// SUM(`query_count` (from kafka topic)).
-    pub query_count: u32,
+    pub query_count: u64,
     /// Percentage of the number of queries that returned successfully compared to the total query count in the given timeframe.
     /// `query_count` WHERE `status_code` == SUCCESS / `query_count`.
     pub success_rate: f32,
@@ -26,7 +26,7 @@ pub struct RequestTicketStat {
     pub avg_response_time_ms: u32,
     /// An aggregate count of queries performed in the timeframe that were not successful.
     /// SUM(`query_count` (from kafka topic)) WHERE `status_code` != SUCCESS.
-    pub failed_query_count: u32,
+    pub failed_query_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,7 +49,7 @@ pub struct RequestTicketSubgraphStat {
     pub ticket_signer: Address,
     /// An aggregate count of queries performed using the request ticket in the given timeframe.
     /// SUM(`query_count` (from kafka topic)).
-    pub query_count: u32,
+    pub query_count: u64,
     /// Percentage of the number of queries that returned successfully compared to the total query count in the given timeframe.
     /// `query_count` WHERE `status_code` == SUCCESS / `query_count`.
     pub success_rate: f32,
@@ -58,5 +58,5 @@ pub struct RequestTicketSubgraphStat {
     pub avg_response_time_ms: u32,
     /// An aggregate count of queries performed in the timeframe that were not successful.
     /// SUM(`query_count` (from kafka topic)) WHERE `status_code` != SUCCESS.
-    pub failed_query_count: u32,
+    pub failed_query_count: u64,
 }
