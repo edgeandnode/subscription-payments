@@ -12,3 +12,4 @@ node_modules/
 target/
 /graph-subscriptions-rs/Cargo.lock
 types/
+/graph-subscriptions-api/Cargo.lock
