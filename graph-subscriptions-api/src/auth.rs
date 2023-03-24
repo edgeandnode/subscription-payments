@@ -7,23 +7,23 @@ use graph_subscriptions::{eip712::DomainSeparator, TicketPayload};
 use thiserror::Error;
 use toolshed::bytes::Address;
 
-use crate::subscriptions_subgraph::ActiveSubscriptionWithSigners;
+use crate::subscriptions_subgraph::UserSubscriptionWithSigners;
 
 #[derive(Clone, Debug)]
 pub struct TicketPayloadWrapper {
     pub ticket_payload: TicketPayload,
-    pub active_subscription: ActiveSubscriptionWithSigners,
+    pub active_subscription: UserSubscriptionWithSigners,
 }
 
 pub struct AuthHandler {
     pub subscriptions_domain_separator: DomainSeparator,
-    pub subscriptions: Eventual<Ptr<HashMap<Address, ActiveSubscriptionWithSigners>>>,
+    pub subscriptions: Eventual<Ptr<HashMap<Address, UserSubscriptionWithSigners>>>,
 }
 
 impl AuthHandler {
     pub fn create(
         subscriptions_domain_separator: DomainSeparator,
-        subscriptions: Eventual<Ptr<HashMap<Address, ActiveSubscriptionWithSigners>>>,
+        subscriptions: Eventual<Ptr<HashMap<Address, UserSubscriptionWithSigners>>>,
     ) -> &'static Self {
         Box::leak(Box::new(Self {
             subscriptions_domain_separator,
@@ -215,10 +215,10 @@ mod tests {
             .unwrap();
         let domain = TicketPayload::eip712_domain(chain_id, contract_address.0.into());
         let domain_separator = eip712::DomainSeparator::new(&domain);
-        let mut subscription_map: HashMap<Address, ActiveSubscriptionWithSigners> = HashMap::new();
+        let mut subscription_map: HashMap<Address, UserSubscriptionWithSigners> = HashMap::new();
         subscription_map.insert(
             user.parse::<Address>().unwrap(),
-            ActiveSubscriptionWithSigners {
+            UserSubscriptionWithSigners {
                 user: user.parse::<Address>().unwrap(),
                 signers: vec![user.parse::<Address>().unwrap()],
                 start: Utc::now(),

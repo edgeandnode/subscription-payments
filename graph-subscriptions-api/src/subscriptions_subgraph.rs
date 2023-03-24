@@ -32,7 +32,7 @@ pub struct User {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct ActiveSubscription {
+pub struct UserSubscription {
     pub user: User,
     #[serde(deserialize_with = "deserialize_datetime_utc")]
     pub start: DateTime<Utc>,
@@ -43,7 +43,7 @@ pub struct ActiveSubscription {
 }
 
 #[derive(Clone, Debug)]
-pub struct ActiveSubscriptionWithSigners {
+pub struct UserSubscriptionWithSigners {
     pub user: Address,
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
@@ -72,13 +72,13 @@ where
 
 pub struct Client {
     subgraph_client: subgraph_client::Client,
-    subscriptions: EventualWriter<Ptr<HashMap<Address, ActiveSubscriptionWithSigners>>>,
+    subscriptions: EventualWriter<Ptr<HashMap<Address, UserSubscriptionWithSigners>>>,
 }
 
 impl Client {
     pub fn create(
         subgraph_client: subgraph_client::Client,
-    ) -> Eventual<Ptr<HashMap<Address, ActiveSubscriptionWithSigners>>> {
+    ) -> Eventual<Ptr<HashMap<Address, UserSubscriptionWithSigners>>> {
         let (subscriptions_tx, subscriptions_rx) = Eventual::new();
         let client = Arc::new(Mutex::new(Client {
             subgraph_client,
@@ -112,7 +112,7 @@ impl Client {
 
         let query = format!(
             r#"
-            activeSubscriptions(
+            userSubscriptions(
                 block: $block
                 orderBy: id, orderDirection: asc
                 first: $first
@@ -137,7 +137,7 @@ impl Client {
         );
         let active_subscriptions_response = self
             .subgraph_client
-            .paginated_query::<ActiveSubscription>(&query)
+            .paginated_query::<UserSubscription>(&query)
             .await?;
         if active_subscriptions_response.is_empty() {
             return Err("Discarding empty update (active_subscriptions)".to_string());
@@ -152,7 +152,7 @@ impl Client {
                     .into_iter()
                     .map(|signer| signer.signer)
                     .chain([user.id]);
-                let sub = ActiveSubscriptionWithSigners {
+                let sub = UserSubscriptionWithSigners {
                     user: user.id,
                     start: active_sub.start,
                     end: active_sub.end,
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn should_parse_active_subscriptions_query() -> anyhow::Result<()> {
-        let result = serde_json::from_str::<ActiveSubscription>(
+        let result = serde_json::from_str::<UserSubscription>(
             &json!({
                 "user": {
                     "id": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
