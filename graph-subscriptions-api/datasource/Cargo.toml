@@ -1,0 +1,15 @@
+[package]
+name = "datasource"
+version = "0.1.0"
+edition = "2021"
+description = "Subpackage used to buildout and export the subscription stats datasource. Provides a generic, extendable, approach to retrieving the subscription stats logs from the kafka topic for consumption by the API"
+
+[dependencies]
+anyhow = "1.0.70"
+chrono = {version = "0.4.24", default-features = false, features = ["clock", "std"] }
+rdkafka = { version = "0.29.0", features = ["tracing"] }
+serde = { version = "1.0.158", features = ["derive"] }
+serde_json = "1.0.94"
+tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

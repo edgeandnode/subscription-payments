@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "GraphQL API to expose graph subscription tickets and stats"
 
+[workspace]
+members = [".", "datasource"]
+
 [dependencies]
 anyhow = "1.0.70"
 async-graphql = "5.0.6"
