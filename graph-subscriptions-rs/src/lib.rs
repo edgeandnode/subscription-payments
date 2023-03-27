@@ -90,7 +90,7 @@ impl TicketPayload {
             .decode(ticket)
             .context("invalid base64 (URL, nopad)")?;
 
-        let signature_start = ticket.len() - 65;
+        let signature_start = ticket.len().saturating_sub(65);
         let signature: &[u8; 65] = ticket[signature_start..]
             .try_into()
             .context("invalid signature")?;
