@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use rdkafka::{
-    consumer::{Consumer as _, StreamConsumer},
+    consumer::{Consumer as _, DefaultConsumerContext, StreamConsumer},
     ClientConfig,
 };
 use toolshed::url::Url;
@@ -17,7 +17,7 @@ pub struct ConsumerConfig {
 
 pub struct LogConsumer {
     /// The created Kafka Consumer Client
-    consumer: StreamConsumer,
+    pub consumer: StreamConsumer<DefaultConsumerContext>,
 }
 
 impl LogConsumer {
@@ -29,18 +29,15 @@ impl LogConsumer {
             config
         );
         // instantiate the StreamConsumer client isntance
-        let consumer: StreamConsumer = ClientConfig::new()
+        let consumer: StreamConsumer<DefaultConsumerContext> = ClientConfig::new()
             .set("group.id", &config.group_id)
             .set("bootstrap.servers", &config.brokers.to_string())
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "10000")
             .set("enable.auto.commit", "false")
-            .create()
-            .expect("Kafka StreamConsumer initializatinon failed");
+            .create_with_context(DefaultConsumerContext)?;
         // subscribe StreamConsumer to given topic
-        consumer
-            .subscribe(&[&config.topic_id])
-            .expect("Can't subscribe to specified topic");
+        consumer.subscribe(&[&config.topic_id])?;
 
         Ok(Box::leak(Box::new(Self { consumer })))
     }
