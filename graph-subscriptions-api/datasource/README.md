@@ -11,11 +11,9 @@ This subpackage to the Graph Subscriptions API exposes a generic, extendable, AP
     - `request_ticket_subgraph_stats`: retrieves a list of `RequestTicketSubgraphStat` records
   - Some example implementers of `Datasource`:
     - [`DatasourceRedis`](./src/datasource_redis.rs) - which implements the datasource instance, and pulls records from a `redis` database.
-    - [`DatasourceInMemory`](./src/datasource_inmemory.rs) - which implements the datasource instance, and pulls records from memory.
 - [`DatasourceWriter`](./src/datasource.rs): exposes a `write` method which takes a reference to a `rdkafka::StreamConsumer`, listens on a stream of log messages, and writes them to the storage model defined by the implementer of the trait.
   - Some example implementers of `DatasourceWriter`:
     - [`DatasourceRedis`](./src/datasource_redis.rs) - listens to the log `StreamConsumer` message stream and stores the records in a redis database instance.
-    - [`DatasourceInMemory`](./src/datasource_inmemory.rs) - listens to the log `StreamConsumer` message stream and stores the records in-memory.
 
 ## Usage
 
