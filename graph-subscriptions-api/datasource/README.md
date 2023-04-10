@@ -25,7 +25,7 @@ use toolshed::url::Url;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-  // instantiate the datasource instance, and begin consuming data from the kafka logs consumer and storing in memory
+  // instantiate the datasource instance, and begin consuming data from the kafka logs consumer and storing in a redis database instance
   let subscriptions_datasource = GraphSubscriptionsDatasource::create_with_datasource_redis(
     "localhost:9092".parse::<Url>().unwrap(),
     String::from("graph_subscription_log_group"),
