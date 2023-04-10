@@ -1,7 +1,4 @@
 use anyhow::{Ok, Result};
-use datasource::DatasourceWriter;
-use datasource_inmemory::DatasourceInMemory;
-use datasource_redis::DatasourceRedis;
 use futures::{stream::FuturesUnordered, StreamExt};
 use toolshed::url::Url;
 
@@ -12,7 +9,9 @@ mod datasource_redis;
 mod models;
 mod utils;
 
-pub use datasource::Datasource;
+pub use datasource::{Datasource, DatasourceWriter};
+pub use datasource_inmemory::DatasourceInMemory;
+pub use datasource_redis::DatasourceRedis;
 pub use models::*;
 
 use consumer::{ConsumerConfig, LogConsumer};

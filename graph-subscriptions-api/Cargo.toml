@@ -13,9 +13,12 @@ async-graphql = "5.0.6"
 async-graphql-axum = "5.0.6"
 axum = { version = "0.6.11", features = ["headers"] }
 chrono = "0.4.24"
+datasource = { path = "./datasource" }
 dotenv = "0.15.0"
 eventuals = "0.6.7"
+futures = "0.3.28"
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
+redis = { version = "0.22.3", features = ["json", "tokio-comp"] }
 reqwest = { version = "0.11.15", default-features = false, features = [
     "json",
     "rustls-tls-native-roots",
@@ -23,6 +26,7 @@ reqwest = { version = "0.11.15", default-features = false, features = [
 ] }
 serde = "1.0.158"
 serde_json = "1.0.94"
+sha3 = "0.10.6"
 thiserror = "1.0.40"
 tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
 toolshed = { git = "https://github.com/edgeandnode/toolshed", tag = "v0.1.3" }
