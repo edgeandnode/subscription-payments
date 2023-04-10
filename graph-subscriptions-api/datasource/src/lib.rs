@@ -37,7 +37,7 @@ impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
         })?;
         // instantiate the redis datasource instance and begin consuming messages
         let datasource_redis = DatasourceRedis::create(&redis_url);
-        // consume messages
+
         (0..num_workers.unwrap_or(1))
             .map(|_| tokio::spawn(datasource_redis.write(&log_consumer.consumer)))
             .collect::<FuturesUnordered<_>>()
