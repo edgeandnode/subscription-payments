@@ -26,10 +26,11 @@ use toolshed::url::Url;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   // instantiate the datasource instance, and begin consuming data from the kafka logs consumer and storing in memory
-  let subscriptions_datasource = GraphSubscriptionsDatasource::create_with_datasource_inmemory(
+  let subscriptions_datasource = GraphSubscriptionsDatasource::create_with_datasource_redis(
     "localhost:9092".parse::<Url>().unwrap(),
     String::from("graph_subscription_log_group"),
     String::from("gateway_subscription_query_results"),
+    "redis://127.0.0.1/".parse::<Url>().unwrap(),
     Some(2)
   ).await?;
   // get the request tickets
