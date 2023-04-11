@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use async_graphql::{http::GraphiQLSource, EmptyMutation, EmptySubscription, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
@@ -10,7 +10,9 @@ use axum::{
     routing::get,
     Router, Server,
 };
+use datasource::{DatasourceRedis, GraphSubscriptionsDatasource};
 use graph_subscriptions::{eip712, TicketPayload};
+use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{self, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
@@ -63,13 +65,25 @@ async fn main() {
         conf.subscriptions_subgraph_url.clone(),
     ));
 
+    let subscriptions_datasource =
+        GraphSubscriptionsDatasource::<DatasourceRedis>::create_with_datasource_redis(
+            conf.graph_subscription_logs_kafka_broker,
+            conf.graph_subscription_logs_kafka_group_id,
+            conf.graph_subscription_logs_kafka_topic_id,
+            conf.graph_subscription_logs_redis_url,
+            Some(2),
+        )
+        .await
+        .expect("Failure instantiating the `GraphSubscriptionsDatasource` instance");
+
     // instantiate a context instance that will be passed as data to the graphql resolver functions in the context instance
-    let ctx = GraphSubscriptionsSchemaCtx {
+    let ctx = Arc::new(Mutex::new(GraphSubscriptionsSchemaCtx {
         subgraph_deployments: network_subgraph_data.subgraph_deployments,
-    };
+        datasource: subscriptions_datasource.datasource,
+    }));
 
     let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
-        .data::<GraphSubscriptionsSchemaCtx>(ctx)
+        .data::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>(ctx)
         .limit_depth(32)
         .finish();
 

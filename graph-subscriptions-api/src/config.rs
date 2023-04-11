@@ -19,6 +19,14 @@ pub struct Config {
     pub subscriptions_contract_address: Address,
     /// Subscriptions subgraph url
     pub subscriptions_subgraph_url: Url,
+    /// Graph Subscription logs Kafka consumer broker url
+    pub graph_subscription_logs_kafka_broker: Url,
+    /// Graph Subscription logs Kafka group ID
+    pub graph_subscription_logs_kafka_group_id: String,
+    /// Graph Subscription logs Kafka topic ID
+    pub graph_subscription_logs_kafka_topic_id: String,
+    /// The redis database to retrieve the Graph Subscription logs data URL
+    pub graph_subscription_logs_redis_url: String,
 }
 
 pub fn init_config() -> Config {
@@ -59,6 +67,36 @@ pub fn init_config() -> Config {
         },
         Err(_) => panic!("NETWORK_SUBGRAPH_URL environment variable is required"),
     };
+    let graph_subscription_logs_kafka_broker: Url =
+        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER") {
+            Ok(url) => match Url::from_str(url.as_str()) {
+                Ok(url) => url,
+                Err(_) => {
+                    panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER environment variable is invalid")
+                }
+            },
+            Err(_) => {
+                panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER environment variable is required")
+            }
+        };
+    let graph_subscription_logs_kafka_group_id =
+        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_GROUP_ID") {
+            Ok(group_id) => group_id,
+            Err(_) => {
+                panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_GROUP_ID environment variable is required")
+            }
+        };
+    let graph_subscription_logs_kafka_topic_id =
+        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_TOPIC_ID") {
+            Ok(group_id) => group_id,
+            Err(_) => {
+                panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_TOPIC_ID environment variable is required")
+            }
+        };
+    let graph_subscription_logs_redis_url = match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_URL") {
+        Ok(url) => url,
+        Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_REDIS_URL environment variable is required"),
+    };
 
     Config {
         api_port,
@@ -68,5 +106,9 @@ pub fn init_config() -> Config {
         subscriptions_contract_address,
         subscriptions_subgraph_url,
         network_subgraph_url,
+        graph_subscription_logs_kafka_broker,
+        graph_subscription_logs_kafka_group_id,
+        graph_subscription_logs_kafka_topic_id,
+        graph_subscription_logs_redis_url,
     }
 }
