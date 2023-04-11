@@ -38,11 +38,9 @@ impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
         // instantiate the redis datasource instance and begin consuming messages
         let datasource_redis = DatasourceRedis::create(&redis_url);
 
-        (0..num_workers.unwrap_or(1))
-            .map(|_| tokio::spawn(datasource_redis.write(&log_consumer.consumer)))
-            .collect::<FuturesUnordered<_>>()
-            .for_each(|_| async { () })
-            .await;
+        for _ in 0..num_workers.unwrap_or(1) {
+            tokio::spawn(datasource_redis.write(&log_consumer.consumer));
+        }
 
         Ok(GraphSubscriptionsDatasource {
             datasource: datasource_redis,

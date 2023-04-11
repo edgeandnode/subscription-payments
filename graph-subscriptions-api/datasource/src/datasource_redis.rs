@@ -65,9 +65,8 @@ impl Datasource for DatasourceRedis {
             return Ok(vec![]);
         }
         let mut tickets = RequestTicket::build_unique_request_ticket_list(results);
-        if order_by.is_some() {
+        if let Some(order) = order_by {
             let direction = order_direction.unwrap_or(OrderDirection::Asc);
-            let order = order_by.unwrap();
             tickets.sort_by(|a, b| match order {
                 RequestTicketOrderBy::Owner => {
                     if direction == OrderDirection::Asc {
@@ -135,9 +134,8 @@ impl Datasource for DatasourceRedis {
         }
 
         let mut stats = RequestTicketStat::from_graph_subscription_query_result_records(results);
-        if order_by.is_some() {
+        if let Some(order) = order_by {
             let direction = order_direction.unwrap_or(OrderDirection::Asc);
-            let order = order_by.unwrap();
             stats.sort_by(|a, b| match order {
                 RequestTicketStatOrderBy::Start => {
                     if direction == OrderDirection::Asc {
@@ -209,9 +207,8 @@ impl Datasource for DatasourceRedis {
 
         let mut stats =
             RequestTicketSubgraphStat::from_graph_subscription_query_result_records(results);
-        if order_by.is_some() {
+        if let Some(order) = order_by {
             let direction = order_direction.unwrap_or(OrderDirection::Asc);
-            let order = order_by.unwrap();
             stats.sort_by(|a, b| match order {
                 RequestTicketStatOrderBy::Start => {
                     if direction == OrderDirection::Asc {
@@ -280,7 +277,7 @@ impl DatasourceWriter for DatasourceRedis {
                 let timestamp = msg
                     .timestamp()
                     .to_millis()
-                    .and_then(|ms| Some(ms / 1000))
+                    .map(|ms| ms / 1000)
                     .unwrap_or(Utc::now().timestamp());
                 let offset = msg.offset();
                 let key = String::from_utf8_lossy(msg.key().unwrap_or_default()).to_string();
