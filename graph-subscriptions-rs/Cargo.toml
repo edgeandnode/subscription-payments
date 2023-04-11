@@ -7,7 +7,6 @@ edition = "2021"
 anyhow = "1.0.69"
 base64 = { version = "0.21.0", features = ["alloc"] }
 chrono = { version = "0.4.0", default-features = false }
-eip-712-derive = { git = "https://github.com/graphprotocol/eip-712-derive" }
 ethers = { version = "2.0.0", default-features = false, features = ["abigen"] }
 serde = "1.0.0"
 hex = "0.4.0"

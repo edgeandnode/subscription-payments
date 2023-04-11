@@ -1,16 +1,17 @@
-pub use eip_712_derive as eip712;
-
 use anyhow::{anyhow, ensure, Context};
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, NaiveDateTime, Utc};
-use eip712::{DomainSeparator, Eip712Domain, PrivateKey};
 use ethers::{
     abi::Address,
     contract::abigen,
-    types::{RecoveryMessage, Signature},
+    prelude::k256::ecdsa::SigningKey,
+    signers::Wallet,
+    types::{Signature, U256},
+    utils::hash_message,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none, Bytes, FromInto};
+use std::io::{self, Write as _};
 
 abigen!(
     Subscriptions,
@@ -33,21 +34,21 @@ impl From<AddressBytes> for Address { fn from(value: AddressBytes) -> Self { val
 #[rustfmt::skip]
 impl From<Address> for AddressBytes { fn from(value: Address) -> Self { Self(value.0) } }
 
-// TODO: handle optional fields as `options: BTreeMap<String, String>,`
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TicketPayload {
-    /// Unique identifier, used in conjunction with additional options such as `max_uses`.
-    pub id: u64,
     /// Address associated with the secret key used to sign the ticket.
     #[serde_as(as = "FromInto<AddressBytes>")]
     pub signer: Address,
-    /// Disambiguates when an authorized signer is also a user. Defaults to `signer` when omitted.
+    /// Required to when the authorized `signer` is not the `user` associated with a subscription.
+    /// When omitted, the `signer` is implied to be equal to the `user`.
     #[serde_as(as = "Option<FromInto<AddressBytes>>")]
     pub user: Option<Address>,
     /// Optional nice name.
     pub name: Option<String>,
+    // /// Unique identifier, used in conjunction with additional options such as `max_uses`.
+    // pub id: u64,
     // /// Maximum uses for tickets with matching identifiers. Defaults to 1 when omitted.
     // pub max_uses: Option<u64>,
     // /// Unix timestamp after which the ticket is invalid.
@@ -60,108 +61,101 @@ pub struct TicketPayload {
     pub allowed_domains: Option<String>,
 }
 
-impl eip712::StructType for TicketPayload {
-    const TYPE_NAME: &'static str = "Ticket";
-    fn visit_members<T: eip712::MemberVisitor>(&self, visitor: &mut T) {
-        visitor.visit("id", &self.id.to_be_bytes());
-        visitor.visit("signer", &eip712::Address(self.signer.0));
-        visitor.visit("user", &eip712::Address(self.user.unwrap_or(self.signer).0));
-        if let Some(name) = &self.name {
-            visitor.visit("name", name);
-        }
-        if let Some(allowed_subgraphs) = &self.allowed_subgraphs {
-            visitor.visit("allowed_subgraphs", allowed_subgraphs);
-        }
-        if let Some(allowed_deployments) = &self.allowed_deployments {
-            visitor.visit("allowed_deployments", allowed_deployments);
-        }
-        if let Some(allowed_domains) = &self.allowed_domains {
-            visitor.visit("allowed_domains", allowed_domains);
-        }
-    }
+pub struct TicketVerificationDomain {
+    pub contract: Address,
+    pub chain_id: U256,
 }
 
 impl TicketPayload {
+    pub fn user(&self) -> Address {
+        self.user.unwrap_or(self.signer)
+    }
+
     pub fn from_ticket_base64(
-        ticket: &[u8],
-        domain_separator: &DomainSeparator,
-    ) -> anyhow::Result<(Self, [u8; 65])> {
+        domain: &TicketVerificationDomain,
+        ticket: &str,
+    ) -> anyhow::Result<(Self, Signature)> {
         let ticket = base64::prelude::BASE64_URL_SAFE_NO_PAD
             .decode(ticket)
             .context("invalid base64 (URL, nopad)")?;
 
         let signature_start = ticket.len().saturating_sub(65);
-        let signature: &[u8; 65] = ticket[signature_start..]
+        let signature = ticket[signature_start..]
             .try_into()
+            .map(Signature::from)
             .context("invalid signature")?;
 
         let payload: TicketPayload =
             serde_cbor_2::de::from_reader(&ticket[..signature_start]).context("invalid payload")?;
-        let recovered_signer = payload
-            .verify(domain_separator, signature)
+        payload
+            .verify(domain, &signature)
             .context("failed to recover signer")?;
-        ensure!(
-            payload.signer == recovered_signer,
-            "recovered signer does not match claim"
-        );
-        Ok((payload, *signature))
+        Ok((payload, signature))
     }
 
     pub fn to_ticket_base64(
         &self,
-        domain_separator: &DomainSeparator,
-        key: &PrivateKey,
+        domain: &TicketVerificationDomain,
+        wallet: &Wallet<SigningKey>,
     ) -> anyhow::Result<String> {
-        let ticket = self.encode(domain_separator, key)?;
+        let ticket = self.encode(domain, wallet)?;
         Ok(BASE64_URL_SAFE_NO_PAD.encode(ticket))
-    }
-
-    pub fn verify(
-        &self,
-        domain_separator: &DomainSeparator,
-        signature: &[u8; 65],
-    ) -> anyhow::Result<Address> {
-        let hash = eip712::sign_hash(domain_separator, self);
-        let signature = Signature {
-            r: signature[0..32].into(),
-            s: signature[32..64].into(),
-            v: signature[64].into(),
-        };
-        let recovered_signer = signature.recover(RecoveryMessage::Hash(hash.into()))?;
-        ensure!(&recovered_signer == &self.signer);
-        Ok(self.signer)
     }
 
     pub fn encode(
         &self,
-        domain_separator: &DomainSeparator,
-        key: &PrivateKey,
+        domain: &TicketVerificationDomain,
+        wallet: &Wallet<SigningKey>,
     ) -> anyhow::Result<Vec<u8>> {
-        let (sig, r) = self.sign_hash(domain_separator, key)?;
         let mut buf = serde_cbor_2::ser::to_vec(self)?;
-        buf.append(&mut sig.into());
-        buf.push(r);
+        buf.append(&mut self.sign_hash(domain, wallet)?.to_vec());
         Ok(buf)
     }
 
     pub fn sign_hash(
         &self,
-        domain_separator: &DomainSeparator,
-        key: &PrivateKey,
-    ) -> anyhow::Result<([u8; 64], u8)> {
-        Ok(eip712::sign_typed(domain_separator, self, key)?)
+        domain: &TicketVerificationDomain,
+        wallet: &Wallet<SigningKey>,
+    ) -> anyhow::Result<Signature> {
+        let hash = hash_message(self.verification_message(domain));
+        Ok(wallet.sign_hash(hash)?)
     }
 
-    pub fn eip712_domain(chain_id: u64, contract_address: Address) -> Eip712Domain {
-        let mut chain_id_bytes = [0_u8; 32];
-        chain_id_bytes[24..].clone_from_slice(&chain_id.to_be_bytes());
-        Eip712Domain {
-            name: "Graph Subscriptions".to_string(),
-            version: "0".to_string(),
-            chain_id: eip712::U256(chain_id_bytes),
-            verifying_contract: eip712::Address(contract_address.0),
-            salt: [42_u8; 32],
+    pub fn verify(
+        &self,
+        domain: &TicketVerificationDomain,
+        signature: &Signature,
+    ) -> anyhow::Result<Address> {
+        let hash = hash_message(self.verification_message(domain));
+        let recovered_signer = signature.recover(hash)?;
+        ensure!(
+            recovered_signer == self.signer,
+            "recovered signer does not match claim"
+        );
+        Ok(self.signer)
+    }
+
+    pub fn verification_message(&self, domain: &TicketVerificationDomain) -> String {
+        let mut cursor: io::Cursor<Vec<u8>> = io::Cursor::default();
+        if let Some(allowed_deployments) = &self.allowed_deployments {
+            writeln!(&mut cursor, "allowed_deployments: {}", allowed_deployments).unwrap();
         }
+        if let Some(allowed_domains) = &self.allowed_domains {
+            writeln!(&mut cursor, "allowed_domains: {}", allowed_domains).unwrap();
+        }
+        if let Some(allowed_subgraphs) = &self.allowed_subgraphs {
+            writeln!(&mut cursor, "allowed_subgraphs: {}", allowed_subgraphs).unwrap();
+        }
+        writeln!(&mut cursor, "chain_id: {}", domain.chain_id).unwrap();
+        writeln!(&mut cursor, "contract: {:?}", domain.contract).unwrap();
+        if let Some(name) = &self.name {
+            writeln!(&mut cursor, "name: {}", name).unwrap();
+        }
+        writeln!(&mut cursor, "signer: {:?}", self.signer).unwrap();
+        if let Some(user) = self.user {
+            writeln!(&mut cursor, "user: {:?}", user).unwrap();
+        }
+        unsafe { String::from_utf8_unchecked(cursor.into_inner()) }
     }
 }
 
@@ -190,16 +184,15 @@ impl TryFrom<(u64, u64, u128)> for Subscription {
 #[cfg(test)]
 #[test]
 fn test_ticket() {
-    let chain_id = 1337;
-    let contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-        .parse::<Address>()
-        .unwrap();
-    let domain = TicketPayload::eip712_domain(chain_id, contract_address);
-    let domain_separator = eip712::DomainSeparator::new(&domain);
+    let domain = TicketVerificationDomain {
+        contract: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+            .parse()
+            .unwrap(),
+        chain_id: U256::from(1337),
+    };
 
-    let ticket = "omJpZBs1sgbzHbbOBGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaWmnagrqD-_AABXUcDxquxmTfUsOFUl2fj5cppR7BXOjjCHn2RvRk64Nvdx3ZkT1DN1SvFTz7i39xHvzTls4OiHA";
-    let (payload, signature) =
-        TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator).unwrap();
+    let ticket = "oWZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaOx7Lx3mKLIvhRDKDaY_78qMV13R7jNWnZFTil7jNME2Mzbg-VTUTQxdaM5xZiNWTHc0ata_wKhNPxqEjmFxOQGw";
+    let (payload, signature) = TicketPayload::from_ticket_base64(&domain, ticket).unwrap();
     println!("{:#?}", payload);
-    println!("Signature({:?})", hex::encode(signature));
+    println!("Signature({})", hex::encode(signature.to_vec()));
 }
