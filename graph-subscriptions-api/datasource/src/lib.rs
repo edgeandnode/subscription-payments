@@ -1,5 +1,4 @@
 use anyhow::{Ok, Result};
-use futures::{stream::FuturesUnordered, StreamExt};
 use toolshed::url::Url;
 
 mod consumer;
