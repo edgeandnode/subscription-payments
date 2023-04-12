@@ -2,8 +2,9 @@ use anyhow::{ensure, Context, Result};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use ethers::{abi::Address, prelude::*};
-use graph_subscriptions::{eip712, Subscription, Subscriptions, TicketPayload, IERC20};
-use rand::{thread_rng, RngCore as _};
+use graph_subscriptions::{
+    Subscription, Subscriptions, TicketPayload, TicketVerificationDomain, IERC20,
+};
 use std::{io::stdin, str::FromStr as _, sync::Arc};
 use toolshed::url::Url;
 
@@ -45,8 +46,6 @@ enum Commands {
         signer: Address,
     },
     Ticket {
-        #[arg(long)]
-        id: Option<u64>,
         #[arg(long)]
         signer: Option<Address>,
         #[arg(long)]
@@ -169,7 +168,6 @@ async fn main() -> Result<()> {
         }
 
         Commands::Ticket {
-            id,
             signer,
             user,
             name,
@@ -177,12 +175,13 @@ async fn main() -> Result<()> {
             allowed_deployments,
             allowed_domains,
         } => {
-            let domain = TicketPayload::eip712_domain(opt.chain_id, subscriptions.address());
-            let domain_separator = eip712::DomainSeparator::new(&domain);
+            let domain = TicketVerificationDomain {
+                chain_id: U256::from(opt.chain_id),
+                contract: subscriptions.address(),
+            };
 
             let signer = signer.unwrap_or(wallet.address());
             let payload = TicketPayload {
-                id: id.unwrap_or_else(|| thread_rng().next_u64()),
                 signer,
                 user,
                 name,
@@ -194,15 +193,12 @@ async fn main() -> Result<()> {
             let user = payload.user.unwrap_or(payload.signer);
             ensure!(subscriptions.check_authorized_signer(user, signer).await?);
 
-            let ticket = payload.to_ticket_base64(
-                &domain_separator,
-                &wallet.signer().to_bytes().as_slice().try_into().unwrap(),
-            )?;
+            let ticket = payload.to_ticket_base64(&domain, &wallet)?;
 
             // check recovery
-            TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator)?;
+            TicketPayload::from_ticket_base64(&domain, &ticket)?;
 
-            println!("{}", ticket);
+            println!("{ticket}");
         }
     }
 
