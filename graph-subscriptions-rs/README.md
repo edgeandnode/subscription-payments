@@ -12,9 +12,11 @@ The signature is always the last 65 bytes of the ticket. The ticket should be Ba
 
 ### Ticket Payload
 
-The payload is a [CBOR](https://www.rfc-editor.org/rfc/rfc7049)-encoded map. Only 2 fields must be supported:
-1. `signer: array(20)`: Address associated with the secret key used to sign the ticket.
-2. `user: optional array(20)`: Required to when the authorized `signer` is not the `user` associated with a subscription. When omitted, the `signer` is implied to be equal to the `user`.
+The payload is a [CBOR](https://www.rfc-editor.org/rfc/rfc7049)-encoded map. The following fields must be supported:
+1. `chain_id: U256`: EIP-155 chain id.
+2. `contract: array(20)`: Address of the subscriptions contract.
+3. `signer: array(20)`: Address associated with the secret key used to sign the ticket.
+4. `user: optional array(20)`: Required to when the authorized `signer` is not the `user` associated with a subscription. When omitted, the `signer` is implied to be equal to the `user`.
 
 Other optional fields may be supported at the gateway operator's discretion. See `TicketPayload` for the fields supported by this library.
 
