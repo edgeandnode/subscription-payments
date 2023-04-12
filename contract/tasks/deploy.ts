@@ -6,7 +6,7 @@ import { deploySubscriptions } from '../utils/deploy'
 
 task('deploy', 'Deploy the subscription contract (use L2 network!)')
   .addParam('token', 'Address of the ERC20 token')
-  .addOptionalParam('epochBlocks', 'Block length of each epoch.', 3, types.int)
+  .addOptionalParam('epochSeconds', 'Epoch length in seconds.', 3, types.int)
   .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
     const accounts = await hre.ethers.getSigners()
 
@@ -16,7 +16,7 @@ task('deploy', 'Deploy the subscription contract (use L2 network!)')
     console.log('Deploying subscriptions contract with the account:', accounts[0].address);
     
     await deploySubscriptions(
-      [taskArgs.token, taskArgs.epochBlocks],
+      [taskArgs.token, taskArgs.epochSeconds],
       accounts[0] as unknown as Wallet,
     )
   })
