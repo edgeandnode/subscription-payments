@@ -20,6 +20,8 @@ The payload is a [CBOR](https://www.rfc-editor.org/rfc/rfc7049)-encoded map. The
 
 Other optional fields may be supported at the gateway operator's discretion. See `TicketPayload` for the fields supported by this library.
 
+Note that the gateway address is implied to be the owner of the subscriptions contract. In the future, we may need to explicitly identify the indended recipient gateway to prevent attacks where a gateway proxies requests.
+
 ### Ticket Signature
 
 Signing and verification of tickets uses an Ethereum signed message ([EIP-191](https://eips.ethereum.org/EIPS/eip-191), `personal_sign`) constructed from the payload content.
