@@ -1,0 +1,30 @@
+# load the .env file
+set dotenv-load
+
+docker_image_name := "graph-subscriptions-api"
+
+# build the crate
+build:
+  cargo build
+# run crate locally
+dev:
+  cargo run
+# build crate locally with docker
+docker_build:
+  DOCKER_BUILDKIT=1 docker build . -t {{docker_image_name}}
+# run the docker image locally with docker compose
+## also creates the topic in the kafka instance
+docker_up:
+  docker compose up -d
+# build the image, then spin it up
+docker_build_start: docker_build
+  docker compose up -d
+# teardown the docker image
+docker_down:
+  docker compose down
+# clean any hanging docker volumes
+docker_clean:
+  docker system prune --volumes
+# teardown the docker image and clean any hanging docker volumes
+docker_down_clean: docker_down
+  docker system prune --volumes

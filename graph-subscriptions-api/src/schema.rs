@@ -468,10 +468,7 @@ impl QueryRoot {
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
-        let user = match payload.user {
-            None => return Err(AuthError::Unauthorized.into()),
-            Some(user) => Address::from(user.0),
-        };
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
 
         let schema_ctx = ctx
             .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
@@ -511,10 +508,7 @@ impl QueryRoot {
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
-        let user = match payload.user {
-            None => return Err(AuthError::Unauthorized.into()),
-            Some(user) => Address::from(user.0),
-        };
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
         let ticket_name = match &payload.name {
             None => return Err(anyhow::Error::msg("ticket_name is required")),
             Some(name) => name,
@@ -569,10 +563,7 @@ impl QueryRoot {
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
-        let user = match payload.user {
-            None => return Err(AuthError::Unauthorized.into()),
-            Some(user) => Address::from(user.0),
-        };
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
         let ticket_name = match &payload.name {
             None => return Err(anyhow::Error::msg("ticket_name is required")),
             Some(name) => name,

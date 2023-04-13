@@ -61,6 +61,7 @@ pub struct TicketPayload {
     pub allowed_domains: Option<String>,
 }
 
+#[derive(Clone, Debug)]
 pub struct TicketVerificationDomain {
     pub contract: Address,
     pub chain_id: U256,
