@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use dotenv::dotenv;
+use ethers::types::U256;
 use toolshed::{bytes::Address, url::Url};
 
 #[derive(Debug)]
@@ -14,19 +15,25 @@ pub struct Config {
     /// The Graph Network Subgraph URL. For querying subgraphs published to the network
     pub network_subgraph_url: Url,
     /// Subscriptions contract chain ID
-    pub subscriptions_chain_id: u64,
+    pub subscriptions_chain_id: U256,
     /// Subscriptions contract address
     pub subscriptions_contract_address: Address,
     /// Subscriptions subgraph url
     pub subscriptions_subgraph_url: Url,
     /// Graph Subscription logs Kafka consumer broker url
-    pub graph_subscription_logs_kafka_broker: Url,
+    pub graph_subscription_logs_kafka_broker: String,
     /// Graph Subscription logs Kafka group ID
     pub graph_subscription_logs_kafka_group_id: String,
     /// Graph Subscription logs Kafka topic ID
     pub graph_subscription_logs_kafka_topic_id: String,
     /// The redis database to retrieve the Graph Subscription logs data URL
     pub graph_subscription_logs_redis_url: String,
+    /// The redis database port
+    pub graph_subscription_logs_redis_port: u16,
+    /// The Optional username for the redist datasource instance
+    pub graph_subscription_logs_redis_username: Option<String>,
+    /// The Optional password for the redist datasource instance
+    pub graph_subscription_logs_redis_password: Option<String>,
 }
 
 pub fn init_config() -> Config {
@@ -41,8 +48,8 @@ pub fn init_config() -> Config {
         .unwrap_or(String::from("true"))
         .parse()
         .unwrap();
-    let subscriptions_chain_id: u64 = match dotenv::var("SUBSCRIPTIONS_CONTRACT_CHAIN_ID") {
-        Ok(chain_id) => chain_id.parse().unwrap(),
+    let subscriptions_chain_id: U256 = match dotenv::var("SUBSCRIPTIONS_CONTRACT_CHAIN_ID") {
+        Ok(chain_id) => U256::from_dec_str(&chain_id).unwrap_or(U256::from(421613)),
         Err(_) => panic!("SUBSCRIPTIONS_CONTRACT_CHAIN_ID environment variable is required"),
     };
     let subscriptions_contract_address: Address =
@@ -67,14 +74,9 @@ pub fn init_config() -> Config {
         },
         Err(_) => panic!("NETWORK_SUBGRAPH_URL environment variable is required"),
     };
-    let graph_subscription_logs_kafka_broker: Url =
+    let graph_subscription_logs_kafka_broker =
         match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER") {
-            Ok(url) => match Url::from_str(url.as_str()) {
-                Ok(url) => url,
-                Err(_) => {
-                    panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER environment variable is invalid")
-                }
-            },
+            Ok(url) => url,
             Err(_) => {
                 panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER environment variable is required")
             }
@@ -97,6 +99,21 @@ pub fn init_config() -> Config {
         Ok(url) => url,
         Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_REDIS_URL environment variable is required"),
     };
+    let graph_subscription_logs_redis_port: u16 =
+        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_PORT") {
+            Ok(port) => port.parse::<u16>().unwrap_or(6379),
+            Err(_) => 6379,
+        };
+    let graph_subscription_logs_redis_username: Option<String> =
+        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_USERNAME") {
+            Ok(username) => Some(username),
+            Err(_) => None,
+        };
+    let graph_subscription_logs_redis_password: Option<String> =
+        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_PASSWORD") {
+            Ok(password) => Some(password),
+            Err(_) => None,
+        };
 
     Config {
         api_port,
@@ -110,5 +127,8 @@ pub fn init_config() -> Config {
         graph_subscription_logs_kafka_group_id,
         graph_subscription_logs_kafka_topic_id,
         graph_subscription_logs_redis_url,
+        graph_subscription_logs_redis_port,
+        graph_subscription_logs_redis_username,
+        graph_subscription_logs_redis_password,
     }
 }

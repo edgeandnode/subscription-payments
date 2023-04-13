@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, ensure, Ok, Result};
 use axum::http::{header::AUTHORIZATION, HeaderMap};
 use eventuals::{Eventual, Ptr};
-use graph_subscriptions::{eip712::DomainSeparator, TicketPayload};
+use graph_subscriptions::{TicketPayload, TicketVerificationDomain};
 use thiserror::Error;
 use toolshed::bytes::Address;
 
@@ -16,17 +16,17 @@ pub struct TicketPayloadWrapper {
 }
 
 pub struct AuthHandler {
-    pub subscriptions_domain_separator: DomainSeparator,
+    pub subscriptions_domain: TicketVerificationDomain,
     pub subscriptions: Eventual<Ptr<HashMap<Address, UserSubscriptionWithSigners>>>,
 }
 
 impl AuthHandler {
     pub fn create(
-        subscriptions_domain_separator: DomainSeparator,
+        subscriptions_domain_separator: TicketVerificationDomain,
         subscriptions: Eventual<Ptr<HashMap<Address, UserSubscriptionWithSigners>>>,
     ) -> &'static Self {
         Box::leak(Box::new(Self {
-            subscriptions_domain_separator,
+            subscriptions_domain: subscriptions_domain_separator,
             subscriptions,
         }))
     }
@@ -47,10 +47,8 @@ impl AuthHandler {
         );
 
         // parse the authorization header as an EIP-712 signed message
-        let (payload, _) = TicketPayload::from_ticket_base64(
-            raw_auth_header.as_bytes(),
-            &self.subscriptions_domain_separator,
-        )?;
+        let (payload, _) =
+            TicketPayload::from_ticket_base64(&self.subscriptions_domain, &raw_auth_header)?;
 
         let user = Address(payload.user.unwrap_or(payload.signer).0);
         let active_subscription = self
@@ -87,24 +85,25 @@ mod tests {
 
     use axum::http::{header::AUTHORIZATION, HeaderMap};
     use chrono::{Duration, Utc};
+    use ethers::types::{H160, U256};
     use eventuals::{Eventual, Ptr};
-    use graph_subscriptions::{eip712, TicketPayload};
+    use graph_subscriptions::{TicketPayload, TicketVerificationDomain};
     use toolshed::bytes::Address;
 
     use super::*;
 
     #[test]
     fn should_fail_if_no_authorization_header_present() {
-        let subscriptions_domain_separator =
-            eip712::DomainSeparator::new(&TicketPayload::eip712_domain(
-                421613,
+        let subscriptions_domain = TicketVerificationDomain {
+            contract: H160(
                 Address::from_str("0x29f49a438c747e7Dd1bfe7926b03783E47f9447B")
                     .unwrap()
-                    .0
-                    .into(),
-            ));
+                    .0,
+            ),
+            chain_id: U256::from(421613),
+        };
         let subscriptions = Eventual::from_value(Ptr::default());
-        let handler = AuthHandler::create(subscriptions_domain_separator, subscriptions);
+        let handler = AuthHandler::create(subscriptions_domain, subscriptions);
         let headers = HeaderMap::new();
 
         let actual = handler.parse_auth_header(&headers);
@@ -116,16 +115,16 @@ mod tests {
 
     #[test]
     fn should_fail_if_authorization_header_empty() {
-        let subscriptions_domain_separator =
-            eip712::DomainSeparator::new(&TicketPayload::eip712_domain(
-                421613,
+        let subscriptions_domain = TicketVerificationDomain {
+            contract: H160(
                 Address::from_str("0x29f49a438c747e7Dd1bfe7926b03783E47f9447B")
                     .unwrap()
-                    .0
-                    .into(),
-            ));
+                    .0,
+            ),
+            chain_id: U256::from(421613),
+        };
         let subscriptions = Eventual::from_value(Ptr::default());
-        let handler = AuthHandler::create(subscriptions_domain_separator, subscriptions);
+        let handler = AuthHandler::create(subscriptions_domain, subscriptions);
         let mut headers = HeaderMap::new();
         headers.append(AUTHORIZATION, "".parse().unwrap());
 
@@ -138,16 +137,16 @@ mod tests {
 
     #[test]
     fn should_fail_if_authorization_header_not_bearer_token() {
-        let subscriptions_domain_separator =
-            eip712::DomainSeparator::new(&TicketPayload::eip712_domain(
-                421613,
+        let subscriptions_domain = TicketVerificationDomain {
+            contract: H160(
                 Address::from_str("0x29f49a438c747e7Dd1bfe7926b03783E47f9447B")
                     .unwrap()
-                    .0
-                    .into(),
-            ));
+                    .0,
+            ),
+            chain_id: U256::from(421613),
+        };
         let subscriptions = Eventual::from_value(Ptr::default());
-        let handler = AuthHandler::create(subscriptions_domain_separator, subscriptions);
+        let handler = AuthHandler::create(subscriptions_domain, subscriptions);
         let mut headers = HeaderMap::new();
         headers.append(AUTHORIZATION, "invalid".parse().unwrap());
 
@@ -160,16 +159,16 @@ mod tests {
 
     #[test]
     fn should_fail_if_authorization_header_not_valid_eip_712_signed_message() {
-        let subscriptions_domain_separator =
-            eip712::DomainSeparator::new(&TicketPayload::eip712_domain(
-                421613,
+        let subscriptions_domain = TicketVerificationDomain {
+            contract: H160(
                 Address::from_str("0x29f49a438c747e7Dd1bfe7926b03783E47f9447B")
                     .unwrap()
-                    .0
-                    .into(),
-            ));
+                    .0,
+            ),
+            chain_id: U256::from(421613),
+        };
         let subscriptions = Eventual::from_value(Ptr::default());
-        let handler = AuthHandler::create(subscriptions_domain_separator, subscriptions);
+        let handler = AuthHandler::create(subscriptions_domain, subscriptions);
         let mut headers = HeaderMap::new();
         headers.append(AUTHORIZATION, "Bearer invalid".parse().unwrap());
 
@@ -187,8 +186,10 @@ mod tests {
         let contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
             .parse::<Address>()
             .unwrap();
-        let domain = TicketPayload::eip712_domain(chain_id, contract_address.0.into());
-        let domain_separator = eip712::DomainSeparator::new(&domain);
+        let domain_separator = TicketVerificationDomain {
+            contract: H160(contract_address.0),
+            chain_id: U256::from(chain_id),
+        };
         let subscriptions = Eventual::from_value(Ptr::default());
         let handler = AuthHandler::create(domain_separator, subscriptions);
         let mut headers = HeaderMap::new();
@@ -208,13 +209,15 @@ mod tests {
 
     #[test]
     fn should_successfully_show_user_as_authenticated_and_return_ticket_payload_wrapper() {
-        let user = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
-        let chain_id = 1337;
-        let contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+        let user = "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb";
+        let chain_id = 421613;
+        let contract_address = "0x29f49a438c747e7Dd1bfe7926b03783E47f9447B"
             .parse::<Address>()
             .unwrap();
-        let domain = TicketPayload::eip712_domain(chain_id, contract_address.0.into());
-        let domain_separator = eip712::DomainSeparator::new(&domain);
+        let domain_separator = TicketVerificationDomain {
+            contract: H160(contract_address.0),
+            chain_id: U256::from(chain_id),
+        };
         let mut subscription_map: HashMap<Address, UserSubscriptionWithSigners> = HashMap::new();
         subscription_map.insert(
             user.parse::<Address>().unwrap(),
@@ -230,14 +233,19 @@ mod tests {
         let subscriptions = Eventual::from_value(subscription_ptr);
         let handler = AuthHandler::create(domain_separator, subscriptions);
         let mut headers = HeaderMap::new();
-        let ticket = "omJpZBs1sgbzHbbOBGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaWmnagrqD-_AABXUcDxquxmTfUsOFUl2fj5cppR7BXOjjCHn2RvRk64Nvdx3ZkT1DN1SvFTz7i39xHvzTls4OiHA";
+        let ticket = "o2RuYW1lTnRlc3RfYXBpX2tleV8xZnNpZ25lclTBQrzwQKv5NwPAPazwLFS0DaDt63FhbGxvd2VkX3N1YmdyYXBoc1gsM25YZkszUmJGcmo2bWhrR2RvS1Jvd0VFdGkyV3ZtVWR4bXo3M3RiZW42TWI-WazK5YV6jVBngF9J_uaF9XMfvpmj3EBl5Wkzcr0n6R5-e9ukTLQa0fFq5GslcbkxN3WNxq2q6pgqxG0XaZYYHA";
         let bearer = format!("Bearer {}", ticket);
         headers.append(AUTHORIZATION, bearer.parse().unwrap());
 
-        let expected_ticket_payload =
-            TicketPayload::from_ticket_base64(ticket.as_bytes(), &domain_separator)
-                .unwrap()
-                .0;
+        let expected_ticket_payload = TicketPayload::from_ticket_base64(
+            &TicketVerificationDomain {
+                contract: H160(contract_address.0),
+                chain_id: U256::from(chain_id),
+            },
+            ticket,
+        )
+        .unwrap()
+        .0;
 
         let actual = handler.parse_auth_header(&headers);
         assert!(
@@ -246,7 +254,6 @@ mod tests {
         );
         let actual_res = actual.unwrap();
         let actual_ticket_payload = actual_res.clone().ticket_payload;
-        assert_eq!(actual_ticket_payload.id, expected_ticket_payload.id);
         assert_eq!(actual_ticket_payload.user, expected_ticket_payload.user);
         assert_eq!(actual_ticket_payload.signer, expected_ticket_payload.signer);
 

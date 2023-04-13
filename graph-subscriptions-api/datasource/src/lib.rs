@@ -1,5 +1,4 @@
 use anyhow::{Ok, Result};
-use toolshed::url::Url;
 
 mod consumer;
 mod datasource;
@@ -22,7 +21,7 @@ where
 
 impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
     pub async fn create_with_datasource_redis(
-        kafka_broker: Url,
+        kafka_broker: String,
         kafka_subscription_logs_group_id: String,
         kafka_subscription_logs_topic_id: String,
         redis_url: String,

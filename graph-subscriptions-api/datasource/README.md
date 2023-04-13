@@ -27,11 +27,14 @@ use toolshed::url::Url;
 async fn main() -> anyhow::Result<()> {
   // instantiate the datasource instance, and begin consuming data from the kafka logs consumer and storing in a redis database instance
   let subscriptions_datasource = GraphSubscriptionsDatasource::create_with_datasource_redis(
-    "localhost:9092".parse::<Url>().unwrap(),
-    String::from("graph_subscription_log_group"),
-    String::from("gateway_subscription_query_results"),
-    "redis://127.0.0.1/".parse::<Url>().unwrap(),
-    Some(2)
+    "localhost:9092".parse::<Url>().unwrap(), // kafka logs consumer url
+    String::from("graph_subscription_log_group"), // kafka group id
+    String::from("gateway_subscription_query_results"), // kafka topic id
+    "redis://127.0.0.1/".parse::<Url>().unwrap(), // redis url
+    6379, // redis port
+    Some("redis"), // redis username
+    Some("redis_pwd"), // redis password
+    Some(2) // number of async workers to listen to messaged and write to the redis instance
   ).await?;
   // get the request tickets
   let user = "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462".parse::<Address>()?;

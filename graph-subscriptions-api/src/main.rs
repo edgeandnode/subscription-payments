@@ -11,7 +11,7 @@ use axum::{
     Router, Server,
 };
 use datasource::{DatasourceRedis, GraphSubscriptionsDatasource};
-use graph_subscriptions::{eip712, TicketPayload};
+use graph_subscriptions::TicketVerificationDomain;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{self, layer::SubscriberExt as _, util::SubscriberInitExt as _};
@@ -87,12 +87,11 @@ async fn main() {
         .limit_depth(32)
         .finish();
 
-    let subscriptions_domain_separator =
-        eip712::DomainSeparator::new(&TicketPayload::eip712_domain(
-            conf.subscriptions_chain_id,
-            conf.subscriptions_contract_address.0.into(),
-        ));
-    let auth_handler = AuthHandler::create(subscriptions_domain_separator, subscriptions);
+    let subscriptions_domain = TicketVerificationDomain {
+        contract: ethers::types::H160(conf.subscriptions_contract_address.0),
+        chain_id: conf.subscriptions_chain_id,
+    };
+    let auth_handler = AuthHandler::create(subscriptions_domain, subscriptions);
 
     let cors = CorsLayer::new()
         .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
