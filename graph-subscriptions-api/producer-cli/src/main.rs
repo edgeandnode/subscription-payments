@@ -106,8 +106,14 @@ async fn main() -> Result<()> {
             // write the message to the producer as a protobuf message
             let message_data = message.encode_to_vec();
             let record = BaseRecord::<'_, (), [u8]>::to(&opt.topic_id).payload(&message_data);
+            println!("sending message on topic {}", opt.topic_id);
             if let Err((kafka_producer_err, _)) = producer.send(record) {
-                tracing::error!(%kafka_producer_err, %opt.topic_id);
+                println!(
+                    "failure sending message on topic: [{}]. error [{:?}]",
+                    opt.topic_id, kafka_producer_err
+                );
+            } else {
+                println!("message sent successfully on topic {}", opt.topic_id);
             }
         }
     }
