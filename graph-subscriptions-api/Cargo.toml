@@ -5,7 +5,7 @@ edition = "2021"
 description = "GraphQL API to expose graph subscription tickets and stats"
 
 [workspace]
-members = [".", "datasource"]
+members = [".", "datasource", "producer-cli"]
 
 [dependencies]
 anyhow = "1.0.70"
