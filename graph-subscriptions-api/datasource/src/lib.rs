@@ -2,12 +2,12 @@ use anyhow::{Ok, Result};
 
 mod consumer;
 mod datasource;
-mod datasource_redis;
+mod datsource_postgres;
 mod models;
 mod utils;
 
 pub use datasource::{Datasource, DatasourceWriter};
-pub use datasource_redis::DatasourceRedis;
+pub use datsource_postgres::DatasourcePostgres;
 pub use models::*;
 
 use consumer::{ConsumerConfig, LogConsumer};
@@ -20,13 +20,13 @@ where
 }
 
 impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
-    pub async fn create_with_datasource_redis(
+    pub async fn create_with_datasource_pg(
         kafka_broker: String,
         kafka_subscription_logs_group_id: String,
         kafka_subscription_logs_topic_id: String,
-        redis_url: String,
+        postgres_db_url: String,
         num_workers: Option<usize>,
-    ) -> Result<GraphSubscriptionsDatasource<'static, DatasourceRedis>> {
+    ) -> Result<GraphSubscriptionsDatasource<'static, DatasourcePostgres>> {
         // instantiate the consumer instance
         let log_consumer = LogConsumer::create(ConsumerConfig {
             brokers: kafka_broker,
@@ -34,14 +34,14 @@ impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
             topic_id: kafka_subscription_logs_topic_id,
         })?;
         // instantiate the redis datasource instance and begin consuming messages
-        let datasource_redis = DatasourceRedis::create(&redis_url);
+        let datasource_pg = DatasourcePostgres::create(postgres_db_url).await?;
 
         for _ in 0..num_workers.unwrap_or(1) {
-            tokio::spawn(datasource_redis.write(&log_consumer.consumer));
+            tokio::spawn(datasource_pg.write(&log_consumer.consumer));
         }
 
-        Ok(GraphSubscriptionsDatasource {
-            datasource: datasource_redis,
+        Ok(GraphSubscriptionsDatasource::<DatasourcePostgres> {
+            datasource: datasource_pg,
         })
     }
 }

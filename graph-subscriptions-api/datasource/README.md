@@ -10,10 +10,10 @@ This subpackage to the Graph Subscriptions API exposes a generic, extendable, AP
     - `request_ticket_stats`: retrieves a list of `RequestTicketStat` records
     - `request_ticket_subgraph_stats`: retrieves a list of `RequestTicketSubgraphStat` records
   - Some example implementers of `Datasource`:
-    - [`DatasourceRedis`](./src/datasource_redis.rs) - which implements the datasource instance, and pulls records from a `redis` database.
+    - [`DatasourceRedis`](./src/datasource_postgres.rs) - which implements the datasource instance, and pulls records from a `postgres` database.
 - [`DatasourceWriter`](./src/datasource.rs): exposes a `write` method which takes a reference to a `rdkafka::StreamConsumer`, listens on a stream of log messages, and writes them to the storage model defined by the implementer of the trait.
   - Some example implementers of `DatasourceWriter`:
-    - [`DatasourceRedis`](./src/datasource_redis.rs) - listens to the log `StreamConsumer` message stream and stores the records in a redis database instance.
+    - [`DatasourceRedis`](./src/datasource_postgres.rs) - listens to the log `StreamConsumer` message stream and stores the records in a `postgres` database instance.
 
 ## Usage
 
@@ -26,14 +26,11 @@ use toolshed::url::Url;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   // instantiate the datasource instance, and begin consuming data from the kafka logs consumer and storing in a redis database instance
-  let subscriptions_datasource = GraphSubscriptionsDatasource::create_with_datasource_redis(
+  let subscriptions_datasource = GraphSubscriptionsDatasource::create_with_datasource_pg(
     "localhost:9092".parse::<Url>().unwrap(), // kafka logs consumer url
     String::from("graph_subscription_log_group"), // kafka group id
     String::from("gateway_subscription_query_results"), // kafka topic id
-    "redis://127.0.0.1/".parse::<Url>().unwrap(), // redis url
-    6379, // redis port
-    Some("redis"), // redis username
-    Some("redis_pwd"), // redis password
+    "postgress://dev:dev@0.0.0.0:5432/gateway_subscription_query_results", // database url
     Some(2) // number of async workers to listen to messaged and write to the redis instance
   ).await?;
   // get the request tickets

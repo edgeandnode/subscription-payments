@@ -10,7 +10,7 @@ use axum::{
     routing::get,
     Router, Server,
 };
-use datasource::{DatasourceRedis, GraphSubscriptionsDatasource};
+use datasource::{DatasourcePostgres, GraphSubscriptionsDatasource};
 use graph_subscriptions::TicketVerificationDomain;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
@@ -66,11 +66,11 @@ async fn main() {
     ));
 
     let subscriptions_datasource =
-        GraphSubscriptionsDatasource::<DatasourceRedis>::create_with_datasource_redis(
+        GraphSubscriptionsDatasource::<DatasourcePostgres>::create_with_datasource_pg(
             conf.graph_subscription_logs_kafka_broker,
             conf.graph_subscription_logs_kafka_group_id,
             conf.graph_subscription_logs_kafka_topic_id,
-            conf.graph_subscription_logs_redis_url,
+            conf.graph_subscription_logs_db_url,
             Some(2),
         )
         .await

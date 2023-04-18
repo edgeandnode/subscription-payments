@@ -5,7 +5,7 @@ edition = "2021"
 description = "GraphQL API to expose graph subscription tickets and stats"
 
 [workspace]
-members = [".", "datasource"]
+members = [".", "datasource", "migration", "entity"]
 
 [dependencies]
 anyhow = "1.0.70"
@@ -19,7 +19,6 @@ ethers = "2.0.3"
 eventuals = "0.6.7"
 futures = "0.3.28"
 graph-subscriptions = { git = "https://github.com/edgeandnode/subscription-payments", rev = "54db2e3" }
-redis = { version = "0.22.3", features = ["json", "tokio-comp"] }
 reqwest = { version = "0.11.15", default-features = false, features = [
     "json",
     "rustls-tls-native-roots",

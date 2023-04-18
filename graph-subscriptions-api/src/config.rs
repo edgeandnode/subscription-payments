@@ -26,14 +26,9 @@ pub struct Config {
     pub graph_subscription_logs_kafka_group_id: String,
     /// Graph Subscription logs Kafka topic ID
     pub graph_subscription_logs_kafka_topic_id: String,
-    /// The redis database to retrieve the Graph Subscription logs data URL
-    pub graph_subscription_logs_redis_url: String,
-    /// The redis database port
-    pub graph_subscription_logs_redis_port: u16,
-    /// The Optional username for the redist datasource instance
-    pub graph_subscription_logs_redis_username: Option<String>,
-    /// The Optional password for the redist datasource instance
-    pub graph_subscription_logs_redis_password: Option<String>,
+    /// Postgres database url where the logs are stored.
+    /// Uses format: "postgres://{user}:{pwd}@{host}:{port}/{database}"
+    pub graph_subscription_logs_db_url: String,
 }
 
 pub fn init_config() -> Config {
@@ -95,25 +90,10 @@ pub fn init_config() -> Config {
                 panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_TOPIC_ID environment variable is required")
             }
         };
-    let graph_subscription_logs_redis_url = match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_URL") {
+    let graph_subscription_logs_db_url = match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_DB_URL") {
         Ok(url) => url,
-        Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_REDIS_URL environment variable is required"),
+        Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_DB_URL environment variable is required"),
     };
-    let graph_subscription_logs_redis_port: u16 =
-        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_PORT") {
-            Ok(port) => port.parse::<u16>().unwrap_or(6379),
-            Err(_) => 6379,
-        };
-    let graph_subscription_logs_redis_username: Option<String> =
-        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_USERNAME") {
-            Ok(username) => Some(username),
-            Err(_) => None,
-        };
-    let graph_subscription_logs_redis_password: Option<String> =
-        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_REDIS_PASSWORD") {
-            Ok(password) => Some(password),
-            Err(_) => None,
-        };
 
     Config {
         api_port,
@@ -126,9 +106,6 @@ pub fn init_config() -> Config {
         graph_subscription_logs_kafka_broker,
         graph_subscription_logs_kafka_group_id,
         graph_subscription_logs_kafka_topic_id,
-        graph_subscription_logs_redis_url,
-        graph_subscription_logs_redis_port,
-        graph_subscription_logs_redis_username,
-        graph_subscription_logs_redis_password,
+        graph_subscription_logs_db_url,
     }
 }
