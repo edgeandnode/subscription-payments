@@ -1,6 +1,0 @@
-{
-  "rust-analyzer.linkedProjects": [
-    "./graph-subscriptions-api/datasource/Cargo.toml",
-    "./graph-subscriptions-api/migration/Cargo.toml"
-  ]
-}

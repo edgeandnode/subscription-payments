@@ -297,7 +297,7 @@ impl Datasource for DatasourcePostgres {
         .map_err(|err| anyhow::Error::from(err))
     }
 
-    /// Retrieve the user's `RequestTicketSubgraphStat` records, aggregated over the given timeframe, for a specific subgraph deployment Qm hash, derived from the stored query result records from the redis database.
+    /// Retrieve the user's `RequestTicketSubgraphStat` records, aggregated over the given timeframe, for a specific subgraph deployment Qm hash, derived from the stored query result records from the postgres database.
     ///
     /// # Arguments
     ///
@@ -443,11 +443,11 @@ impl DatasourceWriter for DatasourcePostgres {
         });
 
         tracing::info!(
-            "DatasourceRedis.write()::initializing message stream consumer processing..."
+            "DatasourcePostgres.write()::initializing message stream consumer processing..."
         );
         stream_processor
             .await
-            .expect("DatasourceRedis.write()::failure processing the stream messages");
-        tracing::info!("DatasourceRedis.write()::message stream consumer terminated");
+            .expect("DatasourcePostgres.write()::failure processing the stream messages");
+        tracing::info!("DatasourcePostgres.write()::message stream consumer terminated");
     }
 }

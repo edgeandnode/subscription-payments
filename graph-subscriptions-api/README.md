@@ -14,7 +14,7 @@ See the [.env.example](./.env.example) file for default values.
 # list available jest recipes
 just -l
 
-# spin up the necessary resources for the app (kafka, redis, etc)
+# spin up the necessary resources for the app (kafka, postgres, etc)
 just docker_up
 
 # run the api in dev mode

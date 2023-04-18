@@ -33,7 +33,7 @@ impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
             group_id: kafka_subscription_logs_group_id,
             topic_id: kafka_subscription_logs_topic_id,
         })?;
-        // instantiate the redis datasource instance and begin consuming messages
+        // instantiate the postgres datasource instance and begin consuming messages
         let datasource_pg = DatasourcePostgres::create(postgres_db_url).await?;
 
         for _ in 0..num_workers.unwrap_or(1) {
