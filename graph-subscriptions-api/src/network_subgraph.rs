@@ -53,14 +53,15 @@ pub struct SubgraphDeploymentInputs {
 }
 
 impl SubgraphDeployments {
-    pub async fn deployment_subgraphs(&self, deployment: &DeploymentId) -> Option<Vec<Subgraph>> {
-        self.inputs
-            .value()
-            .await
-            .ok()?
-            .deployment_to_subgraphs
+    pub async fn deployment_subgraphs(&self, deployment: &DeploymentId) -> Vec<Subgraph> {
+        let map = match self.inputs.value().await {
+            std::result::Result::Ok(map) => map,
+            Err(_) => return vec![],
+        };
+        map.deployment_to_subgraphs
             .get(deployment)
             .cloned()
+            .unwrap_or_default()
     }
 }
 
@@ -144,7 +145,7 @@ impl Client {
             .write(Ptr::new(SubgraphDeploymentInputs {
                 deployment_to_subgraphs,
             }));
-        Ok(())
+        Result::Ok(())
     }
 }
 

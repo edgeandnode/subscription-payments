@@ -1,10 +1,9 @@
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{Ok, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
-use chrono::Utc;
-use datasource::{Datasource, DatasourceRedis};
-use redis::JsonAsyncCommands as _;
+use datasource::{Datasource, DatasourcePostgres};
+use futures::future::join_all;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake256,
@@ -19,7 +18,7 @@ use crate::{
 
 pub struct GraphSubscriptionsSchemaCtx<'a> {
     pub subgraph_deployments: SubgraphDeployments,
-    pub datasource: &'a DatasourceRedis,
+    pub datasource: &'a DatasourcePostgres,
 }
 
 pub type GraphSubscriptionsSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
@@ -73,6 +72,9 @@ pub struct RequestTicketDto {
     pub ticket_user: Address,
     pub ticket_signer: Address,
     pub ticket_name: String,
+    pub total_query_count: i64,
+    pub queried_subgraphs_count: i64,
+    pub last_query_timestamp: i64,
 }
 /// Rust does not let you define `impl` for structs outside of the package - which we need to do to implement the `async_graphql::Object` trait.
 /// Since the `RequestTicket` returned by the `datasource` is external,
@@ -91,6 +93,9 @@ impl From<datasource::RequestTicket> for RequestTicketDto {
             ticket_user: value.ticket_user,
             ticket_signer: value.ticket_signer,
             ticket_name: value.ticket_name,
+            total_query_count: value.total_query_count,
+            queried_subgraphs_count: value.queried_subgraphs_count,
+            last_query_timestamp: value.last_query_timestamp,
         }
     }
 }
@@ -118,120 +123,79 @@ impl RequestTicketDto {
         self.ticket_name.to_string()
     }
     /// Count of all of the `Subgraphs` queried by the request ticket.
-    async fn queried_subgraphs_count<'ctx>(&self, ctx: &Context<'ctx>) -> Result<u32> {
-        let schema_ctx = ctx
-            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
-            .lock()
-            .await;
-        let mut conn = schema_ctx
-            .datasource
-            .redis_client
-            .get_async_connection()
-            .await?;
-        let path = format!(
-            "'$..{}[?(@.ticket_name==\"{}\")].deployment_qm_hash'",
-            self.ticket_user.to_string().to_lowercase(),
-            self.ticket_name.to_string()
-        );
-        let subgraph_deployment_qm_hashes: Vec<String> = conn
-            .json_get(
-                schema_ctx
-                    .datasource
-                    .graph_subscriptions_query_result_key
-                    .to_string(),
-                path,
-            )
-            .await?;
-        if subgraph_deployment_qm_hashes.is_empty() {
-            return Ok(0);
-        }
-        let unq_subgraph_deployment_qm_hashes = subgraph_deployment_qm_hashes
-            .iter()
-            .cloned()
-            .collect::<HashSet<_>>();
-
-        Ok(unq_subgraph_deployment_qm_hashes.len() as u32)
+    async fn queried_subgraphs_count(&self) -> i64 {
+        self.queried_subgraphs_count
     }
     /// List of `Subgraph` records that this request ticket queried.
     async fn queried_subgraphs<'ctx>(
         &self,
         ctx: &Context<'ctx>,
-        _first: Option<i32>,
-        _skip: Option<i32>,
+        first: Option<i32>,
+        skip: Option<i32>,
     ) -> Result<Option<Vec<Subgraph>>> {
+        let first = first.unwrap_or(100);
+        let skip = skip.unwrap_or(0);
+        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload_wrapper.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
+        let ticket_payload = ticket_payload_wrapper.unwrap();
+        let payload = &ticket_payload.ticket_payload;
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
         let schema_ctx = ctx
             .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
             .lock()
             .await;
-        let mut conn = schema_ctx
+        let uniq_deployment_hashes: Vec<DeploymentId> = schema_ctx
             .datasource
-            .redis_client
-            .get_async_connection()
-            .await?;
-        let path = format!(
-            "'$..{}[?(@.ticket_name==\"{}\")].deployment_qm_hash'",
-            self.ticket_user.to_string().to_lowercase(),
-            self.ticket_name.to_string()
-        );
-        let subgraph_deployment_qm_hashes: Vec<String> = conn
-            .json_get(
-                schema_ctx
-                    .datasource
-                    .graph_subscriptions_query_result_key
-                    .to_string(),
-                path,
-            )
-            .await?;
-        if subgraph_deployment_qm_hashes.is_empty() {
-            return Ok(Some(vec![]));
-        }
-        // TODO: FIGURE OUT HOW TO MAP THE QM HASHES TO A LIST OF SUBGRAPHS
+            .uniq_deployments_for_ticket(user, self.ticket_name.to_string())
+            .await?
+            .into_iter()
+            .map(|d| d.deployment_qm_hash)
+            .collect();
+        let subgraphs = join_all(uniq_deployment_hashes.iter().map(|deployment| {
+            schema_ctx
+                .subgraph_deployments
+                .deployment_subgraphs(&deployment)
+        }))
+        .await
+        .into_iter()
+        .flatten();
 
-        Ok(Some(vec![]))
+        Ok(Some(
+            subgraphs
+                .into_iter()
+                .skip(skip as usize)
+                .take(first as usize)
+                .collect(),
+        ))
     }
     /// Total count of queries performed, across all `Subgraphs`, using this request ticket
-    async fn total_query_count<'ctx>(&self, ctx: &Context<'ctx>) -> Result<u32> {
-        let schema_ctx = ctx
-            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
-            .lock()
-            .await;
-        let mut conn = schema_ctx
-            .datasource
-            .redis_client
-            .get_async_connection()
-            .await?;
-        let path = format!(
-            "'$..{}[?(@.ticket_name==\"{}\")].query_count'",
-            self.ticket_user.to_string().to_lowercase(),
-            self.ticket_name.to_string()
-        );
-        let results: Vec<u32> = conn
-            .json_get(
-                schema_ctx
-                    .datasource
-                    .graph_subscriptions_query_result_key
-                    .to_string(),
-                path,
-            )
-            .await?;
-        if results.is_empty() {
-            return Ok(0);
-        }
-
-        Ok(results.iter().sum())
+    async fn total_query_count(&self) -> i64 {
+        self.total_query_count
     }
     /// Percentage of queries used for the user's active subscription.
     /// An active subscription stores the start and end block timestamp as well as a query rate that the user is paying for on-chain (in the Subscriptions contract).
     /// As the user queries `Subgraphs` using their request ticket, they "use up" part of their paid for rate (which is more of a way to rate-limit querying),
     /// in the given time-period.
     /// This value represents the percentage (from 0.00 -> 1.00) of the rate that has been used by the amount of queries made with the request ticket.
-    async fn query_rate_used_percentage<'ctx>(&self, _ctx: &Context<'ctx>) -> f32 {
+    async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f32> {
+        if self.total_query_count == 0 {
+            return Ok(0.00);
+        }
+        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload_wrapper.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
+        let ticket_payload = ticket_payload_wrapper.unwrap();
+        let _sub = &ticket_payload.active_subscription;
+
         // TODO: BUILD OUT VolumeEstimator LOGIC FROM gateway TO CALCULATE HOW MANY QUERIES AVAILABLE ON THE SUB
-        0.00
+        Ok(0.00)
     }
     /// Unix-timestamp of the last query performed using this request ticket
-    async fn last_query_timestamp<'ctx>(&self, _ctx: &Context<'ctx>) -> i64 {
-        Utc::now().timestamp()
+    async fn last_query_timestamp(&self) -> i64 {
+        self.last_query_timestamp
     }
 }
 
@@ -259,10 +223,11 @@ pub struct RequestTicketStatDto {
     pub ticket_name: String,
     pub start: i64,
     pub end: i64,
-    pub total_query_count: u32,
+    pub total_query_count: i64,
     pub success_rate: f32,
-    pub avg_response_time_ms: u32,
-    pub failed_query_count: u32,
+    pub avg_response_time_ms: i32,
+    pub failed_query_count: i64,
+    pub queried_subgraphs_count: i64,
 }
 
 #[Object]
@@ -278,6 +243,10 @@ impl RequestTicketStatDto {
     async fn ticket_signer(&self) -> String {
         self.ticket_signer.to_string()
     }
+    /// The Request Ticket Name
+    async fn ticket_name(&self) -> String {
+        self.ticket_name.to_string()
+    }
     /// The start unix-timestamp date range of aggregated stats
     async fn start(&self) -> i64 {
         self.start
@@ -287,7 +256,7 @@ impl RequestTicketStatDto {
         self.end
     }
     /// The total count of queries received in the given date range using the RequestTicket
-    async fn total_query_count(&self) -> u32 {
+    async fn total_query_count(&self) -> i64 {
         self.total_query_count
     }
     /// Success rate, from 0.0 -> 1.0, of the number of queries that were returned to the caller successfully
@@ -295,17 +264,61 @@ impl RequestTicketStatDto {
         self.success_rate
     }
     /// The average time, in ms, it took to return the query from the indexer to the caller
-    async fn avg_response_time_ms(&self) -> u32 {
+    async fn avg_response_time_ms(&self) -> i32 {
         self.avg_response_time_ms
     }
     /// A count of queries that did not return successfully to the caller.
     /// Whether because the query submitted by the user was invalid, there was an indexer error, or there was an internal error processing the query.
-    async fn failed_query_count(&self) -> u32 {
+    async fn failed_query_count(&self) -> i64 {
         self.failed_query_count
     }
+    /// Count of all of the `Subgraphs` queried by the request ticket.
+    async fn queried_subgraphs_count(&self) -> i64 {
+        self.queried_subgraphs_count
+    }
     /// List of `Subgraphs` queried by the request ticket
-    async fn subgraphs<'ctx>(&self, _ctx: &Context<'ctx>) -> Option<Vec<Subgraph>> {
-        None
+    async fn queried_subgraphs<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        first: Option<i32>,
+        skip: Option<i32>,
+    ) -> Result<Option<Vec<Subgraph>>> {
+        let first = first.unwrap_or(100);
+        let skip = skip.unwrap_or(0);
+        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload_wrapper.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
+        let ticket_payload = ticket_payload_wrapper.unwrap();
+        let payload = &ticket_payload.ticket_payload;
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+        let uniq_deployment_hashes: Vec<DeploymentId> = schema_ctx
+            .datasource
+            .uniq_deployments_for_ticket(user, self.ticket_name.to_string())
+            .await?
+            .into_iter()
+            .map(|d| d.deployment_qm_hash)
+            .collect();
+        let subgraphs = join_all(uniq_deployment_hashes.iter().map(|deployment| {
+            schema_ctx
+                .subgraph_deployments
+                .deployment_subgraphs(&deployment)
+        }))
+        .await
+        .into_iter()
+        .flatten();
+
+        Ok(Some(
+            subgraphs
+                .into_iter()
+                .skip(skip as usize)
+                .take(first as usize)
+                .collect(),
+        ))
     }
 }
 /// Convert the [`datasource::RequestTicketStat`] instance to a [`crate::schema::RequestTicketStatDto`] instance
@@ -331,6 +344,7 @@ impl From<datasource::RequestTicketStat> for RequestTicketStatDto {
             success_rate: value.success_rate,
             avg_response_time_ms: value.avg_response_time_ms,
             failed_query_count: value.failed_query_count,
+            queried_subgraphs_count: value.queried_subgraphs_count,
         }
     }
 }
@@ -359,10 +373,10 @@ pub struct RequestTicketSubgraphStatDto {
     pub ticket_name: String,
     pub start: i64,
     pub end: i64,
-    pub total_query_count: u32,
+    pub total_query_count: i64,
     pub success_rate: f32,
-    pub avg_response_time_ms: u32,
-    pub failed_query_count: u32,
+    pub avg_response_time_ms: i32,
+    pub failed_query_count: i64,
     pub subgraph_deployment_qm_hash: DeploymentId,
 }
 /// Convert the [`datasource::RequestTicketSubgraphStat`] instance to a [`crate::schema::RequestTicketSubgraphStatDto`] instance
@@ -407,6 +421,10 @@ impl RequestTicketSubgraphStatDto {
     async fn ticket_signer(&self) -> String {
         self.ticket_signer.to_string()
     }
+    /// The Request Ticket Name
+    async fn ticket_name(&self) -> String {
+        self.ticket_name.to_string()
+    }
     /// The start unix-timestamp date range of aggregated stats
     async fn start(&self) -> i64 {
         self.start
@@ -416,7 +434,7 @@ impl RequestTicketSubgraphStatDto {
         self.end
     }
     /// The total count of queries received in the given date range using the RequestTicket
-    async fn total_query_count(&self) -> u32 {
+    async fn total_query_count(&self) -> i64 {
         self.total_query_count
     }
     /// Success rate, from 0.0 -> 1.0, of the number of queries that were returned to the caller successfully
@@ -424,12 +442,12 @@ impl RequestTicketSubgraphStatDto {
         self.success_rate
     }
     /// The average time, in ms, it took to return the query from the indexer to the caller
-    async fn avg_response_time_ms(&self) -> u32 {
+    async fn avg_response_time_ms(&self) -> i32 {
         self.avg_response_time_ms
     }
     /// A count of queries that did not return successfully to the caller.
     /// Whether because the query submitted by the user was invalid, there was an indexer error, or there was an internal error processing the query.
-    async fn failed_query_count(&self) -> u32 {
+    async fn failed_query_count(&self) -> i64 {
         self.failed_query_count
     }
     /// The Subgraph Deployment Qm hash the user queried
@@ -437,15 +455,20 @@ impl RequestTicketSubgraphStatDto {
         self.subgraph_deployment_qm_hash.to_string()
     }
     /// List of `Subgraphs` associated to the `SubgraphDeployment` that the user queried
-    async fn subgraphs<'ctx>(&self, ctx: &Context<'ctx>) -> Option<Vec<Subgraph>> {
+    async fn queried_subgraphs<'ctx>(&self, ctx: &Context<'ctx>) -> Option<Vec<Subgraph>> {
         if self.subgraph_deployment_qm_hash.is_empty() {
             return None;
         }
-        let schema_ctx = ctx.data_unchecked::<GraphSubscriptionsSchemaCtx>();
-        schema_ctx
-            .subgraph_deployments
-            .deployment_subgraphs(&self.subgraph_deployment_qm_hash)
-            .await
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+        Some(
+            schema_ctx
+                .subgraph_deployments
+                .deployment_subgraphs(&self.subgraph_deployment_qm_hash)
+                .await,
+        )
     }
 }
 
@@ -616,6 +639,7 @@ impl QueryRoot {
 mod tests {
     use std::str::FromStr;
 
+    use chrono::Utc;
     use sha3::{
         digest::{ExtendableOutput, Update, XofReader},
         Shake256,
@@ -625,10 +649,14 @@ mod tests {
 
     #[test]
     fn should_convert_datasource_request_ticket_to_schema_type() {
+        let last_query_timestamp = Utc::now().timestamp();
         let given = datasource::RequestTicket {
             ticket_name: String::from("test_req_ticket__1"),
             ticket_user: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
             ticket_signer: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
+            total_query_count: 200,
+            queried_subgraphs_count: 1,
+            last_query_timestamp,
         };
 
         let mut hasher = Shake256::default();
@@ -643,6 +671,9 @@ mod tests {
             ticket_user: given.ticket_user,
             ticket_signer: given.ticket_signer,
             ticket_name: given.ticket_name.to_string(),
+            total_query_count: 200,
+            queried_subgraphs_count: 1,
+            last_query_timestamp,
         };
 
         let actual = RequestTicketDto::from(given);
@@ -659,9 +690,10 @@ mod tests {
             start: 1679791065,
             end: 1679791066,
             query_count: 2,
-            avg_response_time_ms: (300 + 400) / 2 as u32,
+            avg_response_time_ms: (300 + 400) / 2 as i32,
             success_rate: 1.0,
             failed_query_count: 0,
+            queried_subgraphs_count: 1,
         };
         let mut hasher = Shake256::default();
         hasher.update(given.ticket_user.0.as_slice());
@@ -683,6 +715,7 @@ mod tests {
             success_rate: given.success_rate,
             avg_response_time_ms: given.avg_response_time_ms,
             failed_query_count: given.failed_query_count,
+            queried_subgraphs_count: given.queried_subgraphs_count,
         };
 
         let actual = RequestTicketStatDto::from(given);
@@ -703,7 +736,7 @@ mod tests {
             start: 1679791065,
             end: 1679791066,
             query_count: 2,
-            avg_response_time_ms: (300 + 400) / 2 as u32,
+            avg_response_time_ms: (300 + 400) / 2 as i32,
             success_rate: 1.0,
             failed_query_count: 0,
         };

@@ -5,8 +5,6 @@ services:
     # NOTE: Please use the latest version here!
     image: docker.redpanda.com/redpandadata/redpanda:latest
     container_name: redpanda_1
-    env_file:
-      - ./.env
     command:
       - redpanda
       - start
@@ -32,16 +30,13 @@ services:
       - 28082:28082
       - 29092:29092
 
-  redis_datasource:
-    image: redis/redis-stack-server:latest
-    container_name: redis_datasource
-    restart: always
+  postgres:
+    image: postgres:14-bullseye
+    env_file:
+      - ./.env
+    environment:
+      - POSTGRES_DB=${GRAPH_SUBSCRIPTION_LOGS_DB_NAME}
+      - POSTGRES_USER=${GRAPH_SUBSCRIPTION_LOGS_DB_USER}
+      - POSTGRES_PASSWORD=${GRAPH_SUBSCRIPTION_LOGS_DB_PASSWORD}
     ports:
-      - '16379:6379' # redis instance. exposing 16379 incase of local running redis instance.
-    command: redis-stack-server --save 20 1 --loglevel warning
-    volumes:
-      - cache:/data
-
-volumes:
-  cache:
-    driver: local
+      - 15432:5432
