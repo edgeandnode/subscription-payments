@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Ok, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
 use datasource::{Datasource, DatasourcePostgres};
-use futures::stream::{FuturesUnordered, TryStreamExt};
+use futures::future::join_all;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake256,
@@ -153,26 +153,14 @@ impl RequestTicketDto {
             .into_iter()
             .map(|d| d.deployment_qm_hash)
             .collect();
-        let mut subgraphs_futures = FuturesUnordered::new();
-        // iterate through deployment hashes, get the Subgraphs associated to each
-        for deployment_hash in uniq_deployment_hashes {
-            let deployment = deployment_hash.clone();
-            subgraphs_futures.push(
-                schema_ctx
-                    .subgraph_deployments
-                    .deployment_subgraphs_res(deployment),
-            );
-        }
-        // flat map all subgraphs and return
-        let mut subgraphs = Vec::<Subgraph>::new();
-        while let Some(subgraph_result) = TryStreamExt::try_next(&mut subgraphs_futures)
-            .await
-            .unwrap()
-        {
-            for found_subgraph in subgraph_result.to_vec() {
-                subgraphs.push(found_subgraph);
-            }
-        }
+        let subgraphs = join_all(uniq_deployment_hashes.iter().map(|deployment| {
+            schema_ctx
+                .subgraph_deployments
+                .deployment_subgraphs(&deployment)
+        }))
+        .await
+        .into_iter()
+        .flatten();
 
         Ok(Some(
             subgraphs
@@ -192,6 +180,9 @@ impl RequestTicketDto {
     /// in the given time-period.
     /// This value represents the percentage (from 0.00 -> 1.00) of the rate that has been used by the amount of queries made with the request ticket.
     async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f32> {
+        if self.total_query_count == 0 {
+            return Ok(0.00);
+        }
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
             return Err(AuthError::Unauthorized.into());
@@ -312,26 +303,14 @@ impl RequestTicketStatDto {
             .into_iter()
             .map(|d| d.deployment_qm_hash)
             .collect();
-        let mut subgraphs_futures = FuturesUnordered::new();
-        // iterate through deployment hashes, get the Subgraphs associated to each
-        for deployment_hash in uniq_deployment_hashes {
-            let deployment = deployment_hash.clone();
-            subgraphs_futures.push(
-                schema_ctx
-                    .subgraph_deployments
-                    .deployment_subgraphs_res(deployment),
-            );
-        }
-        // flat map all subgraphs and return
-        let mut subgraphs = Vec::<Subgraph>::new();
-        while let Some(subgraph_result) = TryStreamExt::try_next(&mut subgraphs_futures)
-            .await
-            .unwrap()
-        {
-            for found_subgraph in subgraph_result.to_vec() {
-                subgraphs.push(found_subgraph);
-            }
-        }
+        let subgraphs = join_all(uniq_deployment_hashes.iter().map(|deployment| {
+            schema_ctx
+                .subgraph_deployments
+                .deployment_subgraphs(&deployment)
+        }))
+        .await
+        .into_iter()
+        .flatten();
 
         Ok(Some(
             subgraphs
@@ -484,10 +463,12 @@ impl RequestTicketSubgraphStatDto {
             .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
             .lock()
             .await;
-        schema_ctx
-            .subgraph_deployments
-            .deployment_subgraphs(&self.subgraph_deployment_qm_hash)
-            .await
+        Some(
+            schema_ctx
+                .subgraph_deployments
+                .deployment_subgraphs(&self.subgraph_deployment_qm_hash)
+                .await,
+        )
     }
 }
 

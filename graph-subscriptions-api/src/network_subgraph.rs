@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use anyhow::Ok;
 use eventuals::{Eventual, EventualExt as _, EventualWriter, Ptr};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -54,29 +53,15 @@ pub struct SubgraphDeploymentInputs {
 }
 
 impl SubgraphDeployments {
-    pub async fn deployment_subgraphs(&self, deployment: &DeploymentId) -> Option<Vec<Subgraph>> {
-        self.inputs
-            .value()
-            .await
-            .ok()?
-            .deployment_to_subgraphs
+    pub async fn deployment_subgraphs(&self, deployment: &DeploymentId) -> Vec<Subgraph> {
+        let map = match self.inputs.value().await {
+            std::result::Result::Ok(map) => map,
+            Err(_) => return vec![],
+        };
+        map.deployment_to_subgraphs
             .get(deployment)
             .cloned()
-    }
-    pub async fn deployment_subgraphs_res(
-        &self,
-        deployment: DeploymentId,
-    ) -> anyhow::Result<Vec<Subgraph>> {
-        let map = self.inputs.value().await.ok();
-        if map.is_none() {
-            return Ok(vec![]);
-        }
-        Ok(map
-            .unwrap()
-            .deployment_to_subgraphs
-            .get(&deployment)
-            .cloned()
-            .unwrap_or(vec![]))
+            .unwrap_or_default()
     }
 }
 
