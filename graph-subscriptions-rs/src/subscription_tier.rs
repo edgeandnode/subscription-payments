@@ -15,9 +15,9 @@ pub struct SubscriptionTier {
 }
 
 impl SubscriptionTiers {
-    pub fn create(mut tiers: Vec<SubscriptionTier>) -> &'static Self {
+    pub fn new(mut tiers: Vec<SubscriptionTier>) -> Self {
         tiers.sort_by_key(|t| t.payment_rate);
-        Box::leak(Box::new(Self(tiers)))
+        Self(tiers)
     }
     pub fn tier_for_rate(&self, sub_rate: u128) -> SubscriptionTier {
         self.0
