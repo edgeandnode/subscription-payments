@@ -80,6 +80,7 @@ async fn main() {
     let ctx = Arc::new(Mutex::new(GraphSubscriptionsSchemaCtx {
         subgraph_deployments: network_subgraph_data.subgraph_deployments,
         datasource: subscriptions_datasource.datasource,
+        subscription_tiers: conf.subscriptions_tiers,
     }));
 
     let schema = Schema::build(QueryRoot, EmptyMutation, EmptySubscription)

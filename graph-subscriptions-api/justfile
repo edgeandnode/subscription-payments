@@ -13,12 +13,11 @@ dev:
 docker_build:
   DOCKER_BUILDKIT=1 docker build . -t {{docker_image_name}}
 # run the docker image locally with docker compose
-## also creates the topic in the kafka instance
 docker_up:
   docker compose up -d
-# build the image, then spin it up
-docker_build_start: docker_build
-  docker compose up -d
+# creates the topic in the kafka instance
+create_topic:
+  docker exec -it redpanda_1 rpk topic create gateway_subscription_query_results --brokers=localhost:9092
 # teardown the docker image
 docker_down:
   docker compose down

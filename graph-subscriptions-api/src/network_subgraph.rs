@@ -50,6 +50,8 @@ pub struct SubgraphDeploymentInputs {
     // And then these multiple users could publish the Subgraph.
     // This creates a scenario where a single DeploymentId could be linked with multiple SubgraphIDs.
     pub deployment_to_subgraphs: HashMap<DeploymentId, Vec<Subgraph>>,
+    // A map of the Subgraph ID to its equivalent Subgraph
+    pub subgraph_id_to_subgraph: HashMap<SubgraphId, Subgraph>,
 }
 
 impl SubgraphDeployments {
@@ -62,6 +64,10 @@ impl SubgraphDeployments {
             .get(deployment)
             .cloned()
             .unwrap_or_default()
+    }
+    pub async fn subgraph(&self, subgraph_id: &SubgraphId) -> Option<Subgraph> {
+        let map = self.inputs.value().await.ok()?;
+        map.subgraph_id_to_subgraph.get(subgraph_id).cloned()
     }
 }
 
@@ -139,29 +145,80 @@ impl Client {
         if response.is_empty() {
             return Err("Discarding empty update (subgraph_deployments)".to_string());
         }
-        let deployment_to_subgraphs = parse_deployment_subgraphs(response);
+        let deployment_to_subgraphs = parse_deployment_subgraphs(&response);
+        let subgraph_id_to_subgraph = parse_subgraphs(&response);
 
         self.subgraph_deployments
             .write(Ptr::new(SubgraphDeploymentInputs {
                 deployment_to_subgraphs,
+                subgraph_id_to_subgraph,
             }));
         Result::Ok(())
     }
 }
 
 fn parse_deployment_subgraphs(
-    subgraph_deployment_response: Vec<SubgraphDeployment>,
+    subgraph_deployment_response: &[SubgraphDeployment],
 ) -> HashMap<DeploymentId, Vec<Subgraph>> {
     subgraph_deployment_response
-        .into_iter()
+        .iter()
         .map(|deployment| {
             let subgraphs = deployment
                 .versions
-                .into_iter()
-                .map(|version| version.subgraph)
+                .iter()
+                .map(|version| {
+                    let owner_image = version.subgraph.owner.image.clone();
+                    let owner_def_disp_name = version.subgraph.owner.default_display_name.clone();
+                    let display_name = version.subgraph.display_name.clone();
+                    let image = version.subgraph.image.clone();
+
+                    Subgraph {
+                        id: version.subgraph.id,
+                        owner: GraphAccount {
+                            id: version.subgraph.owner.id,
+                            image: owner_image,
+                            default_display_name: owner_def_disp_name,
+                        },
+                        display_name,
+                        image,
+                    }
+                })
                 .collect();
             (deployment.id, subgraphs)
         })
+        .collect()
+}
+fn parse_subgraphs(
+    subgraph_deployment_response: &[SubgraphDeployment],
+) -> HashMap<SubgraphId, Subgraph> {
+    subgraph_deployment_response
+        .into_iter()
+        .map(|deployment| {
+            deployment
+                .versions
+                .iter()
+                .map(|version| {
+                    let owner_image = version.subgraph.owner.image.clone();
+                    let owner_def_disp_name = version.subgraph.owner.default_display_name.clone();
+                    let display_name = version.subgraph.display_name.clone();
+                    let image = version.subgraph.image.clone();
+
+                    let subgraph = Subgraph {
+                        id: version.subgraph.id,
+                        owner: GraphAccount {
+                            id: version.subgraph.owner.id,
+                            image: owner_image,
+                            default_display_name: owner_def_disp_name,
+                        },
+                        display_name,
+                        image,
+                    };
+
+                    (subgraph.id, subgraph)
+                })
+                .collect::<HashMap<SubgraphId, Subgraph>>()
+        })
+        .flatten()
         .collect()
 }
 
@@ -227,14 +284,18 @@ mod tests {
             .to_string(),
         );
         assert!(result.is_ok(), "failed to parse example: {:?}", result);
+        let result = result.unwrap_or_default();
 
-        let mut expected: HashMap<DeploymentId, Vec<Subgraph>> = HashMap::new();
         let deployment_id =
             DeploymentId::from_ipfs_hash("QmNgmaip92JYzB7RAntXRox3ZcdSjPLHtwYbt94hKeuMxU").unwrap();
-        expected.insert(
+        let subgraph_id = "BvSx64tyYGgFY5deaiMVz2sPJrBoo63Bb8htVvqo2GbD"
+            .parse::<SubgraphId>()
+            .unwrap();
+        let mut expected_deployments: HashMap<DeploymentId, Vec<Subgraph>> = HashMap::new();
+        expected_deployments.insert(
             deployment_id,
             vec![Subgraph {
-              id: "BvSx64tyYGgFY5deaiMVz2sPJrBoo63Bb8htVvqo2GbD".parse::<SubgraphId>().unwrap(),
+              id: subgraph_id,
               display_name: Some(String::from("Numero Uno")),
               image: Some(String::from("https://api.thegraph.com/ipfs/api/v0/cat?arg=QmdSeSQ3APFjLktQY3aNVu3M5QXPfE9ZRK5LqgghRgB7L9")),
               owner: GraphAccount {
@@ -244,9 +305,29 @@ mod tests {
               }
           }],
         );
+        let mut expected_subgraphs: HashMap<SubgraphId, Subgraph> = HashMap::new();
+        expected_subgraphs.insert(subgraph_id, Subgraph {
+            id: subgraph_id,
+            display_name: Some(String::from("Numero Uno")),
+            image: Some(String::from("https://api.thegraph.com/ipfs/api/v0/cat?arg=QmdSeSQ3APFjLktQY3aNVu3M5QXPfE9ZRK5LqgghRgB7L9")),
+            owner: GraphAccount {
+              id: "0x8fbbc98259a4ed6e6d6e413c553cc47530e79be8".parse::<Address>().unwrap(),
+              image: None,
+              default_display_name: None
+            }
+        });
 
-        let actual = parse_deployment_subgraphs(result.unwrap());
+        let actual_deployments = parse_deployment_subgraphs(&result);
+        let actual_subgraphs = parse_subgraphs(&result);
 
-        assert_eq!(actual.get(&deployment_id), expected.get(&deployment_id));
+        assert_eq!(
+            actual_deployments.get(&deployment_id),
+            expected_deployments.get(&deployment_id)
+        );
+        assert_eq!(
+            actual_subgraphs.get(&subgraph_id),
+            expected_subgraphs.get(&subgraph_id)
+        );
+        assert_eq!(actual_subgraphs.len(), 1);
     }
 }

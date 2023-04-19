@@ -11,8 +11,9 @@ use rdkafka::{
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ConnectOptions, Database, DatabaseConnection, FromQueryResult,
-    Set, Statement,
+    JsonValue, Set, Statement, TryGetable,
 };
+use serde_json::json;
 use toolshed::bytes::{Address, DeploymentId};
 
 use crate::{utils::build_timerange_timestamp, *};
@@ -31,22 +32,46 @@ impl FromQueryResult for UniqRequestTicketDeploymentQmHash {
     }
 }
 
+impl TryGetable for GatewaySubscriptionQueryResultTicketPayload {
+    fn try_get(
+        res: &sea_orm::QueryResult,
+        pre: &str,
+        col: &str,
+    ) -> std::result::Result<Self, sea_orm::TryGetError> {
+        let payload = res.try_get::<JsonValue>(pre, col)?;
+        let parsed = serde_json::from_value::<GatewaySubscriptionQueryResultTicketPayload>(payload)
+            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
+        Result::Ok(parsed)
+    }
+    fn try_get_by<I: sea_orm::ColIdx>(
+        res: &sea_orm::QueryResult,
+        index: I,
+    ) -> std::result::Result<Self, sea_orm::TryGetError> {
+        let payload = res.try_get_by::<JsonValue, I>(index)?;
+        let parsed = serde_json::from_value::<GatewaySubscriptionQueryResultTicketPayload>(payload)
+            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
+        Result::Ok(parsed)
+    }
+}
+
 impl FromQueryResult for RequestTicket {
     fn from_query_result(res: &sea_orm::QueryResult, pre: &str) -> Result<Self, migration::DbErr> {
         let ticket_user = res
             .try_get::<String>(pre, "ticket_user")
             .map(|val| Address::from_str(&val))?;
-        let ticket_signer = res
-            .try_get::<String>(pre, "ticket_signer")
-            .map(|val| Address::from_str(&val))?;
+        let ticket_user = ticket_user.map_err(|err| migration::DbErr::Custom(err.to_string()))?;
+        // ticket_payload comes as a JSON array value.
+        // parse the value, grab the first item.
+        let ticket_payload =
+            res.try_get::<GatewaySubscriptionQueryResultTicketPayload>(pre, "ticket_payload")?;
+
         Result::Ok(Self {
             ticket_name: res.try_get(pre, "ticket_name")?,
-            ticket_user: ticket_user.map_err(|err| migration::DbErr::Custom(err.to_string()))?,
-            ticket_signer: ticket_signer
-                .map_err(|err| migration::DbErr::Custom(err.to_string()))?,
+            ticket_user,
             total_query_count: res.try_get(pre, "total_query_count")?,
             queried_subgraphs_count: res.try_get(pre, "queried_subgraphs_count")?,
             last_query_timestamp: res.try_get(pre, "last_query_timestamp")?,
+            ticket_payload,
         })
     }
 }
@@ -59,14 +84,9 @@ impl FromQueryResult for RequestTicketStat {
         let ticket_user = res
             .try_get::<String>(pre, "ticket_user")
             .map(|val| Address::from_str(&val))?;
-        let ticket_signer = res
-            .try_get::<String>(pre, "ticket_signer")
-            .map(|val| Address::from_str(&val))?;
         Result::Ok(Self {
             ticket_name: res.try_get(pre, "ticket_name")?,
             ticket_user: ticket_user.map_err(|err| migration::DbErr::Custom(err.to_string()))?,
-            ticket_signer: ticket_signer
-                .map_err(|err| migration::DbErr::Custom(err.to_string()))?,
             start: res.try_get(pre, "timeframe_start_timestamp")?,
             end: res.try_get(pre, "timeframe_end_timestamp")?,
             query_count: res.try_get(pre, "query_count")?,
@@ -89,15 +109,10 @@ impl FromQueryResult for RequestTicketSubgraphStat {
         let ticket_user = res
             .try_get::<String>(pre, "ticket_user")
             .map(|val| Address::from_str(&val))?;
-        let ticket_signer = res
-            .try_get::<String>(pre, "ticket_signer")
-            .map(|val| Address::from_str(&val))?;
         Result::Ok(Self {
             subgraph_deployment_qm_hash: deployment_id.unwrap_or_default(),
             ticket_name: res.try_get(pre, "ticket_name")?,
             ticket_user: ticket_user.map_err(|err| migration::DbErr::Custom(err.to_string()))?,
-            ticket_signer: ticket_signer
-                .map_err(|err| migration::DbErr::Custom(err.to_string()))?,
             start: res.try_get(pre, "timeframe_start_timestamp")?,
             end: res.try_get(pre, "timeframe_end_timestamp")?,
             query_count: res.try_get(pre, "query_count")?,
@@ -176,26 +191,34 @@ impl Datasource for DatasourcePostgres {
         let limit = first.unwrap_or(100);
         let offset = skip.unwrap_or(0);
 
+        // **NOTE**: `COALESCE(JSON_AGG(result.ticket_payload) ->> 0, '{}')`
+        // The `ticket_payload` is a JSON object stored in the DB.
+        // This select aggregates all of the `result.ticket_payload` data into a JSON array,
+        // because this value could potentially become _very, very_ large,
+        // we want to just return the first item from the array.
+        // For most use-cases, this is fine as each entry in the array will be the same,
+        // and this value is used to "reconstruct" the ticket in a UI to let a user resign the
+        // request ticket message with the same domain to get the same value.
         RequestTicket::find_by_statement(Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::Postgres,
             r#"
             WITH queried_subgraphs_count (ticket, queried_subgraphs_count) AS (
-                SELECT CONCAT(ticket_name, ticket_user, ticket_signer), COUNT(DISTINCT deployment_qm_hash)
+                SELECT CONCAT(ticket_name, ticket_user), COUNT(DISTINCT deployment_qm_hash)
                 FROM subscription_query_result
-                GROUP BY CONCAT(ticket_name, ticket_user, ticket_signer)
+                GROUP BY CONCAT(ticket_name, ticket_user)
             )
             SELECT
                 result.ticket_name,
-                result.ticket_signer,
-                result. ticket_user,
+                result.ticket_user,
+                COALESCE(JSON_AGG(result.ticket_payload) ->> 0, '{}')::JSON AS ticket_payload,
                 CAST(SUM(result.query_count) AS bigint) as total_query_count,
                 MAX(queried_subgraphs_count.queried_subgraphs_count) AS queried_subgraphs_count,
                 MAX(message_timestamp) AS last_query_timestamp
             FROM subscription_query_result AS result
             JOIN queried_subgraphs_count
-                ON queried_subgraphs_count.ticket = CONCAT(result.ticket_name, result.ticket_user, result.ticket_signer)
+                ON queried_subgraphs_count.ticket = CONCAT(result.ticket_name, result.ticket_user)
             WHERE ticket_user = $1 AND ticket_name IS NOT NULL
-            GROUP BY result.ticket_name, result.ticket_signer, result.ticket_user
+            GROUP BY result.ticket_name, result.ticket_user
             ORDER BY $2
             LIMIT $3
             OFFSET $4
@@ -204,7 +227,7 @@ impl Datasource for DatasourcePostgres {
                 user.to_string().into(),
                 format!("{} {}", order_by.as_str(), order_direction.as_str()).into(),
                 limit.into(),
-                offset.into()
+                offset.into(),
             ],
         ))
         .all(&self.db_conn)
@@ -241,7 +264,7 @@ impl Datasource for DatasourcePostgres {
             r#"
             WITH timeframe_stats (ticket, timeframe_start_timestamp, timeframe_end_timestamp, query_count, success_rate, failed_query_count, avg_response_time_ms) AS (
                 SELECT
-                    CONCAT(ticket_name, ticket_user, ticket_signer) AS ticket,
+                    CONCAT(ticket_name, ticket_user) AS ticket,
                     timeframe_start_timestamp,
                     timeframe_end_timestamp,
                     CAST(SUM(query_count) AS bigint) AS query_count,
@@ -249,15 +272,14 @@ impl Datasource for DatasourcePostgres {
                     SUM(CASE WHEN status_code != 'SUCCESS' THEN query_count ELSE 0 END)::bigint AS failed_query_count,
                     AVG(response_time_ms)::INT4 AS avg_response_time_ms
                 FROM subscription_query_result
-                GROUP BY CONCAT(ticket_name, ticket_user, ticket_signer), timeframe_start_timestamp, timeframe_end_timestamp
+                GROUP BY CONCAT(ticket_name, ticket_user), timeframe_start_timestamp, timeframe_end_timestamp
             ), queried_subgraphs_count (ticket, queried_subgraphs_count) AS (
-                SELECT CONCAT(ticket_name, ticket_user, ticket_signer), COUNT(DISTINCT deployment_qm_hash)
+                SELECT CONCAT(ticket_name, ticket_user), COUNT(DISTINCT deployment_qm_hash)
                 FROM subscription_query_result
-                GROUP BY CONCAT(ticket_name, ticket_user, ticket_signer)
+                GROUP BY CONCAT(ticket_name, ticket_user)
             )
             SELECT
                 ticket_name,
-                ticket_signer,
                 ticket_user,
                 timeframe_stats.timeframe_start_timestamp AS timeframe_start_timestamp,
                 timeframe_stats.timeframe_end_timestamp AS timeframe_end_timestamp,
@@ -268,15 +290,14 @@ impl Datasource for DatasourcePostgres {
                 MAX(queried_subgraphs_count.queried_subgraphs_count) AS queried_subgraphs_count
             FROM subscription_query_result AS result
             JOIN timeframe_stats
-                ON timeframe_stats.ticket = CONCAT(result.ticket_name, result.ticket_user, result.ticket_signer)
+                ON timeframe_stats.ticket = CONCAT(result.ticket_name, result.ticket_user)
                     AND timeframe_stats.timeframe_start_timestamp = result.timeframe_start_timestamp
                     AND timeframe_stats.timeframe_end_timestamp = result.timeframe_end_timestamp
             JOIN queried_subgraphs_count
-                ON queried_subgraphs_count.ticket = CONCAT(result.ticket_name, result.ticket_user, result.ticket_signer)
+                ON queried_subgraphs_count.ticket = CONCAT(result.ticket_name, result.ticket_user)
             WHERE ticket_user = $1 AND ticket_name = $2
             GROUP BY
                 ticket_name,
-                ticket_signer,
                 ticket_user,
                 timeframe_stats.timeframe_start_timestamp,
                 timeframe_stats.timeframe_end_timestamp
@@ -328,7 +349,7 @@ impl Datasource for DatasourcePostgres {
             r#"
             WITH timeframe_stats (ticket, timeframe_start_timestamp, timeframe_end_timestamp, query_count, success_rate, failed_query_count, avg_response_time_ms) AS (
                 SELECT
-                    CONCAT(ticket_name, ticket_user, ticket_signer, deployment_qm_hash) AS ticket,
+                    CONCAT(ticket_name, ticket_user, deployment_qm_hash) AS ticket,
                     timeframe_start_timestamp,
                     timeframe_end_timestamp,
                     CAST(SUM(query_count) AS bigint) AS query_count,
@@ -336,11 +357,10 @@ impl Datasource for DatasourcePostgres {
                     SUM(CASE WHEN status_code != 'SUCCESS' THEN query_count ELSE 0 END)::bigint AS failed_query_count,
                     AVG(response_time_ms)::INT4 AS avg_response_time_ms
                 FROM subscription_query_result
-                GROUP BY CONCAT(ticket_name, ticket_user, ticket_signer, deployment_qm_hash), timeframe_start_timestamp, timeframe_end_timestamp
+                GROUP BY CONCAT(ticket_name, ticket_user, deployment_qm_hash), timeframe_start_timestamp, timeframe_end_timestamp
             )
             SELECT
                 ticket_name,
-                ticket_signer,
                 ticket_user,
                 deployment_qm_hash,
                 timeframe_stats.timeframe_start_timestamp AS timeframe_start_timestamp,
@@ -351,7 +371,7 @@ impl Datasource for DatasourcePostgres {
                 MAX(timeframe_stats.failed_query_count) AS failed_query_count
             FROM subscription_query_result AS result
             JOIN timeframe_stats
-                ON timeframe_stats.ticket = CONCAT(result.ticket_name, result.ticket_user, result.ticket_signer, result.deployment_qm_hash)
+                ON timeframe_stats.ticket = CONCAT(result.ticket_name, result.ticket_user, result.deployment_qm_hash)
                     AND timeframe_stats.timeframe_start_timestamp = result.timeframe_start_timestamp
                     AND timeframe_stats.timeframe_end_timestamp = result.timeframe_end_timestamp
             WHERE
@@ -360,7 +380,6 @@ impl Datasource for DatasourcePostgres {
                 AND deployment_qm_hash = $3
             GROUP BY
                 ticket_name,
-                ticket_signer,
                 ticket_user,
                 deployment_qm_hash,
                 timeframe_stats.timeframe_start_timestamp,
@@ -411,15 +430,18 @@ impl DatasourceWriter for DatasourcePostgres {
                 let key = String::from_utf8_lossy(msg.key().unwrap_or_default()).to_string();
                 let (start, end) = build_timerange_timestamp(timestamp);
 
+                let ticket_name = serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&query_result_msg.ticket_payload).map(|payload| payload.name).unwrap_or_default();
+
                 let result_record = entity::subscription_query_result::ActiveModel {
                     id: Set(Uuid::new_v4()),
                     query_id: Set(query_result_msg.query_id),
                     ticket_user: Set(query_result_msg.ticket_user.to_lowercase()),
-                    ticket_signer: Set(query_result_msg.ticket_signer.to_lowercase()),
-                    ticket_name: Set(query_result_msg.ticket_name),
+                    ticket_payload: Set(json!(query_result_msg.ticket_payload)),
+                    ticket_name: Set(ticket_name),
                     deployment_qm_hash: Set(query_result_msg.deployment),
                     query_count: Set(query_result_msg.query_count.unwrap_or(0) as i64),
                     status_code: Set(entity::sea_orm_active_enums::SubscriptionQueryResultStatus::from_i32(query_result_msg.status_code)),
+                    subgraph_chain: Set(query_result_msg.subgraph_chain),
                     response_time_ms: Set(query_result_msg.response_time_ms.try_into().unwrap_or(0)),
                     query_budget: Set(query_result_msg.query_budget.unwrap_or(0.00)),
                     indexer_fees: Set(query_result_msg.indexer_fees.unwrap_or(0.00)),

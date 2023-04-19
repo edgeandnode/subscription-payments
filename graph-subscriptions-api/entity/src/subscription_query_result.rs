@@ -12,12 +12,14 @@ pub struct Model {
     #[sea_orm(column_type = "Text")]
     pub query_id: String,
     pub ticket_user: String,
-    pub ticket_signer: String,
+    pub ticket_payload: Json,
     #[sea_orm(column_type = "Text", nullable)]
     pub ticket_name: Option<String>,
     pub deployment_qm_hash: Option<String>,
     pub query_count: i64,
     pub status_code: SubscriptionQueryResultStatus,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub subgraph_chain: Option<String>,
     pub response_time_ms: i32,
     #[sea_orm(column_type = "Float")]
     pub query_budget: f32,
@@ -35,5 +37,3 @@ pub struct Model {
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
-
-impl Entity {}

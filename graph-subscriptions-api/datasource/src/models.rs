@@ -18,12 +18,9 @@ pub struct GatewaySubscriptionQueryResult {
     /// `user` field from ticket payload, 0x-prefixed hex
     #[prost(string, tag = "5")]
     pub ticket_user: ::prost::alloc::string::String,
-    /// `signer` field from ticket payload, 0x-prefixed hex
+    /// the ticket payload, JSON map data
     #[prost(string, tag = "6")]
-    pub ticket_signer: ::prost::alloc::string::String,
-    /// `name` field from ticket payload
-    #[prost(string, optional, tag = "7")]
-    pub ticket_name: ::core::option::Option<::prost::alloc::string::String>,
+    pub ticket_payload: ::prost::alloc::string::String,
     /// Subgraph Deployment ID, CIDv0 ("Qm" hash)
     #[prost(string, optional, tag = "8")]
     pub deployment: ::core::option::Option<::prost::alloc::string::String>,
@@ -76,6 +73,22 @@ impl GatewaySubscriptionQueryResult {
         Self::decode(&mut Cursor::new(slice)).map_err(|err| anyhow::Error::from(err))
     }
 }
+/// This is the CBOR map ticket payload data encoded as a JSON string on [`GatewaySubscriptionQueryResult.ticket_payload`]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GatewaySubscriptionQueryResultTicketPayload {
+    pub name: Option<String>,
+    pub signer: String,
+    pub user: String,
+    /// comma-separated list of domains
+    /// ex: *.thegraph.com,http://localhost:3000
+    pub allowed_domains: Option<String>,
+    /// comma-separated list of subgraph deployment Qm hashes
+    /// ex: Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH
+    pub allowed_deployments: Option<String>,
+    /// comma-separated list of subgraph ids
+    /// ex: 3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg
+    pub allowed_subgraphs: Option<String>,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum OrderDirection {
@@ -94,21 +107,19 @@ impl OrderDirection {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RequestTicket {
     /// User-selected, friendly name of the request ticket. Part of the EIP-712 domain signed message.
-    /// Pulled directly from the kafka topic log from The Graph Gateway.
+    /// Parsed from the `ticket_payload` JSON object from the kafka topic.
     pub ticket_name: String,
     /// Wallet address of the user who owns the request ticket.
     /// Pulled directly from the kafka topic log from The Graph Gateway.
     pub ticket_user: Address,
-    /// Wallet address of the signer of the request ticket.
-    /// This value will often be the `ticket_user`, but could also be an authorized signer for the subscription owner.
-    /// Pulled directly from the kafka topic log from The Graph Gateway.
-    pub ticket_signer: Address,
     /// Total count of queries performed, across all deployments, by the request ticket
     pub total_query_count: i64,
     /// Count of _unique_ deployments queried by the request ticket
     pub queried_subgraphs_count: i64,
     /// Unix-timestamp of when the latest query was process, for any deployment, by the request ticket
     pub last_query_timestamp: i64,
+    /// The ticket payload value with the signer, allowed_domains, allowed_deployments, allowed_subgraphs, etc
+    pub ticket_payload: GatewaySubscriptionQueryResultTicketPayload,
 }
 
 #[derive(Debug, PartialEq)]
@@ -142,10 +153,6 @@ pub struct RequestTicketStat {
     /// Wallet address of the user who owns the request ticket.
     /// Pulled directly from the kafka topic log from The Graph Gateway.
     pub ticket_user: Address,
-    /// Wallet address of the signer of the request ticket.
-    /// This value will often be the `ticket_user`, but could also be an authorized signer for the subscription owner.
-    /// Pulled directly from the kafka topic log from The Graph Gateway.
-    pub ticket_signer: Address,
     /// Timestamp start of the timeframe the stat record aggregates over.
     pub start: i64,
     /// Timestamp end of the timeframe the stat record aggregates over.
@@ -195,10 +202,6 @@ pub struct RequestTicketSubgraphStat {
     /// Wallet address of the user who owns the request ticket.
     /// Pulled directly from the kafka topic log from The Graph Gateway.
     pub ticket_user: Address,
-    /// Wallet address of the signer of the request ticket.
-    /// This value will often be the `ticket_user`, but could also be an authorized signer for the subscription owner.
-    /// Pulled directly from the kafka topic log from The Graph Gateway.
-    pub ticket_signer: Address,
     /// Timestamp start of the timeframe the stat record aggregates over.
     pub start: i64,
     /// Timestamp end of the timeframe the stat record aggregates over.
@@ -220,6 +223,7 @@ pub struct RequestTicketSubgraphStat {
 #[cfg(test)]
 mod tests {
     use prost::Message;
+    use serde_json::json;
 
     use super::*;
 
@@ -230,9 +234,12 @@ mod tests {
             status_code: 0,
             status_message: String::from("success"),
             response_time_ms: 300,
-            ticket_name: Some(String::from("test_req_ticket__1")),
             ticket_user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
-            ticket_signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+            ticket_payload: json!({
+                "signer": String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+                "name": String::from("test_req_ticket__1"),
+            })
+            .to_string(),
             deployment: Some(String::from(
                 "Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH",
             )),
@@ -252,5 +259,54 @@ mod tests {
 
         assert!(actual.is_ok());
         assert_eq!(actual.unwrap(), result);
+    }
+
+    #[test]
+    fn should_deserialize_str_to_ticket_payload_no_allowed_fields() {
+        let given = json!({"name": "req_ticket__1", "signer": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462", "user": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"});
+        let expected = GatewaySubscriptionQueryResultTicketPayload {
+            name: Some(String::from("req_ticket__1")),
+            signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+            user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+            allowed_deployments: None,
+            allowed_domains: None,
+            allowed_subgraphs: None,
+        };
+
+        if let Ok(actual) =
+            serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&given.to_string())
+        {
+            assert_eq!(actual, expected);
+        } else {
+            assert!(false, "should not throw deserialize error")
+        }
+    }
+
+    #[test]
+    fn should_deserialize_str_to_ticket_payload_with_allowed_fields() {
+        let given = json!({
+            "name": "req_ticket__1",
+            "signer": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462",
+            "user": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462",
+            "allowed_domains": "http://localhost:3000,*.thegraph.com",
+            "allowed_deployments": "Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH",
+            "allowed_subgraphs": "3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg"
+        });
+        let expected = GatewaySubscriptionQueryResultTicketPayload {
+            name: Some(String::from("req_ticket__1")),
+            signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+            user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+            allowed_domains: Some(String::from("http://localhost:3000,*.thegraph.com")),
+            allowed_deployments: Some(String::from("Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH")),
+            allowed_subgraphs: Some(String::from("3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg")),
+        };
+
+        if let Ok(actual) =
+            serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&given.to_string())
+        {
+            assert_eq!(actual, expected);
+        } else {
+            assert!(false, "should not throw deserialize error")
+        }
     }
 }

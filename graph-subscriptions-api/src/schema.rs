@@ -1,15 +1,16 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use anyhow::{Ok, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
 use datasource::{Datasource, DatasourcePostgres};
 use futures::future::join_all;
+use graph_subscriptions::subscription_tier::SubscriptionTiers;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake256,
 };
 use tokio::sync::Mutex;
-use toolshed::bytes::{Address, Bytes32, DeploymentId};
+use toolshed::bytes::{Address, Bytes32, DeploymentId, SubgraphId};
 
 use crate::{
     auth::{AuthError, TicketPayloadWrapper},
@@ -19,6 +20,7 @@ use crate::{
 pub struct GraphSubscriptionsSchemaCtx<'a> {
     pub subgraph_deployments: SubgraphDeployments,
     pub datasource: &'a DatasourcePostgres,
+    pub subscription_tiers: SubscriptionTiers,
 }
 
 pub type GraphSubscriptionsSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
@@ -70,11 +72,11 @@ impl Subgraph {
 pub struct RequestTicketDto {
     pub id: Bytes32,
     pub ticket_user: Address,
-    pub ticket_signer: Address,
     pub ticket_name: String,
     pub total_query_count: i64,
     pub queried_subgraphs_count: i64,
     pub last_query_timestamp: i64,
+    pub ticket_payload: TicketPayloadDto,
 }
 /// Rust does not let you define `impl` for structs outside of the package - which we need to do to implement the `async_graphql::Object` trait.
 /// Since the `RequestTicket` returned by the `datasource` is external,
@@ -91,11 +93,85 @@ impl From<datasource::RequestTicket> for RequestTicketDto {
         Self {
             id,
             ticket_user: value.ticket_user,
-            ticket_signer: value.ticket_signer,
             ticket_name: value.ticket_name,
             total_query_count: value.total_query_count,
             queried_subgraphs_count: value.queried_subgraphs_count,
             last_query_timestamp: value.last_query_timestamp,
+            ticket_payload: value.ticket_payload.into(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct TicketPayloadDto {
+    pub signer: String,
+    pub allowed_domains: Option<String>,
+    pub allowed_deployments: Option<String>,
+    pub allowed_subgraphs: Option<String>,
+}
+
+impl From<datasource::GatewaySubscriptionQueryResultTicketPayload> for TicketPayloadDto {
+    fn from(value: datasource::GatewaySubscriptionQueryResultTicketPayload) -> Self {
+        Self {
+            signer: value.signer,
+            allowed_domains: value.allowed_domains,
+            allowed_deployments: value.allowed_deployments,
+            allowed_subgraphs: value.allowed_subgraphs,
+        }
+    }
+}
+
+#[Object]
+impl TicketPayloadDto {
+    /// The ticket signer.
+    /// For most use-cases, this will match the `RequestTicket.ticket_user` value.
+    /// But if the signer is an authorized signer on the subscription, this value will be the signing wallet
+    pub async fn signer(&self) -> String {
+        self.signer.to_string()
+    }
+    /// A list of Subgraph Deployment Qm hashes the ticket is allowed to query
+    pub async fn allowed_deployments(&self) -> Vec<String> {
+        self.allowed_deployments
+            .as_deref()
+            .unwrap_or_default()
+            .split_terminator(',')
+            .map(ToString::to_string)
+            .collect()
+    }
+    /// A list of domains the ticket is allowed to query from
+    pub async fn allowed_domains(&self) -> Vec<String> {
+        self.allowed_domains
+            .as_deref()
+            .unwrap_or_default()
+            .split_terminator(',')
+            .map(ToString::to_string)
+            .collect()
+    }
+    /// A list of Subgraphs the ticket is allowed to query
+    pub async fn allowed_subgraphs<'ctx>(&self, ctx: &Context<'ctx>) -> Result<Vec<Subgraph>> {
+        match &self.allowed_subgraphs {
+            Some(subgraphs) => {
+                let schema_ctx = ctx
+                    .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+                    .lock()
+                    .await;
+                let subgraph_ids: Vec<SubgraphId> = subgraphs
+                    .split(",")
+                    .filter_map(|s| SubgraphId::from_str(s).ok())
+                    .collect();
+                let subgraphs: Vec<Subgraph> = join_all(
+                    subgraph_ids
+                        .iter()
+                        .map(|id| schema_ctx.subgraph_deployments.subgraph(&id)),
+                )
+                .await
+                .into_iter()
+                .flatten()
+                .collect();
+
+                Result::Ok(subgraphs)
+            }
+            None => Result::Ok(vec![]),
         }
     }
 }
@@ -113,14 +189,14 @@ impl RequestTicketDto {
     async fn ticket_user(&self) -> String {
         self.ticket_user.to_string()
     }
-    /// The wallet address of the user who signed the request ticket/signed the message
-    async fn ticket_signer(&self) -> String {
-        self.ticket_signer.to_string()
-    }
     /// The user-chosen, friendly, name of the request ticket.
     /// This value is not stored on-chain. It is selected filled out by the user when they sign the EIP-712 message.
     async fn ticket_name(&self) -> String {
         self.ticket_name.to_string()
+    }
+    /// All of the CBOR ticket payload data for the signed message ticket domain
+    async fn ticket_payload(&self) -> &TicketPayloadDto {
+        &self.ticket_payload
     }
     /// Count of all of the `Subgraphs` queried by the request ticket.
     async fn queried_subgraphs_count(&self) -> i64 {
@@ -174,24 +250,40 @@ impl RequestTicketDto {
     async fn total_query_count(&self) -> i64 {
         self.total_query_count
     }
-    /// Percentage of queries used for the user's active subscription.
-    /// An active subscription stores the start and end block timestamp as well as a query rate that the user is paying for on-chain (in the Subscriptions contract).
-    /// As the user queries `Subgraphs` using their request ticket, they "use up" part of their paid for rate (which is more of a way to rate-limit querying),
-    /// in the given time-period.
-    /// This value represents the percentage (from 0.00 -> 1.00) of the rate that has been used by the amount of queries made with the request ticket.
-    async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f32> {
-        if self.total_query_count == 0 {
-            return Ok(0.00);
-        }
+    /// An estimated count of queries available to the user on their current active subscription
+    async fn est_queries_available<'ctx>(&self, ctx: &Context<'ctx>) -> Result<i64> {
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
             return Err(AuthError::Unauthorized.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
-        let _sub = &ticket_payload.active_subscription;
+        let sub = &ticket_payload.active_subscription;
 
-        // TODO: BUILD OUT VolumeEstimator LOGIC FROM gateway TO CALCULATE HOW MANY QUERIES AVAILABLE ON THE SUB
-        Ok(0.00)
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+
+        let sub_tier = schema_ctx.subscription_tiers.tier_for_rate(sub.rate);
+
+        Result::Ok(sub_tier.query_rate_limit as i64 * ((sub.end - sub.start).num_seconds()))
+    }
+    /// Percentage of queries used for the user's active subscription.
+    /// An active subscription stores the start and end block timestamp as well as a query rate that the user is paying for on-chain (in the Subscriptions contract).
+    /// As the user queries `Subgraphs` using their request ticket, they "use up" part of their paid for rate (which is more of a way to rate-limit querying),
+    /// in the given time-period.
+    /// This value represents the percentage (from 0.00 -> 1.00) of the rate that has been used by the amount of queries made with the request ticket.
+    async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f64> {
+        if self.total_query_count == 0 {
+            return Ok(0.00);
+        }
+        let sub_queries_available = self.est_queries_available(ctx).await?;
+        let percentage_used = if sub_queries_available == 0 {
+            0.00_f64
+        } else {
+            self.total_query_count as f64 / sub_queries_available as f64
+        };
+        Ok(percentage_used)
     }
     /// Unix-timestamp of the last query performed using this request ticket
     async fn last_query_timestamp(&self) -> i64 {
@@ -219,7 +311,6 @@ impl Into<datasource::RequestTicketOrderBy> for RequestTicketOrderBy {
 pub struct RequestTicketStatDto {
     pub id: Bytes32,
     pub ticket_user: Address,
-    pub ticket_signer: Address,
     pub ticket_name: String,
     pub start: i64,
     pub end: i64,
@@ -238,10 +329,6 @@ impl RequestTicketStatDto {
     /// The Request Ticket Owner
     async fn ticket_user(&self) -> String {
         self.ticket_user.to_string()
-    }
-    /// The Request Ticket Signer
-    async fn ticket_signer(&self) -> String {
-        self.ticket_signer.to_string()
     }
     /// The Request Ticket Name
     async fn ticket_name(&self) -> String {
@@ -336,7 +423,6 @@ impl From<datasource::RequestTicketStat> for RequestTicketStatDto {
         Self {
             id,
             ticket_user: value.ticket_user,
-            ticket_signer: value.ticket_signer,
             ticket_name: value.ticket_name,
             start: value.start,
             end: value.end,
@@ -369,7 +455,6 @@ impl Into<datasource::RequestTicketStatOrderBy> for RequestTicketStatOrderBy {
 pub struct RequestTicketSubgraphStatDto {
     pub id: Bytes32,
     pub ticket_user: Address,
-    pub ticket_signer: Address,
     pub ticket_name: String,
     pub start: i64,
     pub end: i64,
@@ -395,7 +480,6 @@ impl From<datasource::RequestTicketSubgraphStat> for RequestTicketSubgraphStatDt
         Self {
             id,
             ticket_user: value.ticket_user,
-            ticket_signer: value.ticket_signer,
             ticket_name: value.ticket_name,
             start: value.start,
             end: value.end,
@@ -416,10 +500,6 @@ impl RequestTicketSubgraphStatDto {
     /// The Request Ticket Owner
     async fn ticket_user(&self) -> String {
         self.ticket_user.to_string()
-    }
-    /// The Request Ticket Signer
-    async fn ticket_signer(&self) -> String {
-        self.ticket_signer.to_string()
     }
     /// The Request Ticket Name
     async fn ticket_name(&self) -> String {
@@ -653,10 +733,17 @@ mod tests {
         let given = datasource::RequestTicket {
             ticket_name: String::from("test_req_ticket__1"),
             ticket_user: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
-            ticket_signer: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
             total_query_count: 200,
             queried_subgraphs_count: 1,
             last_query_timestamp,
+            ticket_payload: datasource::GatewaySubscriptionQueryResultTicketPayload {
+                name: Some(String::from("test_req_ticket__1")),
+                signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+                user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+                allowed_domains: None,
+                allowed_deployments: None,
+                allowed_subgraphs: None,
+            },
         };
 
         let mut hasher = Shake256::default();
@@ -669,11 +756,16 @@ mod tests {
         let expected = RequestTicketDto {
             id: expected_id,
             ticket_user: given.ticket_user,
-            ticket_signer: given.ticket_signer,
             ticket_name: given.ticket_name.to_string(),
             total_query_count: 200,
             queried_subgraphs_count: 1,
             last_query_timestamp,
+            ticket_payload: TicketPayloadDto {
+                signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+                allowed_deployments: None,
+                allowed_domains: None,
+                allowed_subgraphs: None,
+            },
         };
 
         let actual = RequestTicketDto::from(given);
@@ -686,7 +778,6 @@ mod tests {
         let given = datasource::RequestTicketStat {
             ticket_name: String::from("test_req_ticket__1"),
             ticket_user: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
-            ticket_signer: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
             start: 1679791065,
             end: 1679791066,
             query_count: 2,
@@ -708,7 +799,6 @@ mod tests {
             id: expected_id,
             ticket_name: given.ticket_name.to_string(),
             ticket_user: given.ticket_user,
-            ticket_signer: given.ticket_signer,
             start: given.start,
             end: given.end,
             total_query_count: given.query_count,
@@ -728,7 +818,6 @@ mod tests {
         let given = datasource::RequestTicketSubgraphStat {
             ticket_name: String::from("test_req_ticket__1"),
             ticket_user: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
-            ticket_signer: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
             subgraph_deployment_qm_hash: DeploymentId::from_str(
                 "Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH",
             )
@@ -754,7 +843,6 @@ mod tests {
             id: expected_id,
             ticket_name: given.ticket_name.to_string(),
             ticket_user: given.ticket_user,
-            ticket_signer: given.ticket_signer,
             subgraph_deployment_qm_hash: given.subgraph_deployment_qm_hash,
             start: given.start,
             end: given.end,
