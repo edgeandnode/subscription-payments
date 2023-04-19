@@ -39,37 +39,18 @@ impl TryGetable for GatewaySubscriptionQueryResultTicketPayload {
         col: &str,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
         let payload = res.try_get::<JsonValue>(pre, col)?;
-        let parsed =
-            serde_json::from_value::<Vec<GatewaySubscriptionQueryResultTicketPayload>>(payload)
-                .map_err(|err| {
-                    sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string()))
-                })?;
-        // TODO: there may be a better approach than always returning the first?? need to think if there is a reason
-        if let Some(first) = parsed.first() {
-            return Result::Ok(first.to_owned());
-        }
-
-        Result::Err(sea_orm::TryGetError::Null(String::from(
-            "did not return valid ticket_payload",
-        )))
+        let parsed = serde_json::from_value::<GatewaySubscriptionQueryResultTicketPayload>(payload)
+            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
+        Result::Ok(parsed)
     }
     fn try_get_by<I: sea_orm::ColIdx>(
         res: &sea_orm::QueryResult,
         index: I,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
         let payload = res.try_get_by::<JsonValue, I>(index)?;
-        let parsed =
-            serde_json::from_value::<Vec<GatewaySubscriptionQueryResultTicketPayload>>(payload)
-                .map_err(|err| {
-                    sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string()))
-                })?;
-        if let Some(first) = parsed.first() {
-            return Result::Ok(first.to_owned());
-        }
-
-        Result::Err(sea_orm::TryGetError::Null(String::from(
-            "did not return valid ticket_payload",
-        )))
+        let parsed = serde_json::from_value::<GatewaySubscriptionQueryResultTicketPayload>(payload)
+            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
+        Result::Ok(parsed)
     }
 }
 
@@ -210,6 +191,14 @@ impl Datasource for DatasourcePostgres {
         let limit = first.unwrap_or(100);
         let offset = skip.unwrap_or(0);
 
+        // **NOTE**: `COALESCE(JSON_AGG(result.ticket_payload) ->> 0, '{}')`
+        // The `ticket_payload` is a JSON object stored in the DB.
+        // This select aggregates all of the `result.ticket_payload` data into a JSON array,
+        // because this value could potentially become _very, very_ large,
+        // we want to just return the first item from the array.
+        // For most use-cases, this is fine as each entry in the array will be the same,
+        // and this value is used to "reconstruct" the ticket in a UI to let a user resign the
+        // request ticket message with the same domain to get the same value.
         RequestTicket::find_by_statement(Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::Postgres,
             r#"
@@ -221,7 +210,7 @@ impl Datasource for DatasourcePostgres {
             SELECT
                 result.ticket_name,
                 result.ticket_user,
-                JSON_AGG(result.ticket_payload) AS ticket_payload,
+                COALESCE(JSON_AGG(result.ticket_payload) ->> 0, '{}')::JSON AS ticket_payload,
                 CAST(SUM(result.query_count) AS bigint) as total_query_count,
                 MAX(queried_subgraphs_count.queried_subgraphs_count) AS queried_subgraphs_count,
                 MAX(message_timestamp) AS last_query_timestamp

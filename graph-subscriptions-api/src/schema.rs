@@ -130,24 +130,21 @@ impl TicketPayloadDto {
         self.signer.to_string()
     }
     /// A list of Subgraph Deployment Qm hashes the ticket is allowed to query
-    pub async fn allowed_deployments(&self) -> Option<Vec<String>> {
+    pub async fn allowed_deployments(&self) -> Vec<String> {
         match &self.allowed_deployments {
-            Some(deployments) => Some(deployments.split(",").map(|d| d.to_string()).collect()),
-            None => None,
+            Some(deployments) => deployments.split(",").map(|d| d.to_string()).collect(),
+            None => vec![],
         }
     }
     /// A list of domains the ticket is allowed to query from
-    pub async fn allowed_domains(&self) -> Option<Vec<String>> {
+    pub async fn allowed_domains(&self) -> Vec<String> {
         match &self.allowed_domains {
-            Some(domains) => Some(domains.split(",").map(|d| d.to_string()).collect()),
-            None => None,
+            Some(domains) => domains.split(",").map(|d| d.to_string()).collect(),
+            None => vec![],
         }
     }
     /// A list of Subgraphs the ticket is allowed to query
-    pub async fn allowed_subgraphs<'ctx>(
-        &self,
-        ctx: &Context<'ctx>,
-    ) -> Result<Option<Vec<Subgraph>>> {
+    pub async fn allowed_subgraphs<'ctx>(&self, ctx: &Context<'ctx>) -> Result<Vec<Subgraph>> {
         match &self.allowed_subgraphs {
             Some(subgraphs) => {
                 let schema_ctx = ctx
@@ -158,19 +155,19 @@ impl TicketPayloadDto {
                     .split(",")
                     .map(|s| SubgraphId::from_str(s).unwrap_or_default())
                     .collect();
-
-                Result::Ok(
-                    join_all(
-                        subgraph_ids
-                            .iter()
-                            .map(|id| schema_ctx.subgraph_deployments.subgraph(&id)),
-                    )
-                    .await
-                    .into_iter()
-                    .collect(),
+                let subgraphs: Vec<Subgraph> = join_all(
+                    subgraph_ids
+                        .iter()
+                        .map(|id| schema_ctx.subgraph_deployments.subgraph(&id)),
                 )
+                .await
+                .into_iter()
+                .filter_map(|s_opt| s_opt)
+                .collect();
+
+                Result::Ok(subgraphs)
             }
-            None => Result::Ok(None),
+            None => Result::Ok(vec![]),
         }
     }
 }
@@ -291,7 +288,7 @@ impl RequestTicketDto {
         let sub_tier = schema_ctx.subscription_tiers.tier_for_rate(sub.rate);
         let sub_queries_available =
             sub_tier.query_rate_limit as i64 * ((sub.end - sub.start).num_seconds());
-        let percentage_used = if sub_queries_available == 0 {
+        let percentage_used = if sub_queries_available == 0 || sub_queries_available == 0 {
             0.00_f64
         } else {
             self.total_query_count as f64 / sub_queries_available as f64
