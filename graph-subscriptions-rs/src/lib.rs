@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none, Bytes, FromInto};
 use std::io::{self, Write as _};
 
+pub mod subscription_tier;
+
 abigen!(
     Subscriptions,
     "../contract/build/Subscriptions.abi",
