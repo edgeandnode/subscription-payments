@@ -19,7 +19,6 @@ pub enum SubscriptionQueryResultStatus {
     #[sea_orm(string_value = "USER_ERROR")]
     UserError,
 }
-
 impl SubscriptionQueryResultStatus {
     pub fn from_i32(val: i32) -> Self {
         match val {

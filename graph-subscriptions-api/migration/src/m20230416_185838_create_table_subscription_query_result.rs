@@ -48,8 +48,8 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(SubscriptionQueryResult::TicketSigner)
-                            .string_len(42)
+                        ColumnDef::new(SubscriptionQueryResult::TicketPayload)
+                            .json()
                             .not_null(),
                     )
                     .col(ColumnDef::new(SubscriptionQueryResult::TicketName).text())
@@ -73,6 +73,11 @@ impl MigrationTrait for Migration {
                             )
                             .not_null()
                             .default("SUCCESS"),
+                    )
+                    .col(
+                        ColumnDef::new(SubscriptionQueryResult::SubgraphChain)
+                            .text()
+                            .null(),
                     )
                     .col(
                         ColumnDef::new(SubscriptionQueryResult::ResponseTimeMs)
@@ -132,16 +137,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx__subscription_query_result__ticket_signer")
-                    .if_not_exists()
-                    .table(SubscriptionQueryResult::Table)
-                    .col(SubscriptionQueryResult::TicketSigner)
-                    .to_owned(),
-            )
-            .await?;
         // only create an index on the `ticket_name` & `deployment_qm_hash` values where the value is not null
         db.execute_unprepared(
             "CREATE INDEX IF NOT EXISTS idx__subscription_query_result__ticket_name ON subscription_query_result (ticket_name) WHERE ticket_name IS NOT NULL"
@@ -160,14 +155,6 @@ impl MigrationTrait for Migration {
             .drop_index(
                 Index::drop()
                     .name("idx__subscription_query_result__ticket_user")
-                    .table(SubscriptionQueryResult::Table)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .drop_index(
-                Index::drop()
-                    .name("idx__subscription_query_result__ticket_signer")
                     .table(SubscriptionQueryResult::Table)
                     .to_owned(),
             )
@@ -219,8 +206,8 @@ enum SubscriptionQueryResult {
     QueryId,
     #[iden = "ticket_user"]
     TicketUser,
-    #[iden = "ticket_signer"]
-    TicketSigner,
+    #[iden = "ticket_payload"]
+    TicketPayload,
     #[iden = "ticket_name"]
     TicketName,
     #[iden = "deployment_qm_hash"]
@@ -229,6 +216,8 @@ enum SubscriptionQueryResult {
     QueryCount,
     #[iden = "status_code"]
     StatusCode,
+    #[iden = "subgraph_chain"]
+    SubgraphChain,
     #[iden = "response_time_ms"]
     ResponseTimeMs,
     #[iden = "query_budget"]
