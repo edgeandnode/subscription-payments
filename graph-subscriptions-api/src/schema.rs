@@ -4,6 +4,7 @@ use anyhow::{Ok, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
 use datasource::{Datasource, DatasourcePostgres};
 use futures::future::join_all;
+use graph_subscriptions::subscription_tier::SubscriptionTiers;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake256,
@@ -19,6 +20,7 @@ use crate::{
 pub struct GraphSubscriptionsSchemaCtx<'a> {
     pub subgraph_deployments: SubgraphDeployments,
     pub datasource: &'a DatasourcePostgres,
+    pub subscription_tiers: SubscriptionTiers,
 }
 
 pub type GraphSubscriptionsSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
@@ -247,12 +249,30 @@ impl RequestTicketDto {
     async fn total_query_count(&self) -> i64 {
         self.total_query_count
     }
+    /// An estimated count of queries available to the user on their current active subscription
+    async fn est_queries_available<'ctx>(&self, ctx: &Context<'ctx>) -> Result<i64> {
+        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload_wrapper.is_none() {
+            return Err(AuthError::Unauthorized.into());
+        }
+        let ticket_payload = ticket_payload_wrapper.unwrap();
+        let sub = &ticket_payload.active_subscription;
+
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+
+        let sub_tier = schema_ctx.subscription_tiers.tier_for_rate(sub.rate);
+
+        Result::Ok(sub_tier.query_rate_limit as i64 * ((sub.end - sub.start).num_seconds()))
+    }
     /// Percentage of queries used for the user's active subscription.
     /// An active subscription stores the start and end block timestamp as well as a query rate that the user is paying for on-chain (in the Subscriptions contract).
     /// As the user queries `Subgraphs` using their request ticket, they "use up" part of their paid for rate (which is more of a way to rate-limit querying),
     /// in the given time-period.
     /// This value represents the percentage (from 0.00 -> 1.00) of the rate that has been used by the amount of queries made with the request ticket.
-    async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f32> {
+    async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f64> {
         if self.total_query_count == 0 {
             return Ok(0.00);
         }
@@ -261,10 +281,22 @@ impl RequestTicketDto {
             return Err(AuthError::Unauthorized.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
-        let _sub = &ticket_payload.active_subscription;
+        let sub = &ticket_payload.active_subscription;
 
-        // TODO: BUILD OUT VolumeEstimator LOGIC FROM gateway TO CALCULATE HOW MANY QUERIES AVAILABLE ON THE SUB
-        Ok(0.00)
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+
+        let sub_tier = schema_ctx.subscription_tiers.tier_for_rate(sub.rate);
+        let sub_queries_available =
+            sub_tier.query_rate_limit as i64 * ((sub.end - sub.start).num_seconds());
+        let percentage_used = if sub_queries_available == 0 {
+            0.00_f64
+        } else {
+            self.total_query_count as f64 / sub_queries_available as f64
+        };
+        Ok(percentage_used)
     }
     /// Unix-timestamp of the last query performed using this request ticket
     async fn last_query_timestamp(&self) -> i64 {
