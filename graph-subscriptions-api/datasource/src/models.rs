@@ -18,7 +18,7 @@ pub struct GatewaySubscriptionQueryResult {
     /// `user` field from ticket payload, 0x-prefixed hex
     #[prost(string, tag = "5")]
     pub ticket_user: ::prost::alloc::string::String,
-    /// the ticket payload, JSON CBOR map data as a string
+    /// the ticket payload, JSON map data
     #[prost(string, tag = "6")]
     pub ticket_payload: ::prost::alloc::string::String,
     /// Subgraph Deployment ID, CIDv0 ("Qm" hash)
@@ -73,7 +73,7 @@ impl GatewaySubscriptionQueryResult {
         Self::decode(&mut Cursor::new(slice)).map_err(|err| anyhow::Error::from(err))
     }
 }
-/// This is the CBOR map ticket payload data wrapped as a JSON string on [`GatewaySubscriptionQueryResult.ticket_payload`]
+/// This is the CBOR map ticket payload data encoded as a JSON string on [`GatewaySubscriptionQueryResult.ticket_payload`]
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct GatewaySubscriptionQueryResultTicketPayload {
     pub name: Option<String>,

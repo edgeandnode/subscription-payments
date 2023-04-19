@@ -66,10 +66,7 @@ impl SubgraphDeployments {
             .unwrap_or_default()
     }
     pub async fn subgraph(&self, subgraph_id: &SubgraphId) -> Option<Subgraph> {
-        let map = match self.inputs.value().await {
-            std::result::Result::Ok(map) => map,
-            Err(_) => return None,
-        };
+        let map = self.inputs.value().await.ok()?;
         map.subgraph_id_to_subgraph.get(subgraph_id).cloned()
     }
 }
@@ -170,24 +167,10 @@ fn parse_deployment_subgraphs(
                 .versions
                 .iter()
                 .map(|version| {
-                    let owner_image = version
-                        .subgraph
-                        .owner
-                        .image
-                        .as_ref()
-                        .map(|val| val.to_string());
-                    let owner_def_disp_name = version
-                        .subgraph
-                        .owner
-                        .default_display_name
-                        .as_ref()
-                        .map(|val| val.to_string());
-                    let display_name = version
-                        .subgraph
-                        .display_name
-                        .as_ref()
-                        .map(|val| val.to_string());
-                    let image = version.subgraph.image.as_ref().map(|val| val.to_string());
+                    let owner_image = version.subgraph.owner.image.clone();
+                    let owner_def_disp_name = version.subgraph.owner.default_display_name.clone();
+                    let display_name = version.subgraph.display_name.clone();
+                    let image = version.subgraph.image.clone();
 
                     Subgraph {
                         id: version.subgraph.id,
@@ -215,24 +198,10 @@ fn parse_subgraphs(
                 .versions
                 .iter()
                 .map(|version| {
-                    let owner_image = version
-                        .subgraph
-                        .owner
-                        .image
-                        .as_ref()
-                        .map(|val| val.to_string());
-                    let owner_def_disp_name = version
-                        .subgraph
-                        .owner
-                        .default_display_name
-                        .as_ref()
-                        .map(|val| val.to_string());
-                    let display_name = version
-                        .subgraph
-                        .display_name
-                        .as_ref()
-                        .map(|val| val.to_string());
-                    let image = version.subgraph.image.as_ref().map(|val| val.to_string());
+                    let owner_image = version.subgraph.owner.image.clone();
+                    let owner_def_disp_name = version.subgraph.owner.default_display_name.clone();
+                    let display_name = version.subgraph.display_name.clone();
+                    let image = version.subgraph.image.clone();
 
                     let subgraph = Subgraph {
                         id: version.subgraph.id,

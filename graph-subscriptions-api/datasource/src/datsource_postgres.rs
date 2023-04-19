@@ -430,10 +430,7 @@ impl DatasourceWriter for DatasourcePostgres {
                 let key = String::from_utf8_lossy(msg.key().unwrap_or_default()).to_string();
                 let (start, end) = build_timerange_timestamp(timestamp);
 
-                let ticket_name = match serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&query_result_msg.ticket_payload) {
-                    Result::Ok(payload) => payload.name,
-                    Err(_) => Some(String::from(""))
-                };
+                let ticket_name = serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&query_result_msg.ticket_payload).map(|payload| payload.name).unwrap_or_default();
 
                 let result_record = entity::subscription_query_result::ActiveModel {
                     id: Set(Uuid::new_v4()),

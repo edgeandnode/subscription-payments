@@ -131,17 +131,21 @@ impl TicketPayloadDto {
     }
     /// A list of Subgraph Deployment Qm hashes the ticket is allowed to query
     pub async fn allowed_deployments(&self) -> Vec<String> {
-        match &self.allowed_deployments {
-            Some(deployments) => deployments.split(",").map(|d| d.to_string()).collect(),
-            None => vec![],
-        }
+        self.allowed_deployments
+            .as_deref()
+            .unwrap_or_default()
+            .split_terminator(',')
+            .map(ToString::to_string)
+            .collect()
     }
     /// A list of domains the ticket is allowed to query from
     pub async fn allowed_domains(&self) -> Vec<String> {
-        match &self.allowed_domains {
-            Some(domains) => domains.split(",").map(|d| d.to_string()).collect(),
-            None => vec![],
-        }
+        self.allowed_domains
+            .as_deref()
+            .unwrap_or_default()
+            .split_terminator(',')
+            .map(ToString::to_string)
+            .collect()
     }
     /// A list of Subgraphs the ticket is allowed to query
     pub async fn allowed_subgraphs<'ctx>(&self, ctx: &Context<'ctx>) -> Result<Vec<Subgraph>> {
@@ -153,7 +157,7 @@ impl TicketPayloadDto {
                     .await;
                 let subgraph_ids: Vec<SubgraphId> = subgraphs
                     .split(",")
-                    .map(|s| SubgraphId::from_str(s).unwrap_or_default())
+                    .filter_map(|s| SubgraphId::from_str(s).ok())
                     .collect();
                 let subgraphs: Vec<Subgraph> = join_all(
                     subgraph_ids
@@ -162,7 +166,7 @@ impl TicketPayloadDto {
                 )
                 .await
                 .into_iter()
-                .filter_map(|s_opt| s_opt)
+                .flatten()
                 .collect();
 
                 Result::Ok(subgraphs)
@@ -273,22 +277,8 @@ impl RequestTicketDto {
         if self.total_query_count == 0 {
             return Ok(0.00);
         }
-        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
-        if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
-        }
-        let ticket_payload = ticket_payload_wrapper.unwrap();
-        let sub = &ticket_payload.active_subscription;
-
-        let schema_ctx = ctx
-            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
-            .lock()
-            .await;
-
-        let sub_tier = schema_ctx.subscription_tiers.tier_for_rate(sub.rate);
-        let sub_queries_available =
-            sub_tier.query_rate_limit as i64 * ((sub.end - sub.start).num_seconds());
-        let percentage_used = if sub_queries_available == 0 || sub_queries_available == 0 {
+        let sub_queries_available = self.est_queries_available(ctx).await?;
+        let percentage_used = if sub_queries_available == 0 {
             0.00_f64
         } else {
             self.total_query_count as f64 / sub_queries_available as f64
