@@ -10,7 +10,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
     "clock",
 ] }
 clap = { version = "4.1.0", features = ["derive"] }
-ethers = { version = "2.0.0", default-features = false }
+ethers = { version = "2.0.0", default-features = false, features = ["rustls"] }
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
 hex = "0.4.3"
 serde = { version = "1.0.0" }
