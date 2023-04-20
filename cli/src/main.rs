@@ -108,8 +108,8 @@ async fn main() -> Result<()> {
             eprintln!("approve status: {}", status);
             ensure!(status == 1, "failed to approve token amount");
 
-            let call =
-                subscriptions.subscribe(start.timestamp() as u64, end.timestamp() as u64, rate);
+            let start = start.timestamp() as u64;
+            let call = subscriptions.subscribe(start, start + duration, rate);
             eprintln!("tx: {}", call.tx.data().unwrap());
             let receipt = client.send_transaction(call.tx, None).await?.await?;
             let status = receipt
