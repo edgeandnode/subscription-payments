@@ -191,14 +191,16 @@ impl Datasource for DatasourcePostgres {
         let limit = first.unwrap_or(100);
         let offset = skip.unwrap_or(0);
 
-        // **NOTE**: `COALESCE(JSON_AGG(result.ticket_payload) ->> 0, '{}')`
+        // **NOTE**: `COALESCE(JSON_AGG(result.ticket_payload) ->> (JSON_ARRAY_LENGTH(JSON_AGG(result.ticket_payload)) - 1), '{}')::JSON`
         // The `ticket_payload` is a JSON object stored in the DB.
         // This select aggregates all of the `result.ticket_payload` data into a JSON array,
         // because this value could potentially become _very, very_ large,
-        // we want to just return the first item from the array.
+        // we want to just return the last item from the array.
         // For most use-cases, this is fine as each entry in the array will be the same,
         // and this value is used to "reconstruct" the ticket in a UI to let a user resign the
         // request ticket message with the same domain to get the same value.
+        // So using the last item means, if the user updates their security settings,
+        // this will return the latest of their updates.
         RequestTicket::find_by_statement(Statement::from_sql_and_values(
             sea_orm::DatabaseBackend::Postgres,
             r#"
@@ -210,7 +212,7 @@ impl Datasource for DatasourcePostgres {
             SELECT
                 result.ticket_name,
                 result.ticket_user,
-                COALESCE(JSON_AGG(result.ticket_payload) ->> 0, '{}')::JSON AS ticket_payload,
+                COALESCE(JSON_AGG(result.ticket_payload) ->> (JSON_ARRAY_LENGTH(JSON_AGG(result.ticket_payload)) - 1), '{}')::JSON AS ticket_payload,
                 CAST(SUM(result.query_count) AS bigint) as total_query_count,
                 MAX(queried_subgraphs_count.queried_subgraphs_count) AS queried_subgraphs_count,
                 MAX(message_timestamp) AS last_query_timestamp
