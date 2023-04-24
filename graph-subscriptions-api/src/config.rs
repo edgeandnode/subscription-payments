@@ -11,6 +11,8 @@ pub struct Config {
     pub api_port: u16,
     /// Graphql api/graphiql endpoint. default: /graphql
     pub graphql_endpoint: String,
+    /// Port to run the graph-subscriptions-api _metrics_ endpoint on. default: 9090
+    pub metrics_port: u16,
     /// Format log output as JSON
     pub log_json: bool,
     /// The Graph Network Subgraph URL. For querying subgraphs published to the network
@@ -43,6 +45,10 @@ pub fn init_config() -> Config {
         .parse()
         .unwrap();
     let graphql_endpoint = dotenv::var("GRAPHQL_ENDPOINT").unwrap_or(String::from("/graphql"));
+    let metrics_port: u16 = dotenv::var("METRICS_PORT")
+        .unwrap_or(String::from("9090"))
+        .parse()
+        .unwrap();
     let log_json: bool = dotenv::var("LOG_JSON")
         .unwrap_or(String::from("true"))
         .parse()
@@ -109,6 +115,7 @@ pub fn init_config() -> Config {
     Config {
         api_port,
         graphql_endpoint,
+        metrics_port,
         log_json,
         subscriptions_chain_id,
         subscriptions_contract_address,
