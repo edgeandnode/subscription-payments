@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graph-subscriptions-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graph-subscriptions-api
+  template:
+    metadata:
+      labels:
+        app: graph-subscriptions-api
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: /metrics
+        prometheus.io/port: '9090'
+    spec:
+      imagePullSecrets:
+        - name: docker-registry
+      containers:
+        - name: app
+          image: graph-subscriptions-api
+          command:
+            - /opt/graph-subscriptions-api/target/release/graph-subscriptions-api
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              port: metrics
+              path: /metrics
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: '1'
+            requests:
+              memory: 512Mi
+              cpu: '0.5'
+          envFrom:
+            - configMapRef: # this contains general environment config plaintext values
+                name: graph-subscriptions-api-env
+            - secretRef: # contains the database connection params stored as an encrypted secrets
+                name: graph-subscriptions-api-db-env
+            - secretRef: # contains the kafka connection params stored as an encrypted secrets
+                name: graph-subscriptions-api-kafka-env
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: graph-subscriptions-api
+spec:
+  type: ClusterIP
+  selector:
+    app: graph-subscriptions-api
+  ports:
+    - name: http
+      port: 4000
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP

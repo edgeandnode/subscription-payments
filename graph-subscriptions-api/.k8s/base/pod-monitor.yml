@@ -1,0 +1,11 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: graph-subscriptions-api
+spec:
+  selector:
+    matchLabels:
+      app: graph-subscriptions-api
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
