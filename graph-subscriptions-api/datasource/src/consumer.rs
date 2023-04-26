@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::{Ok, Result};
 use rdkafka::{
     consumer::{Consumer as _, DefaultConsumerContext, StreamConsumer},
@@ -12,6 +14,9 @@ pub struct ConsumerConfig {
     pub group_id: String,
     /// The Graph Subscriptions query result logs kafka topic id
     pub topic_id: String,
+    /// Additional configuration paramters for the kafka consumer
+    /// For example, if connecting to a prod cluster via SSL instead of local
+    pub additional_config: Option<BTreeMap<String, String>>,
 }
 
 pub struct LogConsumer {
@@ -27,15 +32,22 @@ impl LogConsumer {
             "LogConsumer::create()::initializing Kafka Stream Consumer... [{:?}]",
             config
         );
-        // instantiate the StreamConsumer client isntance
-        let consumer: StreamConsumer<DefaultConsumerContext> = ClientConfig::new()
+        let mut binding = ClientConfig::new();
+        let client_config = binding
             .set("group.id", &config.group_id)
             .set("bootstrap.servers", &config.brokers)
             .set("enable.partition.eof", "false")
             .set("session.timeout.ms", "10000")
             .set("enable.auto.commit", "false")
-            .set("allow.auto.create.topics", "true")
-            .create_with_context(DefaultConsumerContext)?;
+            .set("allow.auto.create.topics", "true");
+        if let Some(additional_config) = config.additional_config {
+            for (k, v) in additional_config {
+                client_config.set(k, v);
+            }
+        }
+        // instantiate the StreamConsumer client isntance
+        let consumer: StreamConsumer<DefaultConsumerContext> =
+            client_config.create_with_context(DefaultConsumerContext)?;
         // subscribe StreamConsumer to given topic
         consumer.subscribe(&[&config.topic_id])?;
 

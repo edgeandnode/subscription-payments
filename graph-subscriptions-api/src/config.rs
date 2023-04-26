@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use dotenv::dotenv;
 use ethers::types::U256;
@@ -29,6 +29,8 @@ pub struct Config {
     pub graph_subscription_logs_kafka_group_id: String,
     /// Graph Subscription logs Kafka topic ID
     pub graph_subscription_logs_kafka_topic_id: String,
+    /// Additional kafka configuration settings
+    pub graph_subscription_logs_kafka_additional_config: Option<BTreeMap<String, String>>,
     /// Postgres database url where the logs are stored.
     /// Uses format: "postgres://{user}:{pwd}@{host}:{port}/{database}"
     pub graph_subscription_logs_db_url: String,
@@ -100,6 +102,32 @@ pub fn init_config() -> Config {
                 panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_TOPIC_ID environment variable is required")
             }
         };
+    // attempt to parse and build the additional kafka config
+    let mut kafka_additional_config = BTreeMap::<String, String>::new();
+    if let Some(security_protocol) =
+        dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SECURITY_PROTOCOL").ok()
+    {
+        kafka_additional_config.insert("security.protocol".to_string(), security_protocol);
+    }
+    if let Some(mechanism) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SASL_MECHANISM").ok() {
+        kafka_additional_config.insert("sasl.mechanism".to_string(), mechanism);
+    }
+    if let Some(username) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SASL_USERNAME").ok() {
+        kafka_additional_config.insert("sasl.username".to_string(), username);
+    }
+    if let Some(password) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SASL_PASSWORD").ok() {
+        kafka_additional_config.insert("sasl.password".to_string(), password);
+    }
+    if let Some(ssl_ca_loc) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SSL_CA_LOC").ok() {
+        kafka_additional_config.insert("ssl.ca.location".to_string(), ssl_ca_loc);
+    }
+    if let Some(ssl_cert_loc) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SSL_CERT_LOC").ok() {
+        kafka_additional_config.insert("ssl.certificate.location".to_string(), ssl_cert_loc);
+    }
+    if let Some(ssl_key_loc) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SSL_KEY_LOC").ok() {
+        kafka_additional_config.insert("ssl.key.location".to_string(), ssl_key_loc);
+    }
+
     let graph_subscription_logs_db_url = match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_DB_URL") {
         Ok(url) => url,
         Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_DB_URL environment variable is required"),
@@ -124,6 +152,7 @@ pub fn init_config() -> Config {
         graph_subscription_logs_kafka_broker,
         graph_subscription_logs_kafka_group_id,
         graph_subscription_logs_kafka_topic_id,
+        graph_subscription_logs_kafka_additional_config: Some(kafka_additional_config),
         graph_subscription_logs_db_url,
         subscriptions_tiers,
     }

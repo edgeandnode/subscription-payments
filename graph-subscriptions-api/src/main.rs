@@ -10,7 +10,7 @@ use axum::{
     routing::get,
     Router, Server,
 };
-use datasource::{DatasourcePostgres, GraphSubscriptionsDatasource};
+use datasource::{CreateWithDatasourcePgArgs, DatasourcePostgres, GraphSubscriptionsDatasource};
 use graph_subscriptions::TicketVerificationDomain;
 use prometheus::{self, Encoder as _};
 use tokio::sync::Mutex;
@@ -96,11 +96,14 @@ async fn main() {
 
     let subscriptions_datasource =
         GraphSubscriptionsDatasource::<DatasourcePostgres>::create_with_datasource_pg(
-            conf.graph_subscription_logs_kafka_broker,
-            conf.graph_subscription_logs_kafka_group_id,
-            conf.graph_subscription_logs_kafka_topic_id,
-            conf.graph_subscription_logs_db_url,
-            Some(2),
+            CreateWithDatasourcePgArgs {
+                kafka_broker: conf.graph_subscription_logs_kafka_broker,
+                kafka_subscription_logs_group_id: conf.graph_subscription_logs_kafka_group_id,
+                kafka_subscription_logs_topic_id: conf.graph_subscription_logs_kafka_topic_id,
+                kafka_additional_config: conf.graph_subscription_logs_kafka_additional_config,
+                postgres_db_url: conf.graph_subscription_logs_db_url,
+                num_workers: Some(2),
+            },
         )
         .await
         .expect("Failure instantiating the `GraphSubscriptionsDatasource` instance");
