@@ -616,6 +616,10 @@ impl QueryRoot {
             .lock()
             .await;
 
+        // Attempt to get a ticket value to retrieve stats for.
+        // 1. if the parsed Authorization header ticket payload has a name, use it, user has access.
+        // 2. if the user passed in a value to the query, validate that they have access to this ticket; if not -> throw Unauthorized error.
+        // 3. either 1 or 2 is required, if neither, throw an error
         let ticket_name = match (payload.name.clone(), ticket_name) {
             (Some(payload_ticket_name), _) => payload_ticket_name,
             (None, Some(args_ticket_name)) => {
@@ -631,7 +635,7 @@ impl QueryRoot {
                 }
             }
             (None, None) => {
-                return Err(anyhow!("the ticket name is required. either sign a message with the ticket name, or include it as a variable"));
+                return Err(anyhow!("the ticket name is required. either sign a message with the ticket name, or include it as a query variable"));
             }
         };
 
@@ -700,7 +704,7 @@ impl QueryRoot {
                 }
             }
             (None, None) => {
-                return Err(anyhow!("the ticket name is required. either sign a message with the ticket name, or include it as a variable"));
+                return Err(anyhow!("the ticket name is required. either sign a message with the ticket name, or include it as a query variable"));
             }
         };
 
