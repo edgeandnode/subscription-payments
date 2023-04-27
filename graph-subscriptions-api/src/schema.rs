@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use anyhow::{Ok, Result};
+use anyhow::{anyhow, Ok, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
 use datasource::{Datasource, DatasourcePostgres};
 use futures::future::join_all;
@@ -211,7 +211,7 @@ impl RequestTicketDto {
         let skip = skip.unwrap_or(0);
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
+            return Err(AuthError::Unauthenticated.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
@@ -373,7 +373,7 @@ impl RequestTicketStatDto {
         let skip = skip.unwrap_or(0);
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
+            return Err(AuthError::Unauthenticated.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
@@ -563,7 +563,7 @@ impl QueryRoot {
     ) -> Result<Vec<RequestTicketDto>> {
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
+            return Err(AuthError::Unauthenticated.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
@@ -593,10 +593,11 @@ impl QueryRoot {
 
         Ok(tickets)
     }
-    /// A list of aggregated query stats, by timerange, for the request ticket parsed from the Authorization header.
+    /// A list of aggregated query stats, by timerange, for the request ticket.
     async fn request_ticket_stats<'ctx>(
         &self,
         ctx: &Context<'ctx>,
+        ticket_name: Option<String>,
         first: Option<i32>,
         skip: Option<i32>,
         order_by: Option<RequestTicketStatOrderBy>,
@@ -604,20 +605,35 @@ impl QueryRoot {
     ) -> Result<Vec<RequestTicketStatDto>> {
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
+            return Err(AuthError::Unauthenticated.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
         let user = Address(payload.user.unwrap_or(payload.signer).0);
-        let ticket_name = match &payload.name {
-            None => return Err(anyhow::Error::msg("ticket_name is required")),
-            Some(name) => name,
-        };
 
         let schema_ctx = ctx
             .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
             .lock()
             .await;
+
+        let ticket_name = match (payload.name.clone(), ticket_name) {
+            (Some(payload_ticket_name), _) => payload_ticket_name,
+            (None, Some(args_ticket_name)) => {
+                // validate user owns ticket
+                if schema_ctx
+                    .datasource
+                    .user_has_ticket_access(user, args_ticket_name.clone())
+                    .await?
+                {
+                    args_ticket_name
+                } else {
+                    return Err(AuthError::Unauthorized.into());
+                }
+            }
+            (None, None) => {
+                return Err(anyhow!("the ticket name is required. either sign a message with the ticket name, or include it as a variable"));
+            }
+        };
 
         let order_by: Option<datasource::RequestTicketStatOrderBy> = match order_by {
             None => None,
@@ -649,6 +665,7 @@ impl QueryRoot {
     async fn request_ticket_subgraph_stats<'ctx>(
         &self,
         ctx: &Context<'ctx>,
+        ticket_name: Option<String>,
         subgraph_deployment_qm_hash: String,
         first: Option<i32>,
         skip: Option<i32>,
@@ -657,15 +674,36 @@ impl QueryRoot {
     ) -> Result<Vec<RequestTicketSubgraphStatDto>> {
         let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
         if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
+            return Err(AuthError::Unauthenticated.into());
         }
         let ticket_payload = ticket_payload_wrapper.unwrap();
         let payload = &ticket_payload.ticket_payload;
         let user = Address(payload.user.unwrap_or(payload.signer).0);
-        let ticket_name = match &payload.name {
-            None => return Err(anyhow::Error::msg("ticket_name is required")),
-            Some(name) => name,
+
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+
+        let ticket_name = match (payload.name.clone(), ticket_name) {
+            (Some(payload_ticket_name), _) => payload_ticket_name,
+            (None, Some(args_ticket_name)) => {
+                // validate user owns ticket
+                if schema_ctx
+                    .datasource
+                    .user_has_ticket_access(user, args_ticket_name.clone())
+                    .await?
+                {
+                    args_ticket_name
+                } else {
+                    return Err(AuthError::Unauthorized.into());
+                }
+            }
+            (None, None) => {
+                return Err(anyhow!("the ticket name is required. either sign a message with the ticket name, or include it as a variable"));
+            }
         };
+
         let subgraph_deployment_id =
             match DeploymentId::from_ipfs_hash(&subgraph_deployment_qm_hash) {
                 None => return Err(anyhow::Error::msg(
@@ -673,11 +711,6 @@ impl QueryRoot {
                 )),
                 Some(hash) => hash,
             };
-
-        let schema_ctx = ctx
-            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
-            .lock()
-            .await;
 
         let order_by: Option<datasource::RequestTicketStatOrderBy> = match order_by {
             None => None,

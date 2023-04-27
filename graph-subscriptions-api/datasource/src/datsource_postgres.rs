@@ -165,6 +165,24 @@ impl DatasourcePostgres {
         .await
         .map_err(|err| anyhow::Error::from(err))
     }
+    /// Check if the user has "access" to the ticket.
+    /// Access is determined if a record exists in the logs db matching the `ticket_user` and `ticket_name`
+    pub async fn user_has_ticket_access(
+        &self,
+        user: Address,
+        ticket_name: String,
+    ) -> anyhow::Result<bool> {
+        let result = UserHasTicketResult::find_by_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            r#"SELECT CASE WHEN COUNT(id) >= 1 THEN true ELSE false END AS user_has_ticket FROM subscription_query_result WHERE ticket_user = $1 AND ticket_name = $2"#,
+            [user.to_string().to_lowercase().into(), ticket_name.into()],
+        )).one(&self.db_conn)
+        .await
+        .map_err(|err| anyhow::Error::from(err))?
+        .unwrap_or_default();
+
+        anyhow::Result::Ok(result.user_has_ticket)
+    }
 }
 
 #[async_trait]
