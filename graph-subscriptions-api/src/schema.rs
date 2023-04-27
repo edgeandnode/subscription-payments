@@ -4,7 +4,6 @@ use anyhow::{Ok, Result};
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
 use datasource::{Datasource, DatasourcePostgres};
 use futures::future::join_all;
-use graph_subscriptions::subscription_tier::SubscriptionTiers;
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake256,
@@ -20,7 +19,6 @@ use crate::{
 pub struct GraphSubscriptionsSchemaCtx<'a> {
     pub subgraph_deployments: SubgraphDeployments,
     pub datasource: &'a DatasourcePostgres,
-    pub subscription_tiers: SubscriptionTiers,
 }
 
 pub type GraphSubscriptionsSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
@@ -236,54 +234,55 @@ impl RequestTicketDto {
         }))
         .await
         .into_iter()
-        .flatten();
+        .skip(skip as usize)
+        .take(first as usize)
+        .flatten()
+        .collect();
 
-        Ok(Some(
-            subgraphs
-                .into_iter()
-                .skip(skip as usize)
-                .take(first as usize)
-                .collect(),
-        ))
+        Ok(Some(subgraphs))
     }
     /// Total count of queries performed, across all `Subgraphs`, using this request ticket
     async fn total_query_count(&self) -> i64 {
         self.total_query_count
     }
-    /// An estimated count of queries available to the user on their current active subscription
-    async fn est_queries_available<'ctx>(&self, ctx: &Context<'ctx>) -> Result<i64> {
-        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
-        if ticket_payload_wrapper.is_none() {
-            return Err(AuthError::Unauthorized.into());
-        }
-        let ticket_payload = ticket_payload_wrapper.unwrap();
-        let sub = &ticket_payload.active_subscription;
-
+    /// Returns a list of `RequestTicketStatDto`, broken down by day, of the request ticket usage
+    async fn stats<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        first: Option<i32>,
+        skip: Option<i32>,
+        order_by: Option<RequestTicketStatOrderBy>,
+        order_direction: Option<OrderDirection>,
+    ) -> Result<Vec<RequestTicketStatDto>> {
         let schema_ctx = ctx
             .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
             .lock()
             .await;
-
-        let sub_tier = schema_ctx.subscription_tiers.tier_for_rate(sub.rate);
-
-        Result::Ok(sub_tier.query_rate_limit as i64 * ((sub.end - sub.start).num_seconds()))
-    }
-    /// Percentage of queries used for the user's active subscription.
-    /// An active subscription stores the start and end block timestamp as well as a query rate that the user is paying for on-chain (in the Subscriptions contract).
-    /// As the user queries `Subgraphs` using their request ticket, they "use up" part of their paid for rate (which is more of a way to rate-limit querying),
-    /// in the given time-period.
-    /// This value represents the percentage (from 0.00 -> 1.00) of the rate that has been used by the amount of queries made with the request ticket.
-    async fn query_rate_used_percentage<'ctx>(&self, ctx: &Context<'ctx>) -> Result<f64> {
-        if self.total_query_count == 0 {
-            return Ok(0.00);
-        }
-        let sub_queries_available = self.est_queries_available(ctx).await?;
-        let percentage_used = if sub_queries_available == 0 {
-            0.00_f64
-        } else {
-            self.total_query_count as f64 / sub_queries_available as f64
+        let order_by: Option<datasource::RequestTicketStatOrderBy> = match order_by {
+            None => None,
+            Some(by) => Some(by.into()),
         };
-        Ok(percentage_used)
+        let order_direction: Option<datasource::OrderDirection> = match order_direction {
+            None => None,
+            Some(direction) => Some(direction.into()),
+        };
+
+        let stats = schema_ctx
+            .datasource
+            .request_ticket_stats(
+                self.ticket_user,
+                self.ticket_name.to_string(),
+                first,
+                skip,
+                order_by,
+                order_direction,
+            )
+            .await?
+            .into_iter()
+            .map(RequestTicketStatDto::from)
+            .collect();
+
+        Ok(stats)
     }
     /// Unix-timestamp of the last query performed using this request ticket
     async fn last_query_timestamp(&self) -> i64 {
@@ -397,15 +396,12 @@ impl RequestTicketStatDto {
         }))
         .await
         .into_iter()
-        .flatten();
+        .skip(skip as usize)
+        .take(first as usize)
+        .flatten()
+        .collect();
 
-        Ok(Some(
-            subgraphs
-                .into_iter()
-                .skip(skip as usize)
-                .take(first as usize)
-                .collect(),
-        ))
+        Ok(Some(subgraphs))
     }
 }
 /// Convert the [`datasource::RequestTicketStat`] instance to a [`crate::schema::RequestTicketStatDto`] instance
@@ -587,14 +583,15 @@ impl QueryRoot {
             Some(direction) => Some(direction.into()),
         };
 
-        match schema_ctx
+        let tickets = schema_ctx
             .datasource
             .request_tickets(user, first, skip, order_by, order_direction)
-            .await
-        {
-            Err(err) => Err(err),
-            Result::Ok(tickets) => Ok(tickets.into_iter().map(RequestTicketDto::from).collect()),
-        }
+            .await?
+            .into_iter()
+            .map(RequestTicketDto::from)
+            .collect();
+
+        Ok(tickets)
     }
     /// A list of aggregated query stats, by timerange, for the request ticket parsed from the Authorization header.
     async fn request_ticket_stats<'ctx>(
@@ -631,7 +628,7 @@ impl QueryRoot {
             Some(direction) => Some(direction.into()),
         };
 
-        match schema_ctx
+        let stats = schema_ctx
             .datasource
             .request_ticket_stats(
                 user,
@@ -641,14 +638,12 @@ impl QueryRoot {
                 order_by,
                 order_direction,
             )
-            .await
-        {
-            Err(err) => Err(err),
-            Result::Ok(tickets) => Ok(tickets
-                .into_iter()
-                .map(RequestTicketStatDto::from)
-                .collect()),
-        }
+            .await?
+            .into_iter()
+            .map(RequestTicketStatDto::from)
+            .collect();
+
+        Ok(stats)
     }
     /// A list of aggregated query stats, by timerange, for a specific subgraph deployment, for the request ticket parsed from the Authorization header.
     async fn request_ticket_subgraph_stats<'ctx>(
@@ -693,7 +688,7 @@ impl QueryRoot {
             Some(direction) => Some(direction.into()),
         };
 
-        match schema_ctx
+        let subgraph_stats = schema_ctx
             .datasource
             .request_ticket_subgraph_stats(
                 user,
@@ -704,14 +699,12 @@ impl QueryRoot {
                 order_by,
                 order_direction,
             )
-            .await
-        {
-            Err(err) => Err(err),
-            Result::Ok(tickets) => Ok(tickets
-                .into_iter()
-                .map(RequestTicketSubgraphStatDto::from)
-                .collect()),
-        }
+            .await?
+            .into_iter()
+            .map(RequestTicketSubgraphStatDto::from)
+            .collect();
+
+        Ok(subgraph_stats)
     }
 }
 

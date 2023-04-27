@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use dotenv::dotenv;
 use ethers::types::U256;
-use graph_subscriptions::subscription_tier::{SubscriptionTier, SubscriptionTiers};
 use toolshed::{bytes::Address, url::Url};
 
 #[derive(Debug)]
@@ -30,9 +29,6 @@ pub struct Config {
     /// Postgres database url where the logs are stored.
     /// Uses format: "postgres://{user}:{pwd}@{host}:{port}/{database}"
     pub graph_subscription_logs_db_url: String,
-    /// The available subscription tiers, used for query modeling.
-    /// The value is stored as a JSON array in the .env, parse into `Vec<graph_subscriptions::SubscriptionTier>`
-    pub subscriptions_tiers: SubscriptionTiers,
 }
 
 pub fn init_config() -> Config {
@@ -98,13 +94,6 @@ pub fn init_config() -> Config {
         Ok(url) => url,
         Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_DB_URL environment variable is required"),
     };
-    let subscriptions_tiers: SubscriptionTiers = match dotenv::var("SUBSCRIPTION_TIERS") {
-        Ok(tiers_raw) => match serde_json::from_str::<Vec<SubscriptionTier>>(&tiers_raw) {
-            Ok(sub_tiers) => SubscriptionTiers::new(sub_tiers),
-            Err(_) => SubscriptionTiers::new(vec![]),
-        },
-        Err(_) => SubscriptionTiers::new(vec![]),
-    };
 
     Config {
         api_port,
@@ -118,6 +107,5 @@ pub fn init_config() -> Config {
         graph_subscription_logs_kafka_group_id,
         graph_subscription_logs_kafka_topic_id,
         graph_subscription_logs_db_url,
-        subscriptions_tiers,
     }
 }
