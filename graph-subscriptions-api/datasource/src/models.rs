@@ -1,6 +1,7 @@
 use std::io::Cursor;
 
 use prost::Message;
+use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 use toolshed::bytes::{Address, DeploymentId};
 
@@ -125,6 +126,18 @@ pub struct RequestTicket {
 #[derive(Debug, PartialEq)]
 pub struct UniqRequestTicketDeploymentQmHash {
     pub deployment_qm_hash: DeploymentId,
+}
+
+#[derive(Debug, PartialEq, FromQueryResult)]
+pub struct UserHasTicketResult {
+    pub user_has_ticket: bool,
+}
+impl Default for UserHasTicketResult {
+    fn default() -> Self {
+        Self {
+            user_has_ticket: false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

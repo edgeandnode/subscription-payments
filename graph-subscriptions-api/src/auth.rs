@@ -76,6 +76,8 @@ impl AuthHandler {
 #[derive(Debug, Error)]
 pub enum AuthError {
     #[error("Authorization Header not found on request, or is invalid")]
+    Unauthenticated,
+    #[error("Do not have access to the requested resource")]
     Unauthorized,
 }
 
