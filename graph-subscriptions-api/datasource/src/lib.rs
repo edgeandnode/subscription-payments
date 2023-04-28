@@ -75,7 +75,7 @@ impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
             brokers: args.kafka_broker,
             group_id: args.kafka_subscription_logs_group_id,
             topic_id: args.kafka_subscription_logs_topic_id,
-            additional_config: None,
+            additional_config: args.kafka_additional_config,
         })?;
         // instantiate the postgres datasource instance and begin consuming messages
         let datasource_pg = DatasourcePostgres::create(args.postgres_db_url).await?;
