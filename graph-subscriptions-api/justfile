@@ -1,8 +1,6 @@
 # load the .env file
 set dotenv-load
 
-docker_image_name := "graph-subscriptions-api"
-
 # build the crate
 build:
   cargo build
@@ -10,8 +8,8 @@ build:
 dev:
   cargo run
 # build crate locally with docker
-docker_build:
-  DOCKER_BUILDKIT=1 docker build . -t {{docker_image_name}}
+docker_build IMAGE:
+  DOCKER_BUILDKIT=1 docker build . -t {{IMAGE}}
 # run the docker image locally with docker compose
 docker_up:
   docker compose up -d
