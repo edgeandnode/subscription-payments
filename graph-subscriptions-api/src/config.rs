@@ -1,10 +1,11 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
 
-use dotenv::dotenv;
-use ethers::types::U256;
+use serde::Deserialize;
+use serde_with::{serde_as, DisplayFromStr};
 use toolshed::{bytes::Address, url::Url};
 
-#[derive(Debug)]
+#[serde_as]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     /// Port to run the graph-subscriptions-api on. default: 4000
     pub api_port: u16,
@@ -15,133 +16,159 @@ pub struct Config {
     /// Format log output as JSON
     pub log_json: bool,
     /// The Graph Network Subgraph URL. For querying subgraphs published to the network
+    #[serde_as(as = "DisplayFromStr")]
     pub network_subgraph_url: Url,
     /// Subscriptions contract chain ID
-    pub subscriptions_chain_id: U256,
+    pub subscriptions_chain_id: u64,
     /// Subscriptions contract address
     pub subscriptions_contract_address: Address,
     /// Subscriptions subgraph url
+    #[serde_as(as = "DisplayFromStr")]
     pub subscriptions_subgraph_url: Url,
-    /// Graph Subscription logs Kafka consumer broker url
-    pub graph_subscription_logs_kafka_broker: String,
-    /// Graph Subscription logs Kafka group ID
-    pub graph_subscription_logs_kafka_group_id: String,
-    /// Graph Subscription logs Kafka topic ID
-    pub graph_subscription_logs_kafka_topic_id: String,
-    /// Additional kafka configuration settings
-    pub graph_subscription_logs_kafka_additional_config: Option<BTreeMap<String, String>>,
+    /// See https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
+    ///
+    /// # Examples
+    ///
+    ///
+    /// ```
+    /// // builds default, basic auth settings for connecting to a local kafka instance
+    /// {
+    ///     "kafka": {
+    ///         "bootstrap.servers": "PLAINTEXT://127.0.0.1:9092",
+    ///         "group.id": "graph-gateway",
+    ///         "message.timeout.ms": "3000",
+    ///         "queue.buffering.max.ms": "1000",
+    ///         "queue.buffering.max.messages": "100000",
+    ///         "enable.partition.eof": "false",
+    ///         "enable.auto.commit": "false",
+    ///     }
+    /// }
+    /// // with SSL/SASL authentication mechanism configured as well
+    /// {
+    ///     "kafka": {
+    ///         "bootstrap.servers": "PLAINTEXT://127.0.0.1:9092",
+    ///         "security.protocol": "sasl_ssl",
+    ///         "sasl.mechanism": "SCRAM-SHA-256",
+    ///         "sasl.username": "username",
+    ///         "sasl.password": "pwd",
+    ///         "ssl.ca.location": "/path/to/ca.crt",
+    ///         "ssl.certificate.location": "/path/to/ssl.crt",
+    ///         "ssl.key.location": "/path/to/ssl.key",
+    ///         "group.id": "graph-gateway",
+    ///         "message.timeout.ms": "3000",
+    ///         "queue.buffering.max.ms": "1000",
+    ///         "queue.buffering.max.messages": "100000",
+    ///         "enable.partition.eof": "false",
+    ///         "enable.auto.commit": "false",
+    ///     }
+    /// }
+    /// ```
+    #[serde(default)]
+    pub kafka: KafkaConfig,
+    /// The Kafka topic the gateway GSP query logs will be published to
+    pub kafka_topic_id: String,
     /// Postgres database url where the logs are stored.
     /// Uses format: "postgres://{user}:{pwd}@{host}:{port}/{database}"
-    pub graph_subscription_logs_db_url: String,
+    pub db_url: String,
 }
 
-pub fn init_config() -> Config {
-    dotenv().ok();
+#[derive(Debug, Clone, Deserialize)]
+pub struct KafkaConfig(BTreeMap<String, String>);
 
-    let api_port: u16 = dotenv::var("API_PORT")
-        .unwrap_or(String::from("4000"))
-        .parse()
-        .unwrap();
-    let graphql_endpoint = dotenv::var("GRAPHQL_ENDPOINT").unwrap_or(String::from("/graphql"));
-    let metrics_port: u16 = dotenv::var("METRICS_PORT")
-        .unwrap_or(String::from("9090"))
-        .parse()
-        .unwrap();
-    let log_json: bool = dotenv::var("LOG_JSON")
-        .unwrap_or(String::from("true"))
-        .parse()
-        .unwrap();
-    let subscriptions_chain_id: U256 = match dotenv::var("SUBSCRIPTIONS_CONTRACT_CHAIN_ID") {
-        Ok(chain_id) => U256::from_dec_str(&chain_id).unwrap_or(U256::from(421613)),
-        Err(_) => panic!("SUBSCRIPTIONS_CONTRACT_CHAIN_ID environment variable is required"),
-    };
-    let subscriptions_contract_address: Address =
-        match dotenv::var("SUBSCRIPTIONS_CONTRACT_ADDRESS") {
-            Ok(addr) => match Address::from_str(addr.as_str()) {
-                Ok(contract_addr) => contract_addr,
-                Err(_) => panic!("SUBSCRIPTIONS_CONTRACT_ADDRESS environment variable is invalid"),
+impl KafkaConfig {
+    pub fn build(mut conf: KafkaConfig) -> BTreeMap<String, String> {
+        let mut settings = conf.0.clone();
+        settings.append(&mut conf.0);
+
+        settings
+    }
+}
+
+impl Default for KafkaConfig {
+    fn default() -> Self {
+        let settings = [
+            ("bootstrap.servers", "PLAINTEXT://127.0.0.1:9092"),
+            ("group.id", "graph-gateway"),
+            ("message.timeout.ms", "3000"),
+            ("queue.buffering.max.ms", "1000"),
+            ("queue.buffering.max.messages", "100000"),
+            ("enable.partition.eof", "false"),
+            ("enable.auto.commit", "false"),
+        ];
+        Self(
+            settings
+                .into_iter()
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                .collect(),
+        )
+    }
+}
+
+impl PartialEq for KafkaConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_parse_json_config_into_config_instance() {
+        let config_raw = r#"
+        {
+            "api_port": 4000,
+            "graphql_endpoint": "/graphql",
+            "metrics_port": 9090,
+            "log_json": true,
+            "network_subgraph_url": "https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-mainnet/graphql",
+            "subscriptions_chain_id": 421613,
+            "subscriptions_contract_address": "0x29f49a438c747e7Dd1bfe7926b03783E47f9447B",
+            "subscriptions_subgraph_url": "https://api.thegraph.com/subgraphs/name/graphprotocol/subscriptions-arbitrum-goerli",
+            "kafka": {
+                "bootstrap.servers": "PLAINTEXT://127.0.0.1:9092",
+                "group.id": "graph-gateway",
+                "message.timeout.ms": "3000",
+                "queue.buffering.max.ms": "1000",
+                "queue.buffering.max.messages": "100000",
+                "enable.partition.eof": "false",
+                "enable.auto.commit": "false"
             },
-            Err(_) => panic!("SUBSCRIPTIONS_CONTRACT_ADDRESS environment variable is required"),
+            "kafka_topic_id": "gateway_subscription_query_results",
+            "db_url": "postgres://dev:dev@localhost:5432/gateway_subscription_query_results"
+        }
+        "#;
+        let expected_kafka_config = KafkaConfig::default();
+        let expected = Config {
+            api_port: 4000,
+            graphql_endpoint: "/graphql".to_string(),
+            metrics_port: 9090,
+            log_json: true,
+            network_subgraph_url: "https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-mainnet/graphql".parse::<Url>().unwrap(),
+            subscriptions_chain_id: 421613,
+            subscriptions_contract_address: "0x29f49a438c747e7Dd1bfe7926b03783E47f9447B".parse::<Address>().unwrap(),
+            subscriptions_subgraph_url: "https://api.thegraph.com/subgraphs/name/graphprotocol/subscriptions-arbitrum-goerli".parse::<Url>().unwrap(),
+            kafka_topic_id: "gateway_subscription_query_results".to_string(),
+            db_url: "postgres://dev:dev@localhost:5432/gateway_subscription_query_results".to_string(),
+            kafka: expected_kafka_config
         };
-    let subscriptions_subgraph_url: Url = match dotenv::var("SUBSCRIPTIONS_SUBGRAPH_URL") {
-        Ok(url) => match Url::from_str(url.as_str()) {
-            Ok(url) => url,
-            Err(_) => panic!("SUBSCRIPTIONS_SUBGRAPH_URL environment variable is invalid"),
-        },
-        Err(_) => panic!("SUBSCRIPTIONS_SUBGRAPH_URL environment variable is required"),
-    };
-    let network_subgraph_url: Url = match dotenv::var("NETWORK_SUBGRAPH_URL") {
-        Ok(url) => match Url::from_str(url.as_str()) {
-            Ok(url) => url,
-            Err(_) => panic!("NETWORK_SUBGRAPH_URL environment variable is invalid"),
-        },
-        Err(_) => panic!("NETWORK_SUBGRAPH_URL environment variable is required"),
-    };
-    let graph_subscription_logs_kafka_broker =
-        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER") {
-            Ok(url) => url,
-            Err(_) => {
-                panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_BROKER environment variable is required")
-            }
-        };
-    let graph_subscription_logs_kafka_group_id =
-        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_GROUP_ID") {
-            Ok(group_id) => group_id,
-            Err(_) => {
-                panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_GROUP_ID environment variable is required")
-            }
-        };
-    let graph_subscription_logs_kafka_topic_id =
-        match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_TOPIC_ID") {
-            Ok(group_id) => group_id,
-            Err(_) => {
-                panic!("GRAPH_SUBSCRIPTION_LOGS_KAFKA_TOPIC_ID environment variable is required")
-            }
-        };
-    // attempt to parse and build the additional kafka config
-    let mut kafka_additional_config = BTreeMap::<String, String>::new();
-    if let Some(security_protocol) =
-        dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SECURITY_PROTOCOL").ok()
-    {
-        kafka_additional_config.insert("security.protocol".to_string(), security_protocol);
-    }
-    if let Some(mechanism) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SASL_MECHANISM").ok() {
-        kafka_additional_config.insert("sasl.mechanism".to_string(), mechanism);
-    }
-    if let Some(username) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SASL_USERNAME").ok() {
-        kafka_additional_config.insert("sasl.username".to_string(), username);
-    }
-    if let Some(password) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SASL_PASSWORD").ok() {
-        kafka_additional_config.insert("sasl.password".to_string(), password);
-    }
-    if let Some(ssl_ca_loc) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SSL_CA_LOC").ok() {
-        kafka_additional_config.insert("ssl.ca.location".to_string(), ssl_ca_loc);
-    }
-    if let Some(ssl_cert_loc) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SSL_CERT_LOC").ok() {
-        kafka_additional_config.insert("ssl.certificate.location".to_string(), ssl_cert_loc);
-    }
-    if let Some(ssl_key_loc) = dotenv::var("GRAPH_SUBSCRIPTION_LOGS_KAFKA_SSL_KEY_LOC").ok() {
-        kafka_additional_config.insert("ssl.key.location".to_string(), ssl_key_loc);
-    }
 
-    let graph_subscription_logs_db_url = match dotenv::var("GRAPH_SUBSCRIPTION_LOGS_DB_URL") {
-        Ok(url) => url,
-        Err(_) => panic!("GRAPH_SUBSCRIPTION_LOGS_DB_URL environment variable is required"),
-    };
-
-    Config {
-        api_port,
-        graphql_endpoint,
-        metrics_port,
-        log_json,
-        subscriptions_chain_id,
-        subscriptions_contract_address,
-        subscriptions_subgraph_url,
-        network_subgraph_url,
-        graph_subscription_logs_kafka_broker,
-        graph_subscription_logs_kafka_group_id,
-        graph_subscription_logs_kafka_topic_id,
-        graph_subscription_logs_kafka_additional_config: Some(kafka_additional_config),
-        graph_subscription_logs_db_url,
+        match serde_json::from_str::<Config>(&config_raw) {
+            Ok(actual) => {
+                // spot check
+                assert_eq!(actual.api_port, expected.api_port);
+                assert_eq!(actual.kafka_topic_id, expected.kafka_topic_id);
+                assert_eq!(
+                    actual.subscriptions_chain_id,
+                    expected.subscriptions_chain_id
+                );
+                assert_eq!(actual.db_url, expected.db_url);
+                assert_eq!(actual.kafka.clone(), expected.kafka.clone());
+            }
+            Err(err) => {
+                assert!(false, "Failure parsing JSON -> Config {:#?}", err);
+            }
+        }
     }
 }
