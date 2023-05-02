@@ -72,7 +72,7 @@ pub struct Config {
     pub db_url: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct KafkaConfig(BTreeMap<String, String>);
 
 impl KafkaConfig {
@@ -101,12 +101,6 @@ impl Default for KafkaConfig {
                 .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect(),
         )
-    }
-}
-
-impl PartialEq for KafkaConfig {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 
