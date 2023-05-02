@@ -32,11 +32,9 @@ services:
 
   postgres:
     image: postgres:14-bullseye
-    env_file:
-      - ./.env
     environment:
-      - POSTGRES_DB=${GRAPH_SUBSCRIPTION_LOGS_DB_NAME}
-      - POSTGRES_USER=${GRAPH_SUBSCRIPTION_LOGS_DB_USER}
-      - POSTGRES_PASSWORD=${GRAPH_SUBSCRIPTION_LOGS_DB_PASSWORD}
+      - POSTGRES_DB=gateway_subscription_query_results
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=dev
     ports:
       - 15432:5432

@@ -1,5 +1,9 @@
-use std::{io::Write as _, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    env, fs::read_to_string, io::Write as _, net::SocketAddr, path::PathBuf, sync::Arc,
+    time::Duration,
+};
 
+use anyhow::Context;
 use async_graphql::{http::GraphiQLSource, EmptyMutation, EmptySubscription, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use auth::TicketPayloadWrapper;
@@ -25,7 +29,7 @@ mod subgraph_client;
 mod subscriptions_subgraph;
 
 use crate::auth::AuthHandler;
-use crate::config::init_config;
+use crate::config::{Config, KafkaConfig};
 use crate::schema::{GraphSubscriptionsSchema, GraphSubscriptionsSchemaCtx, QueryRoot};
 
 async fn graphql_handler(
@@ -60,12 +64,26 @@ async fn handle_metrics() -> impl IntoResponse {
 
 #[tokio::main]
 async fn main() {
-    let conf = init_config();
+    // the mounted config location is passed as an arg to the build.
+    // grab the config path value from the arg and attempt to load the config JSON and parse into a [`crate::config::Config`] instance.`
+    let config_path = env::args()
+        .nth(1)
+        .expect("Missing argument for config path")
+        .parse::<PathBuf>()
+        .unwrap();
+    let config_file_text = read_to_string(config_path.clone()).expect("Failed to open config");
+    let conf = serde_json::from_str::<Config>(&config_file_text)
+        .context("Failed to parse JSON config")
+        .unwrap();
+
+    let config_repr = format!("{conf:#?}");
+
     let graphql_endpoint = conf.graphql_endpoint;
 
     init_tracing(conf.log_json);
 
     tracing::info!("Graph Subscriptions API starting...");
+    tracing::debug!(conf = %config_repr);
 
     // Host metrics on a separate server with a port that isn't open to public requests.
     tokio::spawn(async move {
@@ -94,14 +112,13 @@ async fn main() {
         conf.subscriptions_subgraph_url.clone(),
     ));
 
+    let def_kafka = KafkaConfig::default();
     let subscriptions_datasource =
         GraphSubscriptionsDatasource::<DatasourcePostgres>::create_with_datasource_pg(
             CreateWithDatasourcePgArgs {
-                kafka_broker: conf.graph_subscription_logs_kafka_broker,
-                kafka_subscription_logs_group_id: conf.graph_subscription_logs_kafka_group_id,
-                kafka_subscription_logs_topic_id: conf.graph_subscription_logs_kafka_topic_id,
-                kafka_additional_config: conf.graph_subscription_logs_kafka_additional_config,
-                postgres_db_url: conf.graph_subscription_logs_db_url,
+                kafka_config: KafkaConfig::build(def_kafka),
+                kafka_topic_id: conf.kafka_topic_id,
+                postgres_db_url: conf.db_url,
                 num_workers: Some(2),
             },
         )
@@ -121,7 +138,7 @@ async fn main() {
 
     let subscriptions_domain = TicketVerificationDomain {
         contract: ethers::types::H160(conf.subscriptions_contract_address.0),
-        chain_id: conf.subscriptions_chain_id,
+        chain_id: conf.subscriptions_chain_id.into(),
     };
     let auth_handler = AuthHandler::create(subscriptions_domain, subscriptions);
 

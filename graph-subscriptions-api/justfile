@@ -1,12 +1,9 @@
-# load the .env file
-set dotenv-load
-
 # build the crate
 build:
   cargo build
 # run crate locally
-dev:
-  cargo run
+dev CONFIG_PATH:
+  cargo run {{CONFIG_PATH}}
 # build crate locally with docker
 docker_build IMAGE:
   DOCKER_BUILDKIT=1 docker build . -t {{IMAGE}}

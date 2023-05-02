@@ -4,9 +4,7 @@ GraphQL API that exposes queries for user's to see their graph-subscription requ
 
 ## Env
 
-This app utilizes the `dotenv` library to handle environment variables. The default env file is `.env` in the `graph-subscriptions-api` directory.
-
-See the [.env.example](./.env.example) file for default values.
+This app loads an instance of type [`Config`](./src/config.rs) from JSON file. Checkout the [local config](./config) for an example. Run locally with this config instance.
 
 ## Running (with Docker/Docker compose)
 
@@ -17,14 +15,13 @@ just -l
 # spin up the necessary resources for the app (kafka, postgres, etc)
 just docker_up
 
-# run the api in dev mode
-just dev
-
 # create the topic on the local kafka broker
 ## requires running `just docker_up` first
 ## replace ${TOPIC_ID} with the name of the topic to create
-docker exec -it redpanda_1 \
-  rpk topic create ${TOPIC_ID} --brokers=localhost:9092
+just create_topic
+
+# run the api in dev mode
+just dev ./config
 
 # teardown the docker image
 just docker_down

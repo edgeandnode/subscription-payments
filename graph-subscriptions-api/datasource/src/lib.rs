@@ -22,36 +22,44 @@ where
 }
 
 pub struct CreateWithDatasourcePgArgs {
-    /// Kafka broker url.
-    /// Format: {kafka_protocol}://{ip address}:{port}
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let kafka_broker = String::from("PLAINTEXT://127.0.0.1:9092");
-    /// ```
-    pub kafka_broker: String,
-    /// The graph gateway subscription logs group id
-    pub kafka_subscription_logs_group_id: String,
     /// The graph gateway subscription logs topic id
-    pub kafka_subscription_logs_topic_id: String,
-    /// Additional connection/configuration parameters.
+    pub kafka_topic_id: String,
+    /// Connection/configuration parameters.
     /// For example, to connect via SSL to the kafka broker, etc.
+    /// Thesese key-values are _required_:
+    /// - "bootstrap.servers"
+    /// - "group.id"
     ///
     /// # Examples
     ///
     /// ```
-    /// // instantiate the additional config to connect via ssl
-    /// let mut additional_config = BTreeMap::<String, String>::new();
-    /// additiona_config.insert("security.protocol".to_string(), "sasl_ssl".to_string());
-    /// additiona_config.insert("sasl.mechanism".to_string(), "SCRAM-SHA-256".to_string());
-    /// additiona_config.insert("sasl.username".to_string(), "username".to_string());
-    /// additiona_config.insert("sasl.password".to_string(), "password".to_string());
-    /// additiona_config.insert("ssl.ca.location".to_string(), "/path/to/ca/cert".to_string());
-    /// additiona_config.insert("ssl.certificate.location".to_string(), "/path/to/ssl/cert".to_string());
-    /// additiona_config.insert("ssl.key.location".to_string(), "/path/to/ssl/key".to_string());
+    /// // instantiate the config, to connect locally, no auth mech
+    /// let mut config = BTreeMap::<String, String>::new();
+    /// config.insert("bootstrap.servers".to_string(), "PLAINTEXT://127.0.0.1:9092".to_string());
+    /// config.insert("group.id".to_string(), "graph-gateway".to_string());
+    /// config.insert("message.timeout.ms".to_string(), "3000".to_string());
+    /// config.insert("queue.buffering.max.ms".to_string(), "1000".to_string());
+    /// config.insert("queue.buffering.max.messages".to_string(), "100000".to_string());
+    /// config.insert("enable.partition.eof".to_string(), "false".to_string());
+    /// config.insert("enable.auto.commit".to_string(), "false".to_string());
+    /// // instantiate the config to connect via ssl
+    /// let mut config = BTreeMap::<String, String>::new();
+    /// config.insert("bootstrap.servers".to_string(), "PLAINTEXT://127.0.0.1:9092".to_string());
+    /// config.insert("group.id".to_string(), "graph-gateway".to_string());
+    /// config.insert("security.protocol".to_string(), "sasl_ssl".to_string());
+    /// config.insert("sasl.mechanism".to_string(), "SCRAM-SHA-256".to_string());
+    /// config.insert("sasl.username".to_string(), "username".to_string());
+    /// config.insert("sasl.password".to_string(), "password".to_string());
+    /// config.insert("ssl.ca.location".to_string(), "/path/to/ca/cert".to_string());
+    /// config.insert("ssl.certificate.location".to_string(), "/path/to/ssl/cert".to_string());
+    /// config.insert("ssl.key.location".to_string(), "/path/to/ssl/key".to_string());
+    /// config.insert("message.timeout.ms".to_string(), "3000".to_string());
+    /// config.insert("queue.buffering.max.ms".to_string(), "1000".to_string());
+    /// config.insert("queue.buffering.max.messages".to_string(), "100000".to_string());
+    /// config.insert("enable.partition.eof".to_string(), "false".to_string());
+    /// config.insert("enable.auto.commit".to_string(), "false".to_string());
     /// ```
-    pub kafka_additional_config: Option<BTreeMap<String, String>>,
+    pub kafka_config: BTreeMap<String, String>,
     /// Postgres db url.
     /// Format: `postgres://{user}:{password}@{host}:{port}/{database}
     ///
@@ -72,10 +80,8 @@ impl<T: Datasource> GraphSubscriptionsDatasource<'_, T> {
     ) -> Result<GraphSubscriptionsDatasource<'static, DatasourcePostgres>> {
         // instantiate the consumer instance
         let log_consumer = LogConsumer::create(ConsumerConfig {
-            brokers: args.kafka_broker,
-            group_id: args.kafka_subscription_logs_group_id,
-            topic_id: args.kafka_subscription_logs_topic_id,
-            additional_config: args.kafka_additional_config,
+            topic_id: args.kafka_topic_id,
+            config: args.kafka_config,
         })?;
         // instantiate the postgres datasource instance and begin consuming messages
         let datasource_pg = DatasourcePostgres::create(args.postgres_db_url).await?;
