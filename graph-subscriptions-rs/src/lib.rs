@@ -9,9 +9,12 @@ use ethers::{
     types::{Signature, U256},
     utils::hash_message,
 };
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, skip_serializing_none, Bytes, FromInto};
-use std::io::{self, Write as _};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_with::{serde_as, skip_serializing_none, FromInto};
+use std::{
+    io::{self, Write as _},
+    str::FromStr as _,
+};
 
 pub mod subscription_tier;
 
@@ -27,14 +30,37 @@ abigen!(
 // This is necessary intermediary to get the Address wrapper type over bytes to serialize &
 // deserialize as bytes in the CBOR representation.
 // See https://github.com/jonasbb/serde_with/discussions/557
-#[serde_as]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(transparent)]
-struct AddressBytes(#[serde_as(as = "Bytes")] [u8; 20]);
+#[derive(Clone, Debug)]
+struct AddressBytes([u8; 20]);
 #[rustfmt::skip]
 impl From<AddressBytes> for Address { fn from(value: AddressBytes) -> Self { value.0.into() } }
 #[rustfmt::skip]
 impl From<Address> for AddressBytes { fn from(value: Address) -> Self { Self(value.0) } }
+impl Serialize for AddressBytes {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&format!("{:?}", Address::from(self.0)))
+        } else {
+            serializer.serialize_bytes(&self.0)
+        }
+    }
+}
+impl<'de> Deserialize<'de> for AddressBytes {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            Address::from_str(Deserialize::deserialize(deserializer)?)
+                .map(|address| Self(address.0))
+                .map_err(serde::de::Error::custom)
+        } else {
+            // There should be a better way, but this works.
+            #[serde_as]
+            #[derive(Deserialize)]
+            #[serde(transparent)]
+            struct AsBytes(#[serde_as(as = "serde_with::Bytes")] [u8; 20]);
+            AsBytes::deserialize(deserializer).map(|bytes| Self(bytes.0))
+        }
+    }
+}
 
 #[serde_as]
 #[skip_serializing_none]
