@@ -38,7 +38,7 @@ impl From<Address> for AddressBytes { fn from(value: Address) -> Self { Self(val
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TicketPayload {
     /// Address associated with the secret key used to sign the ticket.
     #[serde_as(as = "FromInto<AddressBytes>")]
