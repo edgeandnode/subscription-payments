@@ -48,7 +48,7 @@ impl Serialize for AddressBytes {
 impl<'de> Deserialize<'de> for AddressBytes {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {
-            Address::from_str(Deserialize::deserialize(deserializer)?)
+            Address::from_str(&String::deserialize(deserializer)?)
                 .map(|address| Self(address.0))
                 .map_err(serde::de::Error::custom)
         } else {
