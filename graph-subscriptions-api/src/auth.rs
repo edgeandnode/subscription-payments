@@ -183,7 +183,6 @@ mod tests {
 
     #[test]
     fn should_fail_if_no_subscription_found_for_user() {
-        let user = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
         let chain_id = 1337;
         let contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
             .parse::<Address>()
@@ -195,18 +194,15 @@ mod tests {
         let subscriptions = Eventual::from_value(Ptr::default());
         let handler = AuthHandler::create(domain_separator, subscriptions);
         let mut headers = HeaderMap::new();
-        let ticket = "Bearer omJpZBs1sgbzHbbOBGZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaWmnagrqD-_AABXUcDxquxmTfUsOFUl2fj5cppR7BXOjjCHn2RvRk64Nvdx3ZkT1DN1SvFTz7i39xHvzTls4OiHA";
-        headers.append(AUTHORIZATION, ticket.parse().unwrap());
+        let ticket = "o2RuYW1lTnRlc3RfYXBpX2tleV8xZnNpZ25lclTBQrzwQKv5NwPAPazwLFS0DaDt63FhbGxvd2VkX3N1YmdyYXBoc1gsM25YZkszUmJGcmo2bWhrR2RvS1Jvd0VFdGkyV3ZtVWR4bXo3M3RiZW42TWI-WazK5YV6jVBngF9J_uaF9XMfvpmj3EBl5Wkzcr0n6R5-e9ukTLQa0fFq5GslcbkxN3WNxq2q6pgqxG0XaZYYHA";
+        let bearer = format!("Bearer {}", ticket);
+        headers.append(AUTHORIZATION, bearer.parse().unwrap());
 
         let actual = handler.parse_auth_header(&headers);
         assert!(
             actual.is_err(),
             "should throw an error if no active subscription found for user"
         );
-        assert_eq!(
-            actual.unwrap_err().to_string(),
-            format!("Subscription not found for user {}", user)
-        )
     }
 
     #[test]

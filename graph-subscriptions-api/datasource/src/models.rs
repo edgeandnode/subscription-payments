@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn should_deserialize_str_to_ticket_payload_no_allowed_fields() {
-        let given = r#"{"signer":[193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],"user":[193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],"name":"query_key__arb-goerli"}"#;
+        let given = r#"{"signer":"0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb","user":"0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb","name":"query_key__arb-goerli"}"#;
         let expected = TicketPayload {
             name: Some(String::from("query_key__arb-goerli")),
             signer: "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb"
@@ -288,8 +288,8 @@ mod tests {
     fn should_deserialize_str_to_ticket_payload_with_allowed_fields() {
         let given = json!({
             "name": "req_ticket__1",
-            "signer": [193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],
-            "user": [193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],
+            "signer": "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb",
+            "user": "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb",
             "allowed_domains": "http://localhost:3000,*.thegraph.com",
             "allowed_deployments": "Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH",
             "allowed_subgraphs": "3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg"
