@@ -6,6 +6,7 @@ import {
   Unsubscribe as UnsubscribeEvent,
   AuthorizedSignerAdded as AuthorizedSignerAddedEvent,
   AuthorizedSignerRemoved as AuthorizedSignerRemovedEvent,
+  SubscribeCall,
 } from '../generated/Subscriptions/Subscriptions';
 import {
   UserSubscription,
@@ -306,3 +307,4 @@ function incrementUserEventCount(user: User): void {
   user.eventCount = user.eventCount + 1;
   user.save();
 }
+

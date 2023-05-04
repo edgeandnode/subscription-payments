@@ -20,6 +20,10 @@ dataSources:
       abis:
         - name: Subscriptions
           file: ./abis/Subscriptions.json
+      callHandlers:
+        - function: subscribe(uint64,uint64,uint128)
+          handler: handleSubscribeCall
+          receipt: true
       eventHandlers:
         - event: Init(address,uint64)
           handler: handleInit
