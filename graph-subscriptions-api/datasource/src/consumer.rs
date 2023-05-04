@@ -10,8 +10,7 @@ use rdkafka::{
 pub struct ConsumerConfig {
     /// The Graph Subscriptions query result logs kafka topic id
     pub topic_id: String,
-    /// Additional configuration paramters for the kafka consumer
-    /// For example, if connecting to a prod cluster via SSL instead of local
+    /// Kafka consumer configuration paramaters
     pub config: BTreeMap<String, String>,
 }
 

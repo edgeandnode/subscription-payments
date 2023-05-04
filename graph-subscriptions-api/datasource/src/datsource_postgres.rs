@@ -3,6 +3,7 @@ use std::{str::FromStr, time::Duration};
 use async_trait::async_trait;
 use chrono::Utc;
 use futures::TryStreamExt;
+use graph_subscriptions::TicketPayload;
 use migration::MigratorTrait;
 use rdkafka::{
     consumer::{DefaultConsumerContext, StreamConsumer},
@@ -11,7 +12,7 @@ use rdkafka::{
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ConnectOptions, Database, DatabaseConnection, FromQueryResult,
-    JsonValue, Set, Statement, TryGetable,
+    JsonValue, Set, Statement,
 };
 use serde_json::json;
 use toolshed::bytes::{Address, DeploymentId};
@@ -32,28 +33,6 @@ impl FromQueryResult for UniqRequestTicketDeploymentQmHash {
     }
 }
 
-impl TryGetable for GatewaySubscriptionQueryResultTicketPayload {
-    fn try_get(
-        res: &sea_orm::QueryResult,
-        pre: &str,
-        col: &str,
-    ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        let payload = res.try_get::<JsonValue>(pre, col)?;
-        let parsed = serde_json::from_value::<GatewaySubscriptionQueryResultTicketPayload>(payload)
-            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
-        Result::Ok(parsed)
-    }
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        let payload = res.try_get_by::<JsonValue, I>(index)?;
-        let parsed = serde_json::from_value::<GatewaySubscriptionQueryResultTicketPayload>(payload)
-            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
-        Result::Ok(parsed)
-    }
-}
-
 impl FromQueryResult for RequestTicket {
     fn from_query_result(res: &sea_orm::QueryResult, pre: &str) -> Result<Self, migration::DbErr> {
         let ticket_user = res
@@ -62,8 +41,9 @@ impl FromQueryResult for RequestTicket {
         let ticket_user = ticket_user.map_err(|err| migration::DbErr::Custom(err.to_string()))?;
         // ticket_payload comes as a JSON array value.
         // parse the value, grab the first item.
-        let ticket_payload =
-            res.try_get::<GatewaySubscriptionQueryResultTicketPayload>(pre, "ticket_payload")?;
+        let ticket_payload_json = res.try_get::<JsonValue>(pre, "ticket_payload")?;
+        let ticket_payload = serde_json::from_value::<TicketPayload>(ticket_payload_json)
+            .map_err(|err| sea_orm::TryGetError::DbErr(migration::DbErr::Json(err.to_string())))?;
 
         Result::Ok(Self {
             ticket_name: res.try_get(pre, "ticket_name")?,
@@ -450,7 +430,8 @@ impl DatasourceWriter for DatasourcePostgres {
                 let key = String::from_utf8_lossy(msg.key().unwrap_or_default()).to_string();
                 let (start, end) = build_timerange_timestamp(timestamp);
 
-                let ticket_name = serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&query_result_msg.ticket_payload).map(|payload| payload.name).unwrap_or_default();
+                let ticket_payload = serde_json::from_str::<TicketPayload>(&query_result_msg.ticket_payload).map_err(|_| KafkaError::MessageConsumption(rdkafka::types::RDKafkaErrorCode::BadMessage))?;
+                let ticket_name = ticket_payload.name;
 
                 let result_record = entity::subscription_query_result::ActiveModel {
                     id: Set(Uuid::new_v4()),

@@ -1,9 +1,11 @@
 use std::{str::FromStr, sync::Arc};
 
 use anyhow::{anyhow, Ok, Result};
-use async_graphql::{Context, EmptyMutation, EmptySubscription, Enum, Object, Schema};
+use async_graphql::{scalar, Context, EmptyMutation, EmptySubscription, Enum, Object, Schema, ID};
 use datasource::{Datasource, DatasourcePostgres};
 use futures::future::join_all;
+use graph_subscriptions::TicketPayload;
+use serde::{Deserialize, Serialize};
 use sha3::{
     digest::{ExtendableOutput, Update, XofReader},
     Shake256,
@@ -23,6 +25,14 @@ pub struct GraphSubscriptionsSchemaCtx<'a> {
 
 pub type GraphSubscriptionsSchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
 
+#[derive(Serialize, Deserialize)]
+pub struct BigInt(i64);
+scalar!(BigInt, "BigInt");
+
+#[derive(Serialize, Deserialize)]
+pub struct Bytes(String);
+scalar!(Bytes, "Bytes");
+
 #[derive(Enum, Clone, Copy, PartialEq, Eq)]
 pub enum OrderDirection {
     Asc,
@@ -39,8 +49,8 @@ impl Into<datasource::OrderDirection> for OrderDirection {
 
 #[Object]
 impl GraphAccount {
-    async fn id(&self) -> String {
-        self.id.to_string()
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
     }
     async fn image(&self) -> &Option<String> {
         &self.image
@@ -52,8 +62,8 @@ impl GraphAccount {
 
 #[Object]
 impl Subgraph {
-    async fn id(&self) -> String {
-        self.id.to_string()
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
     }
     async fn display_name(&self) -> &Option<String> {
         &self.display_name
@@ -108,10 +118,10 @@ pub struct TicketPayloadDto {
     pub allowed_subgraphs: Option<String>,
 }
 
-impl From<datasource::GatewaySubscriptionQueryResultTicketPayload> for TicketPayloadDto {
-    fn from(value: datasource::GatewaySubscriptionQueryResultTicketPayload) -> Self {
+impl From<TicketPayload> for TicketPayloadDto {
+    fn from(value: TicketPayload) -> Self {
         Self {
-            signer: value.signer,
+            signer: format!("{:?}", value.signer),
             allowed_domains: value.allowed_domains,
             allowed_deployments: value.allowed_deployments,
             allowed_subgraphs: value.allowed_subgraphs,
@@ -124,8 +134,8 @@ impl TicketPayloadDto {
     /// The ticket signer.
     /// For most use-cases, this will match the `RequestTicket.ticket_user` value.
     /// But if the signer is an authorized signer on the subscription, this value will be the signing wallet
-    pub async fn signer(&self) -> String {
-        self.signer.to_string()
+    pub async fn signer(&self) -> Bytes {
+        Bytes(self.signer.to_string())
     }
     /// A list of Subgraph Deployment Qm hashes the ticket is allowed to query
     pub async fn allowed_deployments(&self) -> Vec<String> {
@@ -180,12 +190,12 @@ impl TicketPayloadDto {
 /// When a gateway receives the query, with this request ticket, it pushes data about the query to logs.
 /// This api then queries the data from those logs to build this structure.
 impl RequestTicketDto {
-    async fn id(&self) -> String {
-        self.id.to_string()
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
     }
     /// The wallet address of the user who owns the request ticket/signed the message
-    async fn ticket_user(&self) -> String {
-        self.ticket_user.to_string()
+    async fn ticket_user(&self) -> Bytes {
+        Bytes(self.ticket_user.to_string())
     }
     /// The user-chosen, friendly, name of the request ticket.
     /// This value is not stored on-chain. It is selected filled out by the user when they sign the EIP-712 message.
@@ -197,8 +207,8 @@ impl RequestTicketDto {
         &self.ticket_payload
     }
     /// Count of all of the `Subgraphs` queried by the request ticket.
-    async fn queried_subgraphs_count(&self) -> i64 {
-        self.queried_subgraphs_count
+    async fn queried_subgraphs_count(&self) -> BigInt {
+        BigInt(self.queried_subgraphs_count)
     }
     /// List of `Subgraph` records that this request ticket queried.
     async fn queried_subgraphs<'ctx>(
@@ -242,8 +252,8 @@ impl RequestTicketDto {
         Ok(Some(subgraphs))
     }
     /// Total count of queries performed, across all `Subgraphs`, using this request ticket
-    async fn total_query_count(&self) -> i64 {
-        self.total_query_count
+    async fn total_query_count(&self) -> BigInt {
+        BigInt(self.total_query_count)
     }
     /// Returns a list of `RequestTicketStatDto`, broken down by day, of the request ticket usage
     async fn stats<'ctx>(
@@ -285,8 +295,8 @@ impl RequestTicketDto {
         Ok(stats)
     }
     /// Unix-timestamp of the last query performed using this request ticket
-    async fn last_query_timestamp(&self) -> i64 {
-        self.last_query_timestamp
+    async fn last_query_timestamp(&self) -> BigInt {
+        BigInt(self.last_query_timestamp)
     }
 }
 
@@ -322,28 +332,28 @@ pub struct RequestTicketStatDto {
 
 #[Object]
 impl RequestTicketStatDto {
-    async fn id(&self) -> String {
-        self.id.to_string()
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
     }
     /// The Request Ticket Owner
-    async fn ticket_user(&self) -> String {
-        self.ticket_user.to_string()
+    async fn ticket_user(&self) -> Bytes {
+        Bytes(self.ticket_user.to_string())
     }
     /// The Request Ticket Name
     async fn ticket_name(&self) -> String {
         self.ticket_name.to_string()
     }
     /// The start unix-timestamp date range of aggregated stats
-    async fn start(&self) -> i64 {
-        self.start
+    async fn start(&self) -> BigInt {
+        BigInt(self.start)
     }
     /// The end unix-timestamp date range of the aggregated stats
-    async fn end(&self) -> i64 {
-        self.end
+    async fn end(&self) -> BigInt {
+        BigInt(self.end)
     }
     /// The total count of queries received in the given date range using the RequestTicket
-    async fn total_query_count(&self) -> i64 {
-        self.total_query_count
+    async fn total_query_count(&self) -> BigInt {
+        BigInt(self.total_query_count)
     }
     /// Success rate, from 0.0 -> 1.0, of the number of queries that were returned to the caller successfully
     async fn success_rate(&self) -> f32 {
@@ -355,8 +365,8 @@ impl RequestTicketStatDto {
     }
     /// A count of queries that did not return successfully to the caller.
     /// Whether because the query submitted by the user was invalid, there was an indexer error, or there was an internal error processing the query.
-    async fn failed_query_count(&self) -> i64 {
-        self.failed_query_count
+    async fn failed_query_count(&self) -> BigInt {
+        BigInt(self.failed_query_count)
     }
     /// Count of all of the `Subgraphs` queried by the request ticket.
     async fn queried_subgraphs_count(&self) -> i64 {
@@ -490,28 +500,28 @@ impl From<datasource::RequestTicketSubgraphStat> for RequestTicketSubgraphStatDt
 
 #[Object]
 impl RequestTicketSubgraphStatDto {
-    async fn id(&self) -> String {
-        self.id.to_string()
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
     }
     /// The Request Ticket Owner
-    async fn ticket_user(&self) -> String {
-        self.ticket_user.to_string()
+    async fn ticket_user(&self) -> Bytes {
+        Bytes(self.ticket_user.to_string())
     }
     /// The Request Ticket Name
     async fn ticket_name(&self) -> String {
         self.ticket_name.to_string()
     }
     /// The start unix-timestamp date range of aggregated stats
-    async fn start(&self) -> i64 {
-        self.start
+    async fn start(&self) -> BigInt {
+        BigInt(self.start)
     }
     /// The end unix-timestamp date range of the aggregated stats
-    async fn end(&self) -> i64 {
-        self.end
+    async fn end(&self) -> BigInt {
+        BigInt(self.end)
     }
     /// The total count of queries received in the given date range using the RequestTicket
-    async fn total_query_count(&self) -> i64 {
-        self.total_query_count
+    async fn total_query_count(&self) -> BigInt {
+        BigInt(self.total_query_count)
     }
     /// Success rate, from 0.0 -> 1.0, of the number of queries that were returned to the caller successfully
     async fn success_rate(&self) -> f32 {
@@ -523,8 +533,8 @@ impl RequestTicketSubgraphStatDto {
     }
     /// A count of queries that did not return successfully to the caller.
     /// Whether because the query submitted by the user was invalid, there was an indexer error, or there was an internal error processing the query.
-    async fn failed_query_count(&self) -> i64 {
-        self.failed_query_count
+    async fn failed_query_count(&self) -> BigInt {
+        BigInt(self.failed_query_count)
     }
     /// The Subgraph Deployment Qm hash the user queried
     async fn subgraph_deployment_qm_hash(&self) -> String {
@@ -766,10 +776,16 @@ mod tests {
             total_query_count: 200,
             queried_subgraphs_count: 1,
             last_query_timestamp,
-            ticket_payload: datasource::GatewaySubscriptionQueryResultTicketPayload {
+            ticket_payload: TicketPayload {
                 name: Some(String::from("test_req_ticket__1")),
-                signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
-                user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+                signer: "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"
+                    .parse::<ethers::types::Address>()
+                    .unwrap(),
+                user: Some(
+                    "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"
+                        .parse::<ethers::types::Address>()
+                        .unwrap(),
+                ),
                 allowed_domains: None,
                 allowed_deployments: None,
                 allowed_subgraphs: None,
@@ -791,7 +807,12 @@ mod tests {
             queried_subgraphs_count: 1,
             last_query_timestamp,
             ticket_payload: TicketPayloadDto {
-                signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+                signer: format!(
+                    "{:?}",
+                    "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"
+                        .parse::<ethers::types::Address>()
+                        .unwrap()
+                ),
                 allowed_deployments: None,
                 allowed_domains: None,
                 allowed_subgraphs: None,

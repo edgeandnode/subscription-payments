@@ -1,5 +1,6 @@
 use std::io::Cursor;
 
+use graph_subscriptions::TicketPayload;
 use prost::Message;
 use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
@@ -23,16 +24,16 @@ pub struct GatewaySubscriptionQueryResult {
     #[prost(string, tag = "6")]
     pub ticket_payload: ::prost::alloc::string::String,
     /// Subgraph Deployment ID, CIDv0 ("Qm" hash)
-    #[prost(string, optional, tag = "8")]
+    #[prost(string, optional, tag = "7")]
     pub deployment: ::core::option::Option<::prost::alloc::string::String>,
     /// Chain name indexed by subgraph deployment
-    #[prost(string, optional, tag = "9")]
+    #[prost(string, optional, tag = "8")]
     pub subgraph_chain: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(uint32, optional, tag = "10")]
+    #[prost(uint32, optional, tag = "9")]
     pub query_count: ::core::option::Option<u32>,
-    #[prost(float, optional, tag = "11")]
+    #[prost(float, optional, tag = "10")]
     pub query_budget: ::core::option::Option<f32>,
-    #[prost(float, optional, tag = "12")]
+    #[prost(float, optional, tag = "11")]
     pub indexer_fees: ::core::option::Option<f32>,
 }
 #[derive(
@@ -74,22 +75,6 @@ impl GatewaySubscriptionQueryResult {
         Self::decode(&mut Cursor::new(slice)).map_err(|err| anyhow::Error::from(err))
     }
 }
-/// This is the CBOR map ticket payload data encoded as a JSON string on [`GatewaySubscriptionQueryResult.ticket_payload`]
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct GatewaySubscriptionQueryResultTicketPayload {
-    pub name: Option<String>,
-    pub signer: String,
-    pub user: String,
-    /// comma-separated list of domains
-    /// ex: *.thegraph.com,http://localhost:3000
-    pub allowed_domains: Option<String>,
-    /// comma-separated list of subgraph deployment Qm hashes
-    /// ex: Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH
-    pub allowed_deployments: Option<String>,
-    /// comma-separated list of subgraph ids
-    /// ex: 3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg
-    pub allowed_subgraphs: Option<String>,
-}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum OrderDirection {
@@ -105,7 +90,7 @@ impl OrderDirection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RequestTicket {
     /// User-selected, friendly name of the request ticket. Part of the EIP-712 domain signed message.
     /// Parsed from the `ticket_payload` JSON object from the kafka topic.
@@ -120,7 +105,7 @@ pub struct RequestTicket {
     /// Unix-timestamp of when the latest query was process, for any deployment, by the request ticket
     pub last_query_timestamp: i64,
     /// The ticket payload value with the signer, allowed_domains, allowed_deployments, allowed_subgraphs, etc
-    pub ticket_payload: GatewaySubscriptionQueryResultTicketPayload,
+    pub ticket_payload: TicketPayload,
 }
 
 #[derive(Debug, PartialEq)]
@@ -276,19 +261,23 @@ mod tests {
 
     #[test]
     fn should_deserialize_str_to_ticket_payload_no_allowed_fields() {
-        let given = json!({"name": "req_ticket__1", "signer": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462", "user": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"});
-        let expected = GatewaySubscriptionQueryResultTicketPayload {
-            name: Some(String::from("req_ticket__1")),
-            signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
-            user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+        let given = r#"{"signer":[193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],"user":[193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],"name":"query_key__arb-goerli"}"#;
+        let expected = TicketPayload {
+            name: Some(String::from("query_key__arb-goerli")),
+            signer: "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb"
+                .parse::<ethers::types::Address>()
+                .unwrap(),
+            user: Some(
+                "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb"
+                    .parse::<ethers::types::Address>()
+                    .unwrap(),
+            ),
             allowed_deployments: None,
             allowed_domains: None,
             allowed_subgraphs: None,
         };
 
-        if let Ok(actual) =
-            serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&given.to_string())
-        {
+        if let Ok(actual) = serde_json::from_str::<TicketPayload>(&given.to_string()) {
             assert_eq!(actual, expected);
         } else {
             assert!(false, "should not throw deserialize error")
@@ -299,24 +288,28 @@ mod tests {
     fn should_deserialize_str_to_ticket_payload_with_allowed_fields() {
         let given = json!({
             "name": "req_ticket__1",
-            "signer": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462",
-            "user": "0xa476caFd8b08F11179BDDd5145FcF3EF470C7462",
+            "signer": [193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],
+            "user": [193,66,188,240,64,171,249,55,3,192,61,172,240,44,84,180,13,160,237,235],
             "allowed_domains": "http://localhost:3000,*.thegraph.com",
             "allowed_deployments": "Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH",
             "allowed_subgraphs": "3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg"
         });
-        let expected = GatewaySubscriptionQueryResultTicketPayload {
+        let expected = TicketPayload {
             name: Some(String::from("req_ticket__1")),
-            signer: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
-            user: String::from("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462"),
+            signer: "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb"
+                .parse::<ethers::types::Address>()
+                .unwrap(),
+            user: Some(
+                "0xc142bcf040AbF93703c03DaCf02c54B40dA0eDEb"
+                    .parse::<ethers::types::Address>()
+                    .unwrap(),
+            ),
             allowed_domains: Some(String::from("http://localhost:3000,*.thegraph.com")),
             allowed_deployments: Some(String::from("Qmaz1R8vcv9v3gUfksqiS9JUz7K9G8S5By3JYn8kTiiP5K,Qmadj8x9km1YEyKmRnJ6EkC2zpJZFCfTyTZpuqC3j6e1QH")),
             allowed_subgraphs: Some(String::from("3nXfK3RbFrj6mhkGdoKRowEEti2WvmUdxmz73tben6Mb,FDD65maya4xVfPnCjSgDRBz6UBWKAcmGtgY6BmUueJCg")),
         };
 
-        if let Ok(actual) =
-            serde_json::from_str::<GatewaySubscriptionQueryResultTicketPayload>(&given.to_string())
-        {
+        if let Ok(actual) = serde_json::from_str::<TicketPayload>(&given.to_string()) {
             assert_eq!(actual, expected);
         } else {
             assert!(false, "should not throw deserialize error")
