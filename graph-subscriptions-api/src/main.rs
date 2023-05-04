@@ -29,7 +29,7 @@ mod subgraph_client;
 mod subscriptions_subgraph;
 
 use crate::auth::AuthHandler;
-use crate::config::{Config, KafkaConfig};
+use crate::config::Config;
 use crate::schema::{GraphSubscriptionsSchema, GraphSubscriptionsSchemaCtx, QueryRoot};
 
 async fn graphql_handler(
@@ -112,11 +112,10 @@ async fn main() {
         conf.subscriptions_subgraph_url.clone(),
     ));
 
-    let def_kafka = KafkaConfig::default();
     let subscriptions_datasource =
         GraphSubscriptionsDatasource::<DatasourcePostgres>::create_with_datasource_pg(
             CreateWithDatasourcePgArgs {
-                kafka_config: KafkaConfig::build(def_kafka),
+                kafka_config: conf.kafka.0.clone(),
                 kafka_topic_id: conf.kafka_topic_id,
                 postgres_db_url: conf.db_url,
                 num_workers: Some(2),

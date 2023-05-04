@@ -36,9 +36,6 @@ pub struct Config {
     ///     "kafka": {
     ///         "bootstrap.servers": "PLAINTEXT://127.0.0.1:9092",
     ///         "group.id": "graph-gateway",
-    ///         "message.timeout.ms": "3000",
-    ///         "queue.buffering.max.ms": "1000",
-    ///         "queue.buffering.max.messages": "100000",
     ///         "enable.partition.eof": "false",
     ///         "enable.auto.commit": "false",
     ///     }
@@ -55,9 +52,6 @@ pub struct Config {
     ///         "ssl.certificate.location": "/path/to/ssl.crt",
     ///         "ssl.key.location": "/path/to/ssl.key",
     ///         "group.id": "graph-gateway",
-    ///         "message.timeout.ms": "3000",
-    ///         "queue.buffering.max.ms": "1000",
-    ///         "queue.buffering.max.messages": "100000",
     ///         "enable.partition.eof": "false",
     ///         "enable.auto.commit": "false",
     ///     }
@@ -73,25 +67,13 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct KafkaConfig(BTreeMap<String, String>);
-
-impl KafkaConfig {
-    pub fn build(mut conf: KafkaConfig) -> BTreeMap<String, String> {
-        let mut settings = conf.0.clone();
-        settings.append(&mut conf.0);
-
-        settings
-    }
-}
+pub struct KafkaConfig(pub BTreeMap<String, String>);
 
 impl Default for KafkaConfig {
     fn default() -> Self {
         let settings = [
             ("bootstrap.servers", "PLAINTEXT://127.0.0.1:9092"),
             ("group.id", "graph-gateway"),
-            ("message.timeout.ms", "3000"),
-            ("queue.buffering.max.ms", "1000"),
-            ("queue.buffering.max.messages", "100000"),
             ("enable.partition.eof", "false"),
             ("enable.auto.commit", "false"),
         ];
@@ -123,9 +105,6 @@ mod tests {
             "kafka": {
                 "bootstrap.servers": "PLAINTEXT://127.0.0.1:9092",
                 "group.id": "graph-gateway",
-                "message.timeout.ms": "3000",
-                "queue.buffering.max.ms": "1000",
-                "queue.buffering.max.messages": "100000",
                 "enable.partition.eof": "false",
                 "enable.auto.commit": "false"
             },

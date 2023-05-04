@@ -37,9 +37,6 @@ pub struct CreateWithDatasourcePgArgs {
     /// let mut config = BTreeMap::<String, String>::new();
     /// config.insert("bootstrap.servers".to_string(), "PLAINTEXT://127.0.0.1:9092".to_string());
     /// config.insert("group.id".to_string(), "graph-gateway".to_string());
-    /// config.insert("message.timeout.ms".to_string(), "3000".to_string());
-    /// config.insert("queue.buffering.max.ms".to_string(), "1000".to_string());
-    /// config.insert("queue.buffering.max.messages".to_string(), "100000".to_string());
     /// config.insert("enable.partition.eof".to_string(), "false".to_string());
     /// config.insert("enable.auto.commit".to_string(), "false".to_string());
     /// // instantiate the config to connect via ssl
@@ -53,9 +50,6 @@ pub struct CreateWithDatasourcePgArgs {
     /// config.insert("ssl.ca.location".to_string(), "/path/to/ca/cert".to_string());
     /// config.insert("ssl.certificate.location".to_string(), "/path/to/ssl/cert".to_string());
     /// config.insert("ssl.key.location".to_string(), "/path/to/ssl/key".to_string());
-    /// config.insert("message.timeout.ms".to_string(), "3000".to_string());
-    /// config.insert("queue.buffering.max.ms".to_string(), "1000".to_string());
-    /// config.insert("queue.buffering.max.messages".to_string(), "100000".to_string());
     /// config.insert("enable.partition.eof".to_string(), "false".to_string());
     /// config.insert("enable.auto.commit".to_string(), "false".to_string());
     /// ```

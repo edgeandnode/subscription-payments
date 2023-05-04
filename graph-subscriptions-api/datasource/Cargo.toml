@@ -9,8 +9,10 @@ anyhow = "1.0.70"
 async-trait = "0.1.68"
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 entity = { path = "../entity" }
+ethers = "2.0.4"
 eventuals = "0.6.7"
 futures = "0.3.27"
+graph-subscriptions = { git = "https://github.com/edgeandnode/subscription-payments", rev = "847d76f" }
 migration = { path = "../migration" }
 prost = "0.11.8"
 prost-types = "0.11.8"

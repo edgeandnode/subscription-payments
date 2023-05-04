@@ -17,7 +17,7 @@ datasource = { path = "./datasource" }
 ethers = "2.0.3"
 eventuals = "0.6.7"
 futures = "0.3.28"
-graph-subscriptions = { git = "https://github.com/edgeandnode/subscription-payments", rev = "9bb1896" }
+graph-subscriptions = { git = "https://github.com/edgeandnode/subscription-payments", rev = "847d76f" }
 prometheus = { version = "0.13.3", default-features = false }
 reqwest = { version = "0.11.15", default-features = false, features = [
     "json",
