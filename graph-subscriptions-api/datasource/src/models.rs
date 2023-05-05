@@ -142,6 +142,46 @@ impl RequestTicketOrderBy {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Stats pulled and aggergated/derived from queries made from users using The Graph Subscriptions;
+/// over all queried Subgraphs and across all queried request tickets.
+/// The logs are pushed onto a kafka topic by The Graph Gateway.
+pub struct UserSubscriptionStat {
+    /// Wallet address of the user who owns the request tickets.
+    /// Pulled directly from the kafka topic log from The Graph Gateway.
+    pub ticket_user: Address,
+    /// Timestamp start of the timeframe the stat record aggregates over.
+    pub start: i64,
+    /// Timestamp end of the timeframe the stat record aggregates over.
+    pub end: i64,
+    /// An aggregate count of queries performed by the user, across all request tickets, in the given timeframe.
+    /// SUM(`query_count` (from kafka topic)).
+    pub query_count: i64,
+    /// Percentage of the number of queries that returned successfully compared to the total query count in the given timeframe.
+    /// `query_count` WHERE `status_code` == SUCCESS / `query_count`.
+    pub success_rate: f32,
+    /// An aggregate average of the response time (in ms) of the query responses in the given timeframe.
+    /// sum of `response_time_ms` (pulled from kafka topic) / timeframe.
+    pub avg_response_time_ms: i32,
+    /// An aggregate count of queries performed in the timeframe that were not successful.
+    /// SUM(`query_count` (from kafka topic)) WHERE `status_code` != SUCCESS.
+    pub failed_query_count: i64,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum UserSubscriptionStatOrderBy {
+    Start,
+    End,
+}
+impl UserSubscriptionStatOrderBy {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UserSubscriptionStatOrderBy::End => "timeframe_end_timestamp",
+            UserSubscriptionStatOrderBy::Start => "timeframe_start_timestamp",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 /// Stats pulled and aggergated/derived from queries made from users using The Graph Subscriptions; over all queried Subgraphs.
 /// The logs are pushed onto a kafka topic by The Graph Gateway.
 pub struct RequestTicketStat {
@@ -169,22 +209,6 @@ pub struct RequestTicketStat {
     pub failed_query_count: i64,
     /// Count of _unique_ deployments queried by the request ticket
     pub queried_subgraphs_count: i64,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum RequestTicketStatOrderBy {
-    Start,
-    End,
-    TotalQueryCount,
-}
-impl RequestTicketStatOrderBy {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            RequestTicketStatOrderBy::End => "timeframe_end_timestamp",
-            RequestTicketStatOrderBy::Start => "timeframe_start_timestamp",
-            RequestTicketStatOrderBy::TotalQueryCount => "query_count",
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -216,6 +240,22 @@ pub struct RequestTicketSubgraphStat {
     /// An aggregate count of queries performed in the timeframe that were not successful.
     /// SUM(`query_count` (from kafka topic)) WHERE `status_code` != SUCCESS.
     pub failed_query_count: i64,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum StatOrderBy {
+    Start,
+    End,
+    TotalQueryCount,
+}
+impl StatOrderBy {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StatOrderBy::End => "timeframe_end_timestamp",
+            StatOrderBy::Start => "timeframe_start_timestamp",
+            StatOrderBy::TotalQueryCount => "query_count",
+        }
+    }
 }
 
 #[cfg(test)]

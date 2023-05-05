@@ -268,7 +268,7 @@ impl RequestTicketDto {
             .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
             .lock()
             .await;
-        let order_by: Option<datasource::RequestTicketStatOrderBy> = match order_by {
+        let order_by: Option<datasource::StatOrderBy> = match order_by {
             None => None,
             Some(by) => Some(by.into()),
         };
@@ -312,6 +312,90 @@ impl Into<datasource::RequestTicketOrderBy> for RequestTicketOrderBy {
             Self::Name => datasource::RequestTicketOrderBy::Name,
             Self::Signer => datasource::RequestTicketOrderBy::Signer,
             Self::Owner => datasource::RequestTicketOrderBy::Owner,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct UserSubscriptionStatDto {
+    pub id: Bytes32,
+    pub ticket_user: Address,
+    pub start: i64,
+    pub end: i64,
+    pub total_query_count: i64,
+    pub success_rate: f32,
+    pub avg_response_time_ms: i32,
+    pub failed_query_count: i64,
+}
+#[Object]
+impl UserSubscriptionStatDto {
+    async fn id(&self) -> ID {
+        ID(self.id.to_string())
+    }
+    /// The Request Ticket Owner
+    async fn ticket_user(&self) -> Bytes {
+        Bytes(self.ticket_user.to_string())
+    }
+    /// The start unix-timestamp date range of aggregated stats
+    async fn start(&self) -> BigInt {
+        BigInt(self.start)
+    }
+    /// The end unix-timestamp date range of the aggregated stats
+    async fn end(&self) -> BigInt {
+        BigInt(self.end)
+    }
+    /// The total count of queries received in the given date range using the RequestTicket
+    async fn total_query_count(&self) -> BigInt {
+        BigInt(self.total_query_count)
+    }
+    /// Success rate, from 0.0 -> 1.0, of the number of queries that were returned to the caller successfully
+    async fn success_rate(&self) -> f32 {
+        self.success_rate
+    }
+    /// The average time, in ms, it took to return the query from the indexer to the caller
+    async fn avg_response_time_ms(&self) -> i32 {
+        self.avg_response_time_ms
+    }
+    /// A count of queries that did not return successfully to the caller.
+    /// Whether because the query submitted by the user was invalid, there was an indexer error, or there was an internal error processing the query.
+    async fn failed_query_count(&self) -> BigInt {
+        BigInt(self.failed_query_count)
+    }
+}
+/// Convert the [`datasource::UserSubscriptionStat`] instance to a [`crate::schema::UserSubscriptionStatDto`] instance
+impl From<datasource::UserSubscriptionStat> for UserSubscriptionStatDto {
+    fn from(value: datasource::UserSubscriptionStat) -> Self {
+        let mut hasher = Shake256::default();
+        hasher.update(value.ticket_user.0.as_slice());
+        hasher.update(&value.start.to_le_bytes());
+        hasher.update(&value.end.to_le_bytes());
+        let mut reader = hasher.finalize_xof();
+        let mut id_hashed: [u8; 32] = [0; 32];
+        reader.read(&mut id_hashed);
+        let id = Bytes32::from(id_hashed);
+        Self {
+            id,
+            ticket_user: value.ticket_user,
+            start: value.start,
+            end: value.end,
+            total_query_count: value.query_count,
+            success_rate: value.success_rate,
+            avg_response_time_ms: value.avg_response_time_ms,
+            failed_query_count: value.failed_query_count,
+        }
+    }
+}
+
+#[derive(Enum, Clone, Copy, PartialEq, Eq)]
+pub enum UserSubscriptionStatOrderBy {
+    Start,
+    End,
+}
+impl Into<datasource::UserSubscriptionStatOrderBy> for UserSubscriptionStatOrderBy {
+    fn into(self) -> datasource::UserSubscriptionStatOrderBy {
+        match self {
+            Self::End => datasource::UserSubscriptionStatOrderBy::End,
+            Self::Start => datasource::UserSubscriptionStatOrderBy::Start,
         }
     }
 }
@@ -447,12 +531,12 @@ pub enum RequestTicketStatOrderBy {
     End,
     TotalQueryCount,
 }
-impl Into<datasource::RequestTicketStatOrderBy> for RequestTicketStatOrderBy {
-    fn into(self) -> datasource::RequestTicketStatOrderBy {
+impl Into<datasource::StatOrderBy> for RequestTicketStatOrderBy {
+    fn into(self) -> datasource::StatOrderBy {
         match self {
-            Self::End => datasource::RequestTicketStatOrderBy::End,
-            Self::Start => datasource::RequestTicketStatOrderBy::Start,
-            Self::TotalQueryCount => datasource::RequestTicketStatOrderBy::TotalQueryCount,
+            Self::End => datasource::StatOrderBy::End,
+            Self::Start => datasource::StatOrderBy::Start,
+            Self::TotalQueryCount => datasource::StatOrderBy::TotalQueryCount,
         }
     }
 }
@@ -584,14 +668,8 @@ impl QueryRoot {
             .lock()
             .await;
 
-        let order_by: Option<datasource::RequestTicketOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let tickets = schema_ctx
             .datasource
@@ -602,6 +680,44 @@ impl QueryRoot {
             .collect();
 
         Ok(tickets)
+    }
+    /// A list of aggregated query stats, across the entire `UserSubscription`, for all Subgraph deployments,
+    /// performed by the authenticated User.
+    async fn user_subscription_stats<'ctx>(
+        &self,
+        ctx: &Context<'ctx>,
+        start: Option<BigInt>,
+        end: Option<BigInt>,
+        order_by: Option<UserSubscriptionStatOrderBy>,
+        order_direction: Option<OrderDirection>,
+    ) -> Result<Vec<UserSubscriptionStatDto>> {
+        let ticket_payload_wrapper = ctx.data_opt::<TicketPayloadWrapper>();
+        if ticket_payload_wrapper.is_none() {
+            return Err(AuthError::Unauthenticated.into());
+        }
+        let ticket_payload = ticket_payload_wrapper.unwrap();
+        let payload = &ticket_payload.ticket_payload;
+        let user = Address(payload.user.unwrap_or(payload.signer).0);
+
+        let schema_ctx = ctx
+            .data_unchecked::<Arc<Mutex<GraphSubscriptionsSchemaCtx>>>()
+            .lock()
+            .await;
+
+        let start = start.map(|start_val| start_val.0);
+        let end = end.map(|end_val| end_val.0);
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
+
+        let stats = schema_ctx
+            .datasource
+            .user_subscription_stats(user, start, end, order_by, order_direction)
+            .await?
+            .into_iter()
+            .map(UserSubscriptionStatDto::from)
+            .collect();
+
+        Ok(stats)
     }
     /// A list of aggregated query stats, by timerange, for the request ticket.
     async fn request_ticket_stats<'ctx>(
@@ -649,14 +765,8 @@ impl QueryRoot {
             }
         };
 
-        let order_by: Option<datasource::RequestTicketStatOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let stats = schema_ctx
             .datasource
@@ -726,14 +836,8 @@ impl QueryRoot {
                 Some(hash) => hash,
             };
 
-        let order_by: Option<datasource::RequestTicketStatOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let subgraph_stats = schema_ctx
             .datasource
@@ -820,6 +924,41 @@ mod tests {
         };
 
         let actual = RequestTicketDto::from(given);
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn should_convert_datasource_user_subscription_stat_to_schema_type() {
+        let given = datasource::UserSubscriptionStat {
+            ticket_user: Address::from_str("0xa476caFd8b08F11179BDDd5145FcF3EF470C7462").unwrap(),
+            start: 1679791065,
+            end: 1679791066,
+            query_count: 2,
+            avg_response_time_ms: (300 + 400) / 2 as i32,
+            success_rate: 1.0,
+            failed_query_count: 0,
+        };
+        let mut hasher = Shake256::default();
+        hasher.update(given.ticket_user.0.as_slice());
+        hasher.update(&given.start.to_le_bytes());
+        hasher.update(&given.end.to_le_bytes());
+        let mut reader = hasher.finalize_xof();
+        let mut id_hashed: [u8; 32] = [0; 32];
+        reader.read(&mut id_hashed);
+        let expected_id = Bytes32::from(id_hashed);
+        let expected = UserSubscriptionStatDto {
+            id: expected_id,
+            ticket_user: given.ticket_user,
+            start: given.start,
+            end: given.end,
+            total_query_count: given.query_count,
+            success_rate: given.success_rate,
+            avg_response_time_ms: given.avg_response_time_ms,
+            failed_query_count: given.failed_query_count,
+        };
+
+        let actual = UserSubscriptionStatDto::from(given);
 
         assert_eq!(actual, expected);
     }
