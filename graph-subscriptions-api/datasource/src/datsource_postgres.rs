@@ -308,9 +308,9 @@ impl Datasource for DatasourcePostgres {
                 MAX(timeframe_stats.failed_query_count) AS failed_query_count
             FROM subscription_query_result AS result
             JOIN timeframe_stats
-            ON timeframe_stats.ticket_user = result.ticket_user
-                AND timeframe_stats.timeframe_start_timestamp = result.timeframe_start_timestamp
-                AND timeframe_stats.timeframe_end_timestamp = result.timeframe_end_timestamp
+                ON timeframe_stats.ticket_user = result.ticket_user
+                    AND timeframe_stats.timeframe_start_timestamp = result.timeframe_start_timestamp
+                    AND timeframe_stats.timeframe_end_timestamp = result.timeframe_end_timestamp
             WHERE
                 result.ticket_user = $1
                 AND timeframe_stats.timeframe_start_timestamp >= COALESCE($2, (SELECT MIN(timeframe_start_timestamp) FROM subscription_query_result WHERE ticket_user = result.ticket_user))
