@@ -668,14 +668,8 @@ impl QueryRoot {
             .lock()
             .await;
 
-        let order_by: Option<datasource::RequestTicketOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let tickets = schema_ctx
             .datasource
@@ -710,22 +704,10 @@ impl QueryRoot {
             .lock()
             .await;
 
-        let start: Option<i64> = match start {
-            None => None,
-            Some(start_val) => Some(start_val.0),
-        };
-        let end: Option<i64> = match end {
-            None => None,
-            Some(end_val) => Some(end_val.0),
-        };
-        let order_by: Option<datasource::UserSubscriptionStatOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let start = start.map(|start_val| start_val.0);
+        let end = end.map(|end_val| end_val.0);
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let stats = schema_ctx
             .datasource
@@ -783,14 +765,8 @@ impl QueryRoot {
             }
         };
 
-        let order_by: Option<datasource::StatOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let stats = schema_ctx
             .datasource
@@ -860,14 +836,8 @@ impl QueryRoot {
                 Some(hash) => hash,
             };
 
-        let order_by: Option<datasource::StatOrderBy> = match order_by {
-            None => None,
-            Some(by) => Some(by.into()),
-        };
-        let order_direction: Option<datasource::OrderDirection> = match order_direction {
-            None => None,
-            Some(direction) => Some(direction.into()),
-        };
+        let order_by = order_by.map(|by| by.into());
+        let order_direction = order_direction.map(|direction| direction.into());
 
         let subgraph_stats = schema_ctx
             .datasource
