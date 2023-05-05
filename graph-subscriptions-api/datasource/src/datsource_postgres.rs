@@ -12,7 +12,7 @@ use rdkafka::{
 };
 use sea_orm::{
     prelude::Uuid, ActiveModelTrait, ConnectOptions, Database, DatabaseConnection, FromQueryResult,
-    JsonValue, Set, Statement,
+    JsonValue, Set, Statement, Value,
 };
 use serde_json::json;
 use toolshed::bytes::{Address, DeploymentId};
@@ -52,6 +52,26 @@ impl FromQueryResult for RequestTicket {
             queried_subgraphs_count: res.try_get(pre, "queried_subgraphs_count")?,
             last_query_timestamp: res.try_get(pre, "last_query_timestamp")?,
             ticket_payload,
+        })
+    }
+}
+
+impl FromQueryResult for UserSubscriptionStat {
+    fn from_query_result(
+        res: &sea_orm::QueryResult,
+        pre: &str,
+    ) -> std::result::Result<Self, sea_orm::DbErr> {
+        let ticket_user = res
+            .try_get::<String>(pre, "ticket_user")
+            .map(|val| Address::from_str(&val))?;
+        Result::Ok(Self {
+            ticket_user: ticket_user.map_err(|err| migration::DbErr::Custom(err.to_string()))?,
+            start: res.try_get(pre, "timeframe_start_timestamp")?,
+            end: res.try_get(pre, "timeframe_end_timestamp")?,
+            query_count: res.try_get(pre, "query_count")?,
+            success_rate: res.try_get(pre, "success_rate")?,
+            avg_response_time_ms: res.try_get(pre, "avg_response_time_ms")?,
+            failed_query_count: res.try_get(pre, "failed_query_count")?,
         })
     }
 }
@@ -235,6 +255,84 @@ impl Datasource for DatasourcePostgres {
         .map_err(|err| anyhow::Error::from(err))
     }
 
+    /// Retrieve the user's unique `UserSubscriptionStat` records derived from the stored query result records from the postgres database.
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - [REQUIRED] the User address who owns the `UserSubscription` and who has been performing the queries with the genrated request tickets.
+    /// * `start` - [OPTIONAL] lower-bound timeframe. if specified, returns Stats with a `start` value >= the given value
+    /// * `end` - [OPTIONAL] upper-bound timeframe. if specified, returns Stats with a `end` value <= the given value
+    /// * `order_by` - [OPTIONAL:default StatOrderBy::Start] what to order the stats by
+    /// * `order_direction` - [OPTIONAL:default OrderDirection::ASC] direction to order the stats by
+    async fn user_subscription_stats(
+        &self,
+        user: Address,
+        start: Option<i64>,
+        end: Option<i64>,
+        order_by: Option<UserSubscriptionStatOrderBy>,
+        order_direction: Option<OrderDirection>,
+    ) -> Result<Vec<UserSubscriptionStat>> {
+        let order_by = order_by.unwrap_or(UserSubscriptionStatOrderBy::Start);
+        let order_direction = order_direction.unwrap_or(OrderDirection::Asc);
+
+        // **Note** `timeframe_stats.timeframe_start_timestamp >= COALESCE($2, (SELECT MIN(timeframe_start_timestamp) FROM subscription_query_result WHERE ticket_user = result.ticket_user))`
+        // Building dynamic queries with the `from_sql_and_values` is not particularly straight forward as it has to be valid SQL.
+        // To handle a potentially `None` `start` and `end` value, the `where` clause uses a COALESCE to say:
+        // - use the passed in variable value if one is provided,
+        // - otherwise, find all records where the `timeframe_start_timestamp` is >= to the lowest `timeframe_start_timestamp` for the user
+        // The same logic goes for the `end` value.
+        // It may be more efficient to just pass in `O` for a start if none is provided,
+        // and the `i64::MAX` value for the end, if none is provided.
+        UserSubscriptionStat::find_by_statement(Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            r#"
+            WITH timeframe_stats (ticket_user, timeframe_start_timestamp, timeframe_end_timestamp, query_count, success_rate, failed_query_count, avg_response_time_ms) AS (
+                SELECT
+                    ticket_user,
+                    timeframe_start_timestamp,
+                    timeframe_end_timestamp,
+                    CAST(SUM(query_count) AS bigint) AS query_count,
+                    SUM(CASE WHEN status_code = 'SUCCESS' THEN query_count ELSE 0 END)::float4 / SUM(query_count)::float4 AS success_rate,
+                    SUM(CASE WHEN status_code != 'SUCCESS' THEN query_count ELSE 0 END)::bigint AS failed_query_count,
+                    AVG(response_time_ms)::INT4 AS avg_response_time_ms
+                FROM subscription_query_result
+                GROUP BY ticket_user, timeframe_start_timestamp, timeframe_end_timestamp
+            )
+            SELECT
+                result.ticket_user,
+                timeframe_stats.timeframe_start_timestamp AS timeframe_start_timestamp,
+                timeframe_stats.timeframe_end_timestamp AS timeframe_end_timestamp,
+                CAST(MAX(timeframe_stats.query_count) AS bigint) AS query_count,
+                MAX(timeframe_stats.success_rate)::float4 AS success_rate,
+                AVG(timeframe_stats.avg_response_time_ms)::INT4 AS avg_response_time_ms,
+                MAX(timeframe_stats.failed_query_count) AS failed_query_count
+            FROM subscription_query_result AS result
+            JOIN timeframe_stats
+            ON timeframe_stats.ticket_user = result.ticket_user
+                AND timeframe_stats.timeframe_start_timestamp = result.timeframe_start_timestamp
+                AND timeframe_stats.timeframe_end_timestamp = result.timeframe_end_timestamp
+            WHERE
+                result.ticket_user = $1
+                AND timeframe_stats.timeframe_start_timestamp >= COALESCE($2, (SELECT MIN(timeframe_start_timestamp) FROM subscription_query_result WHERE ticket_user = result.ticket_user))
+                AND timeframe_stats.timeframe_end_timestamp <= COALESCE($3, (SELECT MAX(timeframe_end_timestamp) FROM subscription_query_result WHERE ticket_user = result.ticket_user))
+            GROUP BY
+                result.ticket_user,
+                timeframe_stats.timeframe_start_timestamp,
+                timeframe_stats.timeframe_end_timestamp
+            ORDER BY $4;
+            "#,
+            [
+                user.to_string().into(),
+                Value::BigInt(start),
+                Value::BigInt(end),
+                format!("timeframe_stats.{} {}", order_by.as_str(), order_direction.as_str()).into(),
+            ],
+        ))
+        .all(&self.db_conn)
+        .await
+        .map_err(|err| anyhow::Error::from(err))
+    }
+
     /// Retrieve the user's `RequestTicketStat` records, aggregated over the given timeframe, derived from the stored query result records from the postgres database.
     ///
     /// # Arguments
@@ -251,10 +349,10 @@ impl Datasource for DatasourcePostgres {
         ticket_name: String,
         first: Option<i32>,
         skip: Option<i32>,
-        order_by: Option<RequestTicketStatOrderBy>,
+        order_by: Option<StatOrderBy>,
         order_direction: Option<OrderDirection>,
     ) -> anyhow::Result<Vec<RequestTicketStat>> {
-        let order_by = order_by.unwrap_or(RequestTicketStatOrderBy::Start);
+        let order_by = order_by.unwrap_or(StatOrderBy::Start);
         let order_direction = order_direction.unwrap_or(OrderDirection::Asc);
         let limit = first.unwrap_or(100);
         let offset = skip.unwrap_or(0);
@@ -336,10 +434,10 @@ impl Datasource for DatasourcePostgres {
         subgraph_deployment_qm_hash: DeploymentId,
         first: Option<i32>,
         skip: Option<i32>,
-        order_by: Option<RequestTicketStatOrderBy>,
+        order_by: Option<StatOrderBy>,
         order_direction: Option<OrderDirection>,
     ) -> anyhow::Result<Vec<RequestTicketSubgraphStat>> {
-        let order_by = order_by.unwrap_or(RequestTicketStatOrderBy::Start);
+        let order_by = order_by.unwrap_or(StatOrderBy::Start);
         let order_direction = order_direction.unwrap_or(OrderDirection::Asc);
         let limit = first.unwrap_or(100);
         let offset = skip.unwrap_or(0);

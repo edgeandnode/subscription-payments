@@ -17,6 +17,28 @@ pub trait Datasource {
         order_by: Option<RequestTicketOrderBy>,
         order_direction: Option<OrderDirection>,
     ) -> Result<Vec<RequestTicket>>;
+    /// Retrieve a list of aggregated request ticket stats,
+    /// for all request tickets (made unique by their `ticket_name` and `ticket_payload`),
+    /// and across all Subgraph Deployments,
+    /// for a `UserSubscription`.
+    /// The stats are aggregated on a day-by-day (00:00:00 UTC - 23:59:59 UTC) basis,
+    /// over the lifetime of the `UserSubscription`.
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - [REQUIRED] the User address who owns the `UserSubscription` and who has been performing the queries with the genrated request tickets.
+    /// * `start` - [OPTIONAL] lower-bound timeframe. if specified, returns Stats with a `start` value >= the given value
+    /// * `end` - [OPTIONAL] upper-bound timeframe. if specified, returns Stats with a `end` value <= the given value
+    /// * `order_by` - [OPTIONAL:default UserSubscriptionStatOrderBy::Start] what to order the stats by
+    /// * `order_direction` - [OPTIONAL:default OrderDirection::ASC] direction to order the stats by
+    async fn user_subscription_stats(
+        &self,
+        user: Address,
+        start: Option<i64>,
+        end: Option<i64>,
+        order_by: Option<UserSubscriptionStatOrderBy>,
+        order_direction: Option<OrderDirection>,
+    ) -> Result<Vec<UserSubscriptionStat>>;
     /// Retrieve a list of request ticket stats, for all subgraph deployments, for the request ticket from the datasource.
     async fn request_ticket_stats(
         &self,
@@ -24,7 +46,7 @@ pub trait Datasource {
         ticket_name: String,
         first: Option<i32>,
         skip: Option<i32>,
-        order_by: Option<RequestTicketStatOrderBy>,
+        order_by: Option<StatOrderBy>,
         order_direction: Option<OrderDirection>,
     ) -> Result<Vec<RequestTicketStat>>;
     /// Retrieve a list of request ticket stats, for a specific subgraph deployment, for the request ticket from the datasource.
@@ -35,7 +57,7 @@ pub trait Datasource {
         subgraph_deployment_qm_hash: DeploymentId,
         first: Option<i32>,
         skip: Option<i32>,
-        order_by: Option<RequestTicketStatOrderBy>,
+        order_by: Option<StatOrderBy>,
         order_direction: Option<OrderDirection>,
     ) -> Result<Vec<RequestTicketSubgraphStat>>;
 }
