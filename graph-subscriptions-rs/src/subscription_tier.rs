@@ -12,6 +12,9 @@ pub struct SubscriptionTier {
     pub payment_rate: u128,
     /// Maximum query rate allowed, in queries per second.
     pub query_rate_limit: u32,
+    /// Maximum queries per month.
+    #[serde(default)]
+    pub monthly_query_limit: Option<u64>,
 }
 
 impl SubscriptionTiers {
