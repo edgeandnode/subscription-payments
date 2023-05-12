@@ -12,3 +12,12 @@ jobs:
         working-directory: subgraph
       - run: yarn test
         working-directory: subgraph
+  test_graph-subscriptions-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo test
+        working-directory: graph-subscriptions-api

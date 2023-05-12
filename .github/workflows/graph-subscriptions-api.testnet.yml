@@ -1,0 +1,31 @@
+name: graph-subscriptions-api Testnet CI/CD
+
+concurrency:
+  group: dev-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'main'
+
+env:
+  BASE_IMAGE: ghcr.io/edgeandnode/graph-subscriptions-api
+  APP_NAME: graph-subscriptions-api-arbitrum-goerli
+  CLUSTER_NAME: testnet
+  CLUSTER_ZONE: us-central1-a
+  ENVIRONMENT: testnet
+
+jobs:
+  build:
+    uses: edgeandnode/subscription-payments/.github/workflows/graph-subscriptions-api.template.yml@chris.whited/feat-ci-cd
+    with:
+      APP_NAME: graph-subscriptions-api-arbitrum-goerli
+      CLUSTER_NAME: testnet
+      CLUSTER_ZONE: us-central1-a
+      ENVIRONMENT: testnet
+      BASE_IMAGE: ghcr.io/edgeandnode/graph-subscriptions-api
+    secrets:
+      GCP_GRAPH_NETWORK: ${{ secrets.GCP_GRAPH_NETWORK }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
