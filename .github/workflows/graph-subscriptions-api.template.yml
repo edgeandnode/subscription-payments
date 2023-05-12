@@ -25,8 +25,6 @@ on:
     secrets:
       GCP_GRAPH_NETWORK:
         required: true
-      GITHUB_TOKEN:
-        required: true
 
 jobs:
   test_build_deploy:
