@@ -30,8 +30,12 @@ jobs:
   test_build_deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker
       # run docker build and push image to gh docker registry.
       # docker build also runs the test suite
       - name: Login to GitHub Container Registry
@@ -44,7 +48,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: ./graph-subscriptions-api
-          file: Dockerfile
+          file: ./graph-subscriptions-api/Dockerfile
           pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
