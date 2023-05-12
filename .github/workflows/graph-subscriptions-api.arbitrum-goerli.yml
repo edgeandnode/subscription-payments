@@ -17,7 +17,7 @@ jobs:
       APP_NAME: graph-subscriptions-api-arbitrum-goerli
       CLUSTER_NAME: testnet
       CLUSTER_ZONE: us-central1-a
-      ENVIRONMENT: testnet
+      ENVIRONMENT: arbitrum-goerli
       BASE_IMAGE: ghcr.io/edgeandnode/graph-subscriptions-api
     secrets:
       GCP_GRAPH_NETWORK: ${{ secrets.GCP_GRAPH_NETWORK }}
