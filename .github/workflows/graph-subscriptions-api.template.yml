@@ -47,7 +47,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          context: ./graph-subscriptions-api
+          context: '{{defaultContext}}:graph-subscriptions-api'
           file: ./graph-subscriptions-api/Dockerfile
           pull: true
           push: ${{ github.event_name != 'pull_request' }}

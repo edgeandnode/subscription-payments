@@ -1,9 +1,5 @@
 name: graph-subscriptions-api Testnet CI/CD
 
-concurrency:
-  group: dev-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   workflow_dispatch:
   push:
