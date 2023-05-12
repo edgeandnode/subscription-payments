@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    uses: edgeandnode/subscription-payments/.github/workflows/graph-subscriptions-api.template.yml@chris.whited/feat-ci-cd
+    uses: edgeandnode/subscription-payments/.github/workflows/graph-subscriptions-api.template.yml@main
     with:
       APP_NAME: graph-subscriptions-api-arbitrum-goerli
       CLUSTER_NAME: testnet
