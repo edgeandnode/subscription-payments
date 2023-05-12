@@ -1,0 +1,68 @@
+name: graph-subscriptions-api workflow template
+
+on:
+  workflow_call:
+    inputs:
+      APP_NAME:
+        required: true
+        type: string
+      CLUSTER_NAME:
+        required: false
+        type: string
+        default: <name>
+      CLUSTER_ZONE:
+        required: false
+        type: string
+        default: us-central1-a
+      ENVIRONMENT:
+        required: false
+        type: string
+        default: staging
+      BASE_IMAGE:
+        required: true
+        type: string
+        default: ghcr.io/edgeandnode/graph-subscriptions-api
+    secrets:
+      GCP_GRAPH_NETWORK:
+        required: true
+
+jobs:
+  test_build_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # run docker build and push image to gh docker registry.
+      # docker build also runs the test suite
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./graph-subscriptions-api
+          file: Dockerfile
+          pull: true
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ inputs.BASE_IMAGE }}:${{ github.sha }}
+            ${{ inputs.BASE_IMAGE }}:latest
+          build-args: |
+            API_PORT=4000
+            METRICS_PORT=9090
+
+      # run GCP deployment
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCLOUD_SERVICE_ACCOUNT }}
+      - name: Set up kubectl
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ inputs.CLUSTER_NAME }}
+          location: ${{ inputs.CLUSTER_ZONE }}
+      - name: Set a new k8s image and apply the manifests
+        run: .github/scripts/kustomize-apply.sh ${{ inputs.ENVIRONMENT }} ${{ inputs.APP_NAME }}=${{ inputs.BASE_IMAGE }}:$GITHUB_SHA ${{ inputs.APP_NAME }}

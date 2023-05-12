@@ -1,0 +1,11 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: graph-subscriptions-api-arbitrum-goerli
+spec:
+  selector:
+    matchLabels:
+      app: graph-subscriptions-api-arbitrum-goerli
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics

@@ -2,6 +2,10 @@ on:
   push:
     branches: ['**']
 
+concurrency:
+  group: dev-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-subgraph:
     runs-on: ubuntu-latest
