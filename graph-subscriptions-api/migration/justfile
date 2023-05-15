@@ -1,5 +1,0 @@
-# use the sea-orm-cli to create the migration file
-## NOTE: migrations are ran programmatically
-gen-migration migration:
-  @echo 'creating migration file {{migration}}'
-  sea-orm-cli migrate generate {{migration}}

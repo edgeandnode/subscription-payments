@@ -1,3 +1,0 @@
-gen-entities:
-  # Generate entity files of database `gateway_subscription_query_results` to `entity/src`
-  sea-orm-cli generate entity -o src --with-serde both --lib

@@ -1,4 +1,0 @@
-resources:
-  - redpanda.secret.yml
-  - service.yml
-  - podmonitor.yml
