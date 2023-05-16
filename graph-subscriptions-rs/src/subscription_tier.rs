@@ -10,8 +10,8 @@ pub struct SubscriptionTier {
     /// Payment rate from the subcription contract.
     #[serde_as(as = "DisplayFromStr")]
     pub payment_rate: u128,
-    /// Maximum query rate allowed, in queries per second.
-    pub query_rate_limit: u32,
+    /// Maximum query rate allowed, in queries per minute.
+    pub queries_per_minute: u32,
     /// Maximum queries per month.
     #[serde(default)]
     pub monthly_query_limit: Option<u64>,
