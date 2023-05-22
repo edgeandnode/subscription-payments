@@ -1,11 +1,11 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 
 #[derive(Debug, Default)]
 pub struct SubscriptionTiers(Vec<SubscriptionTier>);
 
 #[serde_as]
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SubscriptionTier {
     /// Payment rate from the subcription contract.
     #[serde_as(as = "DisplayFromStr")]
