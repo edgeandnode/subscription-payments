@@ -22,11 +22,18 @@ impl SubscriptionTiers {
         tiers.sort_by_key(|t| t.payment_rate);
         Self(tiers)
     }
+
     pub fn tier_for_rate(&self, sub_rate: u128) -> SubscriptionTier {
         self.0
             .iter()
             .find(|tier| tier.payment_rate <= sub_rate)
             .cloned()
             .unwrap_or_default()
+    }
+}
+
+impl From<Vec<SubscriptionTier>> for SubscriptionTiers {
+    fn from(tiers: Vec<SubscriptionTier>) -> Self {
+        Self::new(tiers)
     }
 }
