@@ -37,3 +37,9 @@ impl From<Vec<SubscriptionTier>> for SubscriptionTiers {
         Self::new(tiers)
     }
 }
+
+impl AsRef<[SubscriptionTier]> for SubscriptionTiers {
+    fn as_ref(&self) -> &[SubscriptionTier] {
+        &self.0
+    }
+}
