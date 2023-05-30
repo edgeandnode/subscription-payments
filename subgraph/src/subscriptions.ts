@@ -93,13 +93,10 @@ export function handleSubscribe(event: SubscribeEvent): void {
   } else {
     buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
     // Create the _next_ BillingPeriod for the UserSubscription that starts at the end of the current -> the next 30days.
-    if (sub.billingPeriods.length === 0) {
-      const currentBillingPeriodId =
-        sub.billingPeriods[sub.billingPeriods.length - 1];
-      const currentBillingPeriod = BillingPeriod.load(currentBillingPeriodId);
-      if (currentBillingPeriod != null) {
-        buildAndSaveBillingPeriod(sub.id, currentBillingPeriod.start);
-      }
+    const currentBillingPeriodId = buildBillingPeriodId(sub.id, sub.start);
+    const currentBillingPeriod = BillingPeriod.load(currentBillingPeriodId);
+    if (currentBillingPeriod != null) {
+      buildAndSaveBillingPeriod(sub.id, currentBillingPeriod.end);
     }
   }
 

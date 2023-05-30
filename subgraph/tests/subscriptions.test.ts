@@ -7,9 +7,9 @@ import {
   afterEach,
 } from 'matchstick-as/assembly/index';
 
-import {Address, BigInt, Bytes} from '@graphprotocol/graph-ts';
+import {Address, BigInt, Bytes, store} from '@graphprotocol/graph-ts';
 
-import {UserSubscription} from '../generated/schema';
+import {BillingPeriod, UserSubscription} from '../generated/schema';
 
 import {
   USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
@@ -25,6 +25,8 @@ import {
 } from '../src/subscriptions';
 import {
   buildAuthorizedSignerId,
+  buildBillingPeriodEnd,
+  buildBillingPeriodId,
   buildUserSubscriptionEventId,
   calculateUnlockedTokens,
 } from '../src/utils';
@@ -114,6 +116,22 @@ describe('Describe entity assertions', () => {
       'currentSubscriptionRate',
       INITIAL_RATE.toString()
     );
+
+    // validate BillingPeriod record created
+    assert.entityCount('BillingPeriod', 1);
+    let billingPeriodId = buildBillingPeriodId(
+      Bytes.fromHexString(user),
+      INITIAL_START
+    );
+    let billingPeriodEnd = buildBillingPeriodEnd(INITIAL_START);
+    assertFields('BillingPeriod', billingPeriodId.toHex(), [
+      'start',
+      INITIAL_START.toString(),
+      'end',
+      billingPeriodEnd.toString(),
+      'subscription',
+      user.toString(),
+    ]);
   });
 
   test('handle Unsubscribe', () => {
@@ -161,6 +179,8 @@ describe('Describe entity assertions', () => {
   });
 
   test('renew Subscription', () => {
+    assert.entityCount('BillingPeriod', 1);
+
     const start = BigInt.fromU32(5000);
     const end = BigInt.fromU32(10000);
     const rate = BigInt.fromU32(10)
@@ -188,11 +208,35 @@ describe('Describe entity assertions', () => {
 
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
-    // // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
+    // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
     assert.entityCount('UserSubscriptionRenewalEvent', 1);
-    // // validate that the UserSubscriptionCanceledEvent is removed
+    // validate that the UserSubscriptionCanceledEvent is removed
     assert.entityCount('UserSubscriptionCanceledEvent', 0);
     assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent
+
+    // validate that a new BillingPeriod was created, total count should be 2
+    assert.entityCount('BillingPeriod', 2);
+    const currentBillingPeriodId = buildBillingPeriodId(
+      Bytes.fromHexString(user),
+      INITIAL_START
+    );
+    const currentBillingPeriod = BillingPeriod.load(currentBillingPeriodId);
+    if (currentBillingPeriod != null) {
+      // validate new billing period
+      let billingPeriodId = buildBillingPeriodId(
+        Bytes.fromHexString(user),
+        currentBillingPeriod.end
+      );
+      let billingPeriodEnd = buildBillingPeriodEnd(currentBillingPeriod.end);
+      assertFields('BillingPeriod', billingPeriodId.toHex(), [
+        'start',
+        currentBillingPeriod.end.toString(),
+        'end',
+        billingPeriodEnd.toString(),
+        'subscription',
+        user.toString(),
+      ]);
+    }
   });
 
   test('upgrade Subscription', () => {
