@@ -49,18 +49,46 @@ type Extend @entity(immutable: true) {
 type UserSubscription @entity {
   id: Bytes!
   user: User!
-  start: BigInt! # uint64
-  end: BigInt! # uint64
+  """
+  uint164 timestamp value of the current `Subscription.start` on the Subscriptions contract.
+  When the user calls the `subscribe` method on the contract, this value is updated to either be:
+  the `start` value passed to the `subscribe` method, OR, the block timestamp of the transaction;
+  whichever is greater.
+  This means that as the user interacts with their Subscription (upgrade, downgrade, renew), this value is updated.
+  """
+  start: BigInt!
+  """
+  uint164 timestamp value of the current `Subscription.end` on the Subscriptions contract.
+  """
+  end: BigInt!
   rate: BigInt! # uint128
   # The subgraph preserves `end` timestamp of cancelled UserSubscriptions to enable showing it in UI
   # Even if not cancelled an expired UserSubscription is inactive.
   cancelled: Boolean!
+  # the current BillingPeriod tracking against this UserSubscription
+  billingPeriod: BillingPeriod! @derivedFrom(field: "subscription")
 }
 
 type AuthorizedSigner @entity {
   id: Bytes! #keccak256 hex string of user:signer
   user: User!
   signer: Bytes! #address
+}
+
+"""
+BillingPeriod is a thegraph.com/studio specific design paradigm that holds value in the Subgraph and downstream consumers.
+It is a holder for a `start` and `end` timestamp of the period of time - 30 days - that the `UserSubscription` exists in.
+This way, as the user interacts with their Subscription - which changes the `start` timestamp - the Billing Period remains consistent.
+The Billing Period is used to provide these `start` and `end` timestamp values so that KPIs, monthly-quotas and charts
+can build a representation of the Subscription usage in this derived period.
+Query totals are also summed in this period, and this value is then used decrement the amount of queries the Subscription
+has remaining in the period; which enforces the monthly-quota Subscription usage.
+"""
+type BillingPeriod @entity {
+  id: Bytes! #keccak256 hex string of user:start
+  subscription: UserSubscription! # relation back to the UserSubscription the BillingPeriod is tracking
+  start: BigInt! # uint164 timestamp of the start of the BillingPeriod
+  end: BigInt! # uint164 timestamp of the end of the BillingPeriod
 }
 
 """
