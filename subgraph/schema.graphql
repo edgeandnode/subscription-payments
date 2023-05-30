@@ -65,8 +65,8 @@ type UserSubscription @entity {
   # The subgraph preserves `end` timestamp of cancelled UserSubscriptions to enable showing it in UI
   # Even if not cancelled an expired UserSubscription is inactive.
   cancelled: Boolean!
-  # the current BillingPeriod tracking against this UserSubscription
-  billingPeriod: BillingPeriod! @derivedFrom(field: "subscription")
+  # BillingPeriods associated to the `UserSubscription`
+  billingPeriods: [BillingPeriod!]! @derivedFrom(field: "subscription")
 }
 
 type AuthorizedSigner @entity {
@@ -84,7 +84,7 @@ can build a representation of the Subscription usage in this derived period.
 Query totals are also summed in this period, and this value is then used decrement the amount of queries the Subscription
 has remaining in the period; which enforces the monthly-quota Subscription usage.
 """
-type BillingPeriod @entity {
+type BillingPeriod @entity(immutable: true) {
   id: Bytes! #keccak256 hex string of user:start
   subscription: UserSubscription! # relation back to the UserSubscription the BillingPeriod is tracking
   start: BigInt! # uint164 timestamp of the start of the BillingPeriod
