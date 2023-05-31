@@ -1,4 +1,4 @@
-import {store} from '@graphprotocol/graph-ts';
+import {BigInt, Bytes, store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
@@ -9,6 +9,7 @@ import {
 } from '../generated/Subscriptions/Subscriptions';
 import {
   UserSubscription,
+  BillingPeriod,
   Init,
   Subscribe,
   Unsubscribe,
@@ -31,6 +32,8 @@ import {
 import {loadOrCreateUser} from './entity-loader';
 import {
   buildAuthorizedSignerId,
+  buildBillingPeriodId,
+  buildBillingPeriodEnd,
   buildUserSubscriptionEventId,
   calculateUnlockedTokens,
 } from './utils';
@@ -70,6 +73,8 @@ export function handleSubscribe(event: SubscribeEvent): void {
     sub.rate = event.params.rate;
     sub.cancelled = false;
     sub.save();
+    // Build the BillingPeriod for the new UserSubscription.
+    buildAndSaveBillingPeriod(sub.id, sub.start);
     // Since Subscription record does not exist, the user is subscribing for the 1st time.
     // Create and store a UserSubscriptionCreatedEvent record.
     buildAndSaveUserSubscriptionCreatedEvent(user, sub, event);
@@ -87,6 +92,12 @@ export function handleSubscribe(event: SubscribeEvent): void {
     buildAndSaveUserSubscriptionDowngradeEvent(user, sub, event);
   } else {
     buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
+    // Create the _next_ BillingPeriod for the UserSubscription that starts at the end of the current -> the next 30days.
+    const currentBillingPeriodId = buildBillingPeriodId(sub.id, sub.start);
+    const currentBillingPeriod = BillingPeriod.load(currentBillingPeriodId);
+    if (currentBillingPeriod != null) {
+      buildAndSaveBillingPeriod(sub.id, currentBillingPeriod.end);
+    }
   }
 
   sub.user = user.id;
@@ -168,6 +179,20 @@ export function handleAuthorizedSignerRemoved(
     event.params.authorizedSigner
   );
   store.remove('AuthorizedSigner', id.toHexString());
+}
+
+function buildAndSaveBillingPeriod(
+  userSubscriptionId: Bytes,
+  start: BigInt
+): BillingPeriod {
+  let id = buildBillingPeriodId(userSubscriptionId, start);
+  let billingPeriod = new BillingPeriod(id);
+  billingPeriod.subscription = userSubscriptionId;
+  billingPeriod.start = start;
+  billingPeriod.end = buildBillingPeriodEnd(start);
+  billingPeriod.save();
+
+  return billingPeriod;
 }
 
 function buildAndSaveUserSubscriptionCreatedEvent(

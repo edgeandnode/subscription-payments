@@ -13,8 +13,8 @@
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 edgeandnode-subscriptions -l v0.0.1"
   },
   "dependencies": {
-    "@graphprotocol/graph-cli": "^0.43.0",
-    "@graphprotocol/graph-ts": "^0.29.3"
+    "@graphprotocol/graph-cli": "^0.50.1",
+    "@graphprotocol/graph-ts": "^0.30.0"
   },
   "devDependencies": {
     "matchstick-as": "^0.5.2"
