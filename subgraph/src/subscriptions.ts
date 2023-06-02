@@ -1,4 +1,4 @@
-import {BigInt, Bytes, store} from '@graphprotocol/graph-ts';
+import {BigInt, Bytes, log, store} from '@graphprotocol/graph-ts';
 
 import {
   Init as InitEvent,
