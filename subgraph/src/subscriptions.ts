@@ -72,6 +72,7 @@ export function handleSubscribe(event: SubscribeEvent): void {
     sub.end = event.params.end;
     sub.rate = event.params.rate;
     sub.cancelled = false;
+    sub.billingPeriodGenesis = sub.start;
     sub.save();
     // Build the BillingPeriod for the new UserSubscription.
     buildAndSaveBillingPeriod(sub.id, sub.start);
@@ -97,6 +98,11 @@ export function handleSubscribe(event: SubscribeEvent): void {
     const currentBillingPeriod = BillingPeriod.load(currentBillingPeriodId);
     if (currentBillingPeriod != null) {
       buildAndSaveBillingPeriod(sub.id, currentBillingPeriod.end);
+    }
+
+    // The first Renewal event after a Cancel starts a new cycle of 30-day billing periods.
+    if (sub.cancelled) {
+      sub.billingPeriodGenesis = event.params.start;
     }
   }
 

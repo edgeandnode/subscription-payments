@@ -67,6 +67,12 @@ type UserSubscription @entity {
   cancelled: Boolean!
   # BillingPeriods associated to the `UserSubscription`
   billingPeriods: [BillingPeriod!]! @derivedFrom(field: "subscription")
+  """
+  `billingPeriodGenesis` is the timestamp of the first `start` of the subscription, or
+  the timestamp of the first renewal after a cancellation of the subscription.
+  The first Renewal event after a Cancel starts a new cycle of 30-day billing periods.
+  """
+  billingPeriodGenesis: BigInt!
 }
 
 type AuthorizedSigner @entity {
@@ -144,7 +150,6 @@ type UserSubscriptionCreatedEvent implements UserSubscriptionsEvent
   currentSubscriptionStart: BigInt! # uint64
   # the user's UserSubscription.end value at the time the event is created
   currentSubscriptionEnd: BigInt! # uint64
-  # the user's UserSubscription.rate value at the time the event is created
   currentSubscriptionRate: BigInt! # uint128
 }
 
