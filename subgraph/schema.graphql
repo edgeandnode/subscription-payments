@@ -65,12 +65,17 @@ type UserSubscription @entity {
   # The subgraph preserves `end` timestamp of cancelled UserSubscriptions to enable showing it in UI
   # Even if not cancelled an expired UserSubscription is inactive.
   cancelled: Boolean!
-  # BillingPeriods associated to the `UserSubscription`
-  billingPeriods: [BillingPeriod!]! @derivedFrom(field: "subscription")
   """
   `billingPeriodGenesis` is the timestamp of the first `start` of the subscription, or
   the timestamp of the first renewal after a cancellation of the subscription.
-  The first Renewal event after a Cancel starts a new cycle of 30-day billing periods.
+
+  A billing period is a thegraph.com/studio specific design paradigm that holds value in the Subgraph and downstream consumers.
+  It is a holder for a `start` and `end` timestamp of the period of time - 30 days - that the `UserSubscription` exists in.
+  This way, as the user interacts with their Subscription - which changes the `start` timestamp - the Billing Period remains consistent.
+  The Billing Period is used to provide these `start` and `end` timestamp values so that KPIs, monthly-quotas and charts
+  can build a representation of the Subscription usage in this derived period.
+  Query totals are also summed in this period, and this value is then used decrement the amount of queries the Subscription
+  has remaining in the period; which enforces the monthly-quota Subscription usage.
   """
   billingPeriodGenesis: BigInt!
 }
@@ -79,22 +84,6 @@ type AuthorizedSigner @entity {
   id: Bytes! #keccak256 hex string of user:signer
   user: User!
   signer: Bytes! #address
-}
-
-"""
-BillingPeriod is a thegraph.com/studio specific design paradigm that holds value in the Subgraph and downstream consumers.
-It is a holder for a `start` and `end` timestamp of the period of time - 30 days - that the `UserSubscription` exists in.
-This way, as the user interacts with their Subscription - which changes the `start` timestamp - the Billing Period remains consistent.
-The Billing Period is used to provide these `start` and `end` timestamp values so that KPIs, monthly-quotas and charts
-can build a representation of the Subscription usage in this derived period.
-Query totals are also summed in this period, and this value is then used decrement the amount of queries the Subscription
-has remaining in the period; which enforces the monthly-quota Subscription usage.
-"""
-type BillingPeriod @entity(immutable: true) {
-  id: Bytes! #keccak256 hex string of user:start
-  subscription: UserSubscription! # relation back to the UserSubscription the BillingPeriod is tracking
-  start: BigInt! # uint164 timestamp of the start of the BillingPeriod
-  end: BigInt! # uint164 timestamp of the end of the BillingPeriod
 }
 
 """

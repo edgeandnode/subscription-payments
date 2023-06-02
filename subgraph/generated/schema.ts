@@ -660,15 +660,6 @@ export class UserSubscription extends Entity {
     this.set("cancelled", Value.fromBoolean(value));
   }
 
-  get billingPeriods(): Array<Bytes> {
-    let value = this.get("billingPeriods");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBytesArray();
-    }
-  }
-
   get billingPeriodGenesis(): BigInt {
     let value = this.get("billingPeriodGenesis");
     if (!value || value.kind == ValueKind.NULL) {
@@ -750,89 +741,6 @@ export class AuthorizedSigner extends Entity {
 
   set signer(value: Bytes) {
     this.set("signer", Value.fromBytes(value));
-  }
-}
-
-export class BillingPeriod extends Entity {
-  constructor(id: Bytes) {
-    super();
-    this.set("id", Value.fromBytes(id));
-  }
-
-  save(): void {
-    let id = this.get("id");
-    assert(id != null, "Cannot save BillingPeriod entity without an ID");
-    if (id) {
-      assert(
-        id.kind == ValueKind.BYTES,
-        `Entities of type BillingPeriod must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`
-      );
-      store.set("BillingPeriod", id.toBytes().toHexString(), this);
-    }
-  }
-
-  static loadInBlock(id: Bytes): BillingPeriod | null {
-    return changetype<BillingPeriod | null>(
-      store.get_in_block("BillingPeriod", id.toHexString())
-    );
-  }
-
-  static load(id: Bytes): BillingPeriod | null {
-    return changetype<BillingPeriod | null>(
-      store.get("BillingPeriod", id.toHexString())
-    );
-  }
-
-  get id(): Bytes {
-    let value = this.get("id");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBytes();
-    }
-  }
-
-  set id(value: Bytes) {
-    this.set("id", Value.fromBytes(value));
-  }
-
-  get subscription(): Bytes {
-    let value = this.get("subscription");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBytes();
-    }
-  }
-
-  set subscription(value: Bytes) {
-    this.set("subscription", Value.fromBytes(value));
-  }
-
-  get start(): BigInt {
-    let value = this.get("start");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set start(value: BigInt) {
-    this.set("start", Value.fromBigInt(value));
-  }
-
-  get end(): BigInt {
-    let value = this.get("end");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set end(value: BigInt) {
-    this.set("end", Value.fromBigInt(value));
   }
 }
 
