@@ -28,33 +28,6 @@ export function buildAuthorizedSignerId(
 }
 
 /**
- * Generate a keccak256 hex string of the userSubscriptionId:start
- * @param user the UserSubscription the BillingPeriod tracks against id
- * @param start the start timestamp of the BillingPeriod
- * @returns Bytes representation of a hex string concatenation of the `userSubscriptionId:start` to create a unique id
- */
-export function buildBillingPeriodId(
-  userSubscriptionId: Bytes,
-  start: BigInt
-): Bytes {
-  let hash = crypto.keccak256(
-    ByteArray.fromUTF8(
-      `${userSubscriptionId.toHexString()}:${start.toString()}`
-    )
-  );
-  return Bytes.fromByteArray(hash);
-}
-
-/**
- * A BillingPeriod is currently 30days, add this period to the input `start` to get the `end` timestamp for the BillingPeriod.
- * @param start unix-timestamp start of the BillingPeriod
- * @returns the unix-timestamp end of the BillingPeriod
- */
-export function buildBillingPeriodEnd(start: BigInt): BigInt {
-  return start.plus(BILLING_PERIOD_SECONDS_BIGINT);
-}
-
-/**
  * Generate a keccak256 hex string of the user:eventType:blockTimestamp
  * @param user the user the event belongs to/performed the action
  * @param eventType the UseSubscriptionEventType enum value
