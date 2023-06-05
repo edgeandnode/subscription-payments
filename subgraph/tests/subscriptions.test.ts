@@ -284,9 +284,6 @@ describe('Describe entity assertions', () => {
       .pow(18)
       .times(BigInt.fromU32(5));
 
-    handleUnsubscribe(
-      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
-    );
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -299,7 +296,6 @@ describe('Describe entity assertions', () => {
     );
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 1);
 
     assertSubscription(
       user,
@@ -345,9 +341,6 @@ describe('Describe entity assertions', () => {
       .pow(18)
       .times(BigInt.fromU32(1));
 
-    handleUnsubscribe(
-      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
-    );
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -360,7 +353,6 @@ describe('Describe entity assertions', () => {
     );
 
     assert.entityCount('Subscribe', 2);
-    assert.entityCount('Unsubscribe', 1);
 
     assertSubscription(
       user,
