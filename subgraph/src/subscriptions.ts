@@ -82,7 +82,7 @@ export function handleSubscribe(event: SubscribeEvent): void {
     buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
     sub.billingPeriodGenesis = event.params.start;
     // Otherwise, an event that does not change the rate is also a Renewal.
-  } else if (event.params.rate === sub.rate) {
+  } else if (event.params.rate == sub.rate) {
     buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
   }
   // Check if the sub.rate is > than the event.params.rate value.
