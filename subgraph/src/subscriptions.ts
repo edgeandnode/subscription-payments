@@ -77,11 +77,13 @@ export function handleSubscribe(event: SubscribeEvent): void {
     return;
   }
 
+  // The first Renewal event after a Cancel starts a new cycle of 30-day billing periods.
   if (sub.cancelled || sub.end <= event.block.timestamp) {
     buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
-
-    // The first Renewal event after a Cancel starts a new cycle of 30-day billing periods.
     sub.billingPeriodGenesis = event.params.start;
+    // Otherwise, an event that does not change the rate is also a Renewal.
+  } else if (event.params.rate === sub.rate) {
+    buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
   }
   // Check if the sub.rate is > than the event.params.rate value.
   // If this is true, then the user is upgrading their Subscription; create a UserSubscriptionUpgradeEvent record.
@@ -90,10 +92,8 @@ export function handleSubscribe(event: SubscribeEvent): void {
   }
   // Check if the sub.rate is < than the event.params.rate value.
   // If this is true, then the user is downgrading their Subscription; create a UserSubscriptionDowngradeEvent record.
-  else if (event.params.rate < sub.rate) {
+  else {
     buildAndSaveUserSubscriptionDowngradeEvent(user, sub, event);
-  } else {
-    buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
   }
 
   sub.user = user.id;
