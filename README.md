@@ -2,19 +2,6 @@
 
 Prototype Contract for Subscription Payments
 
-## k8s transcription
-
-`.k8s` secrets are encrypted using `transcrypt`.
-Any k8s config values that contain secrets, name the file using `{file}.secret.{yml,yaml}` convention; which encrypts the value when pushing to git.
-See cmd below to decrypt locally to validate values.
-
-```bash
-# decrypting k8s secrets
-./scripts/transcrypt -c aes-256-cbc -p $PWD
-
-## $PWD stored in 1pass: subscription-payments repo. transcrypt
-```
-
 ## Test Subgraph
 
 - `docker compose build`
