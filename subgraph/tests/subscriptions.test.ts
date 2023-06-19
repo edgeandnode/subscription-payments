@@ -176,6 +176,9 @@ describe('Describe entity assertions', () => {
     handleUnsubscribe(
       createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
     );
+
+    mockBlock.next();
+
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -203,9 +206,8 @@ describe('Describe entity assertions', () => {
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionRenewalEvent is created as the subscription was extended
     assert.entityCount('UserSubscriptionRenewalEvent', 1);
-    // validate that the UserSubscriptionCanceledEvent is removed
-    assert.entityCount('UserSubscriptionCanceledEvent', 0);
-    assert.fieldEquals('User', user, 'eventCount', '2'); // 1 UserSubscriptionCreatedEvent, 1 UserSubscriptionRenewalEvent
+    assert.entityCount('UserSubscriptionCanceledEvent', 1);
+    assert.fieldEquals('User', user, 'eventCount', '3');
   });
 
   test('renew Subscription without cancel (extending)', () => {
@@ -224,6 +226,9 @@ describe('Describe entity assertions', () => {
     mockBlock.next();
 
     // Upgrade
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
+    );
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -238,6 +243,9 @@ describe('Describe entity assertions', () => {
     mockBlock.next();
 
     // Upgrade
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
+    );
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -252,6 +260,9 @@ describe('Describe entity assertions', () => {
     mockBlock.next();
 
     // Another Renewal
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
+    );
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -284,6 +295,9 @@ describe('Describe entity assertions', () => {
       .pow(18)
       .times(BigInt.fromU32(5));
 
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
+    );
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
@@ -306,6 +320,7 @@ describe('Describe entity assertions', () => {
       INITIAL_START
     );
 
+    assert.entityCount('UserSubscriptionCanceledEvent', 0);
     // validate only 1 UserSubscriptionCreatedEvent record created
     assert.entityCount('UserSubscriptionCreatedEvent', 1);
     // validate that a UserSubscriptionUpgradeEvent is created as the subscription was rate was increased
@@ -341,10 +356,14 @@ describe('Describe entity assertions', () => {
       .pow(18)
       .times(BigInt.fromU32(1));
 
+    handleUnsubscribe(
+      createUnsubscribeEvent(Address.fromString(user), BigInt.fromU32(0))
+    );
+
     handleSubscribe(
       createSubscribeEvent(
         Address.fromString(user),
-        BigInt.fromU32(0),
+        BigInt.fromU32(1),
         start,
         end,
         rate,
