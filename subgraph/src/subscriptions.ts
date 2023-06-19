@@ -77,6 +77,21 @@ export function handleSubscribe(event: SubscribeEvent): void {
     return;
   }
 
+  // If a CanceledEvent was created in the same block, we remove it.
+  const cancelEvent = UserSubscriptionCanceledEvent.load(
+    buildUserSubscriptionEventId(
+      user.id,
+      USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
+      event.block.timestamp
+    )
+  );
+  if (cancelEvent != null) {
+    store.remove('UserSubscriptionCanceledEvent', cancelEvent.id.toHexString());
+    sub.cancelled = false;
+    user.eventCount = user.eventCount - 1;
+    user.save();
+  }
+
   // The first Renewal event after a Cancel starts a new cycle of 30-day billing periods.
   if (sub.cancelled || sub.end <= event.block.timestamp) {
     buildAndSaveUserSubscriptionRenewalEvent(user, sub, event);
@@ -102,22 +117,6 @@ export function handleSubscribe(event: SubscribeEvent): void {
   sub.rate = event.params.rate;
   sub.cancelled = false;
   sub.save();
-
-  // If a CanceledEvent was created in the same block, we remove it.
-  const cancelEvent = UserSubscriptionCanceledEvent.load(
-    buildUserSubscriptionEventId(
-      user.id,
-      USER_SUBSCRIPTION_EVENT_TYPE__CANCELED,
-      event.block.timestamp
-    )
-  );
-
-  if (cancelEvent != null) {
-    store.remove('UserSubscriptionCanceledEvent', cancelEvent.id.toHexString());
-    sub.cancelled = false;
-    user.eventCount = user.eventCount - 1;
-    user.save();
-  }
 }
 
 export function handleUnsubscribe(event: UnsubscribeEvent): void {
