@@ -241,9 +241,9 @@ function buildAndSaveUserSubscriptionRenewalEvent(
   renewalEvent.blockNumber = event.block.number;
   renewalEvent.blockTimestamp = event.block.timestamp;
   renewalEvent.txHash = event.transaction.hash;
-  renewalEvent.currentSubscriptionStart = sub.start;
-  renewalEvent.currentSubscriptionEnd = sub.end;
-  renewalEvent.currentSubscriptionRate = sub.rate;
+  renewalEvent.currentSubscriptionStart = event.params.start;
+  renewalEvent.currentSubscriptionEnd = event.params.end;
+  renewalEvent.currentSubscriptionRate = event.params.rate;
   renewalEvent.eventType = USER_SUBSCRIPTION_EVENT_TYPE__RENEW;
   renewalEvent.save();
 
