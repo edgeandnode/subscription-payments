@@ -114,6 +114,7 @@ export function handleSubscribe(event: SubscribeEvent): void {
 
   if (cancelEvent != null) {
     store.remove('UserSubscriptionCanceledEvent', cancelEvent.id.toHexString());
+    sub.cancelled = false;
     user.eventCount = user.eventCount - 1;
     user.save();
   }
