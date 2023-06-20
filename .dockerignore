@@ -1,7 +1,7 @@
 /billing/
 /cli/
-/contract/artifacts/
-/contract/cache/
+/contracts/artifacts/
+/contracts/cache/
 /graph-subscriptions-rs/
 /model/
 node_modules/

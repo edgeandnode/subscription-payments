@@ -1,7 +1,7 @@
 /cli/target/
-/contract/artifacts/
-/contract/cache/
-/contract/contract-deployment.json
+/contracts/artifacts/
+/contracts/cache/
+/contracts/contract-deployment.json
 /model/_apalache-out/
 /model/states/
 node_modules/
