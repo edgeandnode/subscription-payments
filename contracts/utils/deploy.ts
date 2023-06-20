@@ -4,7 +4,7 @@ import { Artifacts } from 'hardhat/internal/artifacts'
 import { LinkReferences } from 'hardhat/types'
 
 import { Subscriptions } from '../types/contracts/Subscriptions'
-import { StableToken } from '../types'
+import { Registry, StableToken } from '../types'
 
 type Abi = Array<string | utils.FunctionFragment | utils.EventFragment | utils.ParamType>
 
@@ -71,4 +71,11 @@ export async function deployStableToken(
   logging = true
 ): Promise<StableToken> {
   return deployContract(args, sender, 'StableToken', logging) as unknown as Promise<StableToken>
+}
+
+export async function deployRegistry(
+  sender: Signer,
+  logging = true
+): Promise<Registry> {
+  return deployContract([], sender, 'Registry', logging) as unknown as Promise<Registry>
 }
