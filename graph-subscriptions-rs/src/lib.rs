@@ -20,10 +20,10 @@ pub mod subscription_tier;
 
 abigen!(
     Subscriptions,
-    "../contract/build/Subscriptions.abi",
+    "../contracts/build/Subscriptions.abi",
     event_derives(serde::Deserialize, serde::Serialize);
     IERC20,
-    "../contract/build/IERC20.abi",
+    "../contracts/build/IERC20.abi",
     event_derives(serde::Deserialize, serde::Serialize);
 );
 

@@ -8,11 +8,11 @@ Prototype Contract for Subscription Payments
 - `docker compose up`
 
 ```bash
-(cd contract && yarn && yarn build && yarn deploy-local)
-yq ".dataSources[0].source.address |= \"$(jq <contract/contract-deployment.json '.contract' -r)\"" \
-  subgraph/subgraph.yaml -iy
+(cd contracts && yarn && yarn build && yarn deploy-local)
+yq ".dataSources[0].source.address |= \"$(jq <contracts/contract-deployment.json '.contract' -r)\"" \
+  -i subgraph/subgraph.yaml
 yq ".dataSources[0].network |= \"hardhat\"" \
-  subgraph/subgraph.yaml -iy
+  -i subgraph/subgraph.yaml
 echo "waiting for graph-node..."
 while true; do curl -sf "localhost:8020"; [ $? -eq 22 ] && break; sleep 1; done
 (cd subgraph && yarn && yarn create-local && yarn deploy-local)
