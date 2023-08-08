@@ -66,6 +66,11 @@ impl<'de> Deserialize<'de> for AddressBytes {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TicketPayload {
+    /// EIP-155 ID for the chain on which the contract is deployed.
+    pub chain_id: U256,
+    /// Address of the subscriptions contract.
+    #[serde_as(as = "FromInto<AddressBytes>")]
+    pub contract: Address,
     /// Address associated with the secret key used to sign the ticket.
     #[serde_as(as = "FromInto<AddressBytes>")]
     pub signer: Address,
@@ -89,21 +94,12 @@ pub struct TicketPayload {
     pub allowed_domains: Option<String>,
 }
 
-#[derive(Clone, Debug)]
-pub struct TicketVerificationDomain {
-    pub contract: Address,
-    pub chain_id: U256,
-}
-
 impl TicketPayload {
     pub fn user(&self) -> Address {
         self.user.unwrap_or(self.signer)
     }
 
-    pub fn from_ticket_base64(
-        domain: &TicketVerificationDomain,
-        ticket: &str,
-    ) -> anyhow::Result<(Self, Signature)> {
+    pub fn from_ticket_base64(ticket: &str) -> anyhow::Result<(Self, Signature)> {
         let ticket = base64::prelude::BASE64_URL_SAFE_NO_PAD
             .decode(ticket)
             .context("invalid base64 (URL, nopad)")?;
@@ -117,45 +113,29 @@ impl TicketPayload {
         let payload: TicketPayload =
             serde_cbor_2::de::from_reader(&ticket[..signature_start]).context("invalid payload")?;
         payload
-            .verify(domain, &signature)
+            .verify(&signature)
             .context("failed to recover signer")?;
         Ok((payload, signature))
     }
 
-    pub fn to_ticket_base64(
-        &self,
-        domain: &TicketVerificationDomain,
-        wallet: &Wallet<SigningKey>,
-    ) -> anyhow::Result<String> {
-        let ticket = self.encode(domain, wallet)?;
+    pub fn to_ticket_base64(&self, wallet: &Wallet<SigningKey>) -> anyhow::Result<String> {
+        let ticket = self.encode(wallet)?;
         Ok(BASE64_URL_SAFE_NO_PAD.encode(ticket))
     }
 
-    pub fn encode(
-        &self,
-        domain: &TicketVerificationDomain,
-        wallet: &Wallet<SigningKey>,
-    ) -> anyhow::Result<Vec<u8>> {
+    pub fn encode(&self, wallet: &Wallet<SigningKey>) -> anyhow::Result<Vec<u8>> {
         let mut buf = serde_cbor_2::ser::to_vec(self)?;
-        buf.append(&mut self.sign_hash(domain, wallet)?.to_vec());
+        buf.append(&mut self.sign_hash(wallet)?.to_vec());
         Ok(buf)
     }
 
-    pub fn sign_hash(
-        &self,
-        domain: &TicketVerificationDomain,
-        wallet: &Wallet<SigningKey>,
-    ) -> anyhow::Result<Signature> {
-        let hash = hash_message(self.verification_message(domain));
+    pub fn sign_hash(&self, wallet: &Wallet<SigningKey>) -> anyhow::Result<Signature> {
+        let hash = hash_message(self.verification_message());
         Ok(wallet.sign_hash(hash)?)
     }
 
-    pub fn verify(
-        &self,
-        domain: &TicketVerificationDomain,
-        signature: &Signature,
-    ) -> anyhow::Result<Address> {
-        let hash = hash_message(self.verification_message(domain));
+    pub fn verify(&self, signature: &Signature) -> anyhow::Result<Address> {
+        let hash = hash_message(self.verification_message());
         let recovered_signer = signature.recover(hash)?;
         ensure!(
             recovered_signer == self.signer,
@@ -164,7 +144,7 @@ impl TicketPayload {
         Ok(self.signer)
     }
 
-    pub fn verification_message(&self, domain: &TicketVerificationDomain) -> String {
+    pub fn verification_message(&self) -> String {
         let mut cursor: io::Cursor<Vec<u8>> = io::Cursor::default();
         if let Some(allowed_deployments) = &self.allowed_deployments {
             writeln!(&mut cursor, "allowed_deployments: {}", allowed_deployments).unwrap();
@@ -175,8 +155,8 @@ impl TicketPayload {
         if let Some(allowed_subgraphs) = &self.allowed_subgraphs {
             writeln!(&mut cursor, "allowed_subgraphs: {}", allowed_subgraphs).unwrap();
         }
-        writeln!(&mut cursor, "chain_id: {}", domain.chain_id).unwrap();
-        writeln!(&mut cursor, "contract: {:?}", domain.contract).unwrap();
+        writeln!(&mut cursor, "chain_id: {}", self.chain_id).unwrap();
+        writeln!(&mut cursor, "contract: {:?}", self.contract).unwrap();
         if let Some(name) = &self.name {
             writeln!(&mut cursor, "name: {}", name).unwrap();
         }
@@ -213,15 +193,30 @@ impl TryFrom<(u64, u64, u128)> for Subscription {
 #[cfg(test)]
 #[test]
 fn test_ticket() {
-    let domain = TicketVerificationDomain {
+    use ethers::signers::Signer as _;
+
+    let chain_id: u64 = 1337;
+    let wallet =
+        Wallet::from_str("0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d")
+            .unwrap()
+            .with_chain_id(chain_id);
+
+    let payload = TicketPayload {
+        chain_id: U256::from(chain_id),
         contract: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
             .parse()
             .unwrap(),
-        chain_id: U256::from(1337),
+        signer: wallet.address(),
+        user: None,
+        name: None,
+        allowed_subgraphs: None,
+        allowed_deployments: None,
+        allowed_domains: None,
     };
-
-    let ticket = "oWZzaWduZXJU85_W5RqtiPb0zmq4gnJ5z_-5ImaOx7Lx3mKLIvhRDKDaY_78qMV13R7jNWnZFTil7jNME2Mzbg-VTUTQxdaM5xZiNWTHc0ata_wKhNPxqEjmFxOQGw";
-    let (payload, signature) = TicketPayload::from_ticket_base64(&domain, ticket).unwrap();
-    println!("{:#?}", payload);
-    println!("Signature({})", hex::encode(signature.to_vec()));
+    println!("{payload:#?}");
+    let ticket = payload.to_ticket_base64(&wallet).unwrap();
+    println!("ticket: {ticket}");
+    let (extracted_payload, signature) = TicketPayload::from_ticket_base64(&ticket).unwrap();
+    println!("signature: {}", hex::encode(signature.to_vec()));
+    assert_eq!(payload, extracted_payload);
 }

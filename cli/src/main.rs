@@ -2,9 +2,7 @@ use anyhow::{ensure, Context, Result};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use ethers::{abi::Address, prelude::*};
-use graph_subscriptions::{
-    Subscription, Subscriptions, TicketPayload, TicketVerificationDomain, IERC20,
-};
+use graph_subscriptions::{Subscription, Subscriptions, TicketPayload, IERC20};
 use std::{io::stdin, str::FromStr as _, sync::Arc};
 use toolshed::url::Url;
 
@@ -175,13 +173,10 @@ async fn main() -> Result<()> {
             allowed_deployments,
             allowed_domains,
         } => {
-            let domain = TicketVerificationDomain {
-                chain_id: U256::from(opt.chain_id),
-                contract: subscriptions.address(),
-            };
-
             let signer = signer.unwrap_or(wallet.address());
             let payload = TicketPayload {
+                chain_id: U256::from(opt.chain_id),
+                contract: subscriptions.address(),
                 signer,
                 user,
                 name,
@@ -193,10 +188,10 @@ async fn main() -> Result<()> {
             let user = payload.user.unwrap_or(payload.signer);
             ensure!(subscriptions.check_authorized_signer(user, signer).await?);
 
-            let ticket = payload.to_ticket_base64(&domain, &wallet)?;
+            let ticket = payload.to_ticket_base64(&wallet)?;
 
             // check recovery
-            TicketPayload::from_ticket_base64(&domain, &ticket)?;
+            TicketPayload::from_ticket_base64(&ticket)?;
 
             println!("{ticket}");
         }
