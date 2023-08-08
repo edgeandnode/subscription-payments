@@ -175,7 +175,7 @@ async fn main() -> Result<()> {
         } => {
             let signer = signer.unwrap_or(wallet.address());
             let payload = TicketPayload {
-                chain_id: U256::from(opt.chain_id),
+                chain_id: opt.chain_id,
                 contract: subscriptions.address(),
                 signer,
                 user,

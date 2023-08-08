@@ -2,12 +2,8 @@ use anyhow::{anyhow, ensure, Context};
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use ethers::{
-    abi::Address,
-    contract::abigen,
-    prelude::k256::ecdsa::SigningKey,
-    signers::Wallet,
-    types::{Signature, U256},
-    utils::hash_message,
+    abi::Address, contract::abigen, prelude::k256::ecdsa::SigningKey, signers::Wallet,
+    types::Signature, utils::hash_message,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{serde_as, skip_serializing_none, FromInto};
@@ -67,7 +63,7 @@ impl<'de> Deserialize<'de> for AddressBytes {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TicketPayload {
     /// EIP-155 ID for the chain on which the contract is deployed.
-    pub chain_id: U256,
+    pub chain_id: u64,
     /// Address of the subscriptions contract.
     #[serde_as(as = "FromInto<AddressBytes>")]
     pub contract: Address,
@@ -195,14 +191,13 @@ impl TryFrom<(u64, u64, u128)> for Subscription {
 fn test_ticket() {
     use ethers::signers::Signer as _;
 
-    let chain_id: u64 = 1337;
     let wallet =
         Wallet::from_str("0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d")
             .unwrap()
-            .with_chain_id(chain_id);
+            .with_chain_id(1337_u64);
 
     let payload = TicketPayload {
-        chain_id: U256::from(chain_id),
+        chain_id: wallet.chain_id(),
         contract: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
             .parse()
             .unwrap(),
