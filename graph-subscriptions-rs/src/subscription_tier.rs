@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SubscriptionTiers(Vec<SubscriptionTier>);
 
 #[serde_as]
