@@ -5,6 +5,8 @@
   "license": "MIT",
   "scripts": {
     "codegen": "graph codegen",
+    "prepare": "rm -f mustache.json && echo '{}' > mustache.json && mustache mustache.json subgraph.template.yaml subgraph.yaml",
+    "prepare:arbone": "rm -f mustache.json && echo '{ \"isArbitrumOne\": true }' > mustache.json && mustache mustache.json subgraph.template.yaml subgraph.yaml",
     "build": "graph build",
     "test": "graph test subscriptions -v 0.5.4",
     "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ edgeandnode-subscriptions",
@@ -14,7 +16,8 @@
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "^0.50.1",
-    "@graphprotocol/graph-ts": "^0.30.0"
+    "@graphprotocol/graph-ts": "^0.30.0",
+    "mustache": "^4.2.0"
   },
   "devDependencies": {
     "matchstick-as": "^0.5.2"

@@ -15,7 +15,7 @@ yq ".dataSources[0].network |= \"hardhat\"" \
   -i subgraph/subgraph.yaml
 echo "waiting for graph-node..."
 while true; do curl -sf "localhost:8020"; [ $? -eq 22 ] && break; sleep 1; done
-(cd subgraph && yarn && yarn create-local && yarn deploy-local)
+(cd subgraph && yarn && yarn prepare && yarn create-local && yarn deploy-local)
 ```
 
 ```bash
