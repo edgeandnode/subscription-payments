@@ -9,8 +9,8 @@ node_modules/
 /subgraph/node_modules/
 /subgraph/tests/.bin/
 /subgraph/tests/.latest.json
-/subgraph/mustache.json
-/subgraph/subgraph.yaml
 target/
 /graph-subscriptions-rs/Cargo.lock
 types/
+subgraph/mustache.json
+subgraph/subgraph.yaml
