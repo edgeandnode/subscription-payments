@@ -14,6 +14,10 @@
     "Subscriptions": {
       "address": "0x6e4584820Da058850ed523008F6f0e3aebCE16F5",
       "startBlock": 79799011
+    },
+    "Subscriptions-native": {
+      "address": "0x482f58d3513E386036670404b35cB3F2DF67a750",
+      "startBlock": 119399140
     }
   }
 }
