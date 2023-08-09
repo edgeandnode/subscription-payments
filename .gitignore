@@ -12,3 +12,5 @@ node_modules/
 target/
 /graph-subscriptions-rs/Cargo.lock
 types/
+subgraph/mustache.json
+subgraph/subgraph.yaml

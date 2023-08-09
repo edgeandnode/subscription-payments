@@ -32,3 +32,35 @@ dataSources:
         - event: AuthorizedSignerRemoved(indexed address,indexed address)
           handler: handleAuthorizedSignerRemoved
       file: ./src/subscriptions.ts
+{{#isArbitrumOne}}
+  - kind: ethereum
+    name: Subscriptions-native
+    network: hardhat
+    source:
+      address: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+      abi: Subscriptions
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Init
+        - Subscribe
+        - Unsubscribe
+        - Subscription
+      abis:
+        - name: Subscriptions
+          file: ./abis/Subscriptions.json
+      eventHandlers:
+        - event: Init(address,uint64)
+          handler: handleInit
+        - event: Subscribe(indexed address,indexed uint256,uint64,uint64,uint128)
+          handler: handleSubscribe
+        - event: Unsubscribe(indexed address,indexed uint256)
+          handler: handleUnsubscribe
+        - event: AuthorizedSignerAdded(indexed address,indexed address)
+          handler: handleAuthorizedSignerAdded
+        - event: AuthorizedSignerRemoved(indexed address,indexed address)
+          handler: handleAuthorizedSignerRemoved
+      file: ./src/subscriptions.ts
+{{/isArbitrumOne}}
