@@ -30,6 +30,13 @@ impl SubscriptionTiers {
             .cloned()
             .unwrap_or_default()
     }
+
+    pub fn find_next_tier(&self, sub_rate: u128) -> Option<SubscriptionTier> {
+        self.0
+            .iter()
+            .find(|tier| tier.payment_rate > sub_rate)
+            .cloned()
+    }
 }
 
 impl From<Vec<SubscriptionTier>> for SubscriptionTiers {
