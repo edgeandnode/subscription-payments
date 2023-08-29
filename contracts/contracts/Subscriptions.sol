@@ -56,6 +56,7 @@ contract Subscriptions is Ownable {
         uint128 rate
     );
     event Unsubscribe(address indexed user, uint256 indexed epoch);
+    event Extend(address indexed user, uint64 oldEnd, uint64 newEnd, uint256 amount);
     event PendingSubscriptionCreated(
         address indexed user,
         uint256 indexed epoch,
@@ -216,6 +217,44 @@ contract Subscriptions is Ownable {
         delete authorizedSigners[user][_signer];
 
         emit AuthorizedSignerRemoved(user, _signer);
+    }
+
+    /// @notice Create a subscription for the tx origin address.
+    /// Will override an active subscription if one exists.
+    /// @dev The function's name and signature, `create`, are used to comply with the `IPayment` 
+    /// interface for recurring payments.
+    /// @param user Subscription owner. Must match tx.origin.
+    /// @param data Encoded start, end and rate for the new subscription.
+    function create(address user, bytes calldata data) public {
+        require(
+            user == tx.origin,
+            'Can only create subscription for calling EOA'
+        );
+        (uint64 start, uint64 end, uint128 rate) = abi.decode(
+            data,
+            (uint64, uint64, uint128)
+        );
+        _subscribe(user, start, end, rate);
+    }
+
+    /// @notice Extends an active subscription end time.
+    /// The time the subscription will be extended by is calculated as `amount / rate`, where 
+    /// `rate` is the existing subscription rate and `amount` is the new amount of tokens provided.
+    /// @dev The function's name, `addTo`, is used to comply with the `IPayment` interface for recurring payments.
+    /// @param user Subscription owner.
+    /// @param amount Total amount to be added to the subscription.
+    function addTo(address user, uint256 amount) public {
+        require(amount > 0, 'amount must be positive');
+
+        Subscription memory sub = subscriptions[user];
+        require(sub.start != 0, 'no active subscription');
+        require(sub.rate != 0, 'cannot extend a zero rate subscription');
+
+        uint64 oldEnd = sub.end;
+        uint64 newEnd =  oldEnd + uint64(amount / sub.rate);
+        _subscribe(user, sub.start, newEnd, sub.rate);
+
+        emit Extend(user, oldEnd, newEnd, amount);
     }
 
     /// @param _user Subscription owner.
