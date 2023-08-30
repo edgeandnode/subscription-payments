@@ -45,9 +45,11 @@ contract Subscriptions is Ownable {
     mapping(address => mapping(address => bool)) public authorizedSigners;
     /// @notice Mapping of user to pending subscription.
     mapping(address => Subscription) public pendingSubscriptions;
+    /// @notice Address of the recurring payments contract.
+    address public recurringPayments;
 
     // -- Events --
-    event Init(address token, uint64 epochSeconds);
+    event Init(address token, uint64 epochSeconds, address recurringPayments);
     event Subscribe(
         address indexed user,
         uint256 indexed epoch,
@@ -56,7 +58,12 @@ contract Subscriptions is Ownable {
         uint128 rate
     );
     event Unsubscribe(address indexed user, uint256 indexed epoch);
-    event Extend(address indexed user, uint64 oldEnd, uint64 newEnd, uint256 amount);
+    event Extend(
+        address indexed user,
+        uint64 oldEnd,
+        uint64 newEnd,
+        uint256 amount
+    );
     event PendingSubscriptionCreated(
         address indexed user,
         uint256 indexed epoch,
@@ -78,17 +85,31 @@ contract Subscriptions is Ownable {
         uint256 indexed startEpoch,
         uint256 indexed endEpoch
     );
+    event RecurringPaymentsUpdated(address indexed recurringPayments);
+
+    modifier onlyRecurringPayments() {
+        require(
+            msg.sender == recurringPayments,
+            'caller is not the recurring payments contract'
+        );
+        _;
+    }
 
     // -- Functions --
     /// @param _token The ERC-20 token held by this contract
     /// @param _epochSeconds The Duration of each epoch in seconds.
     /// @dev Contract ownership must be transfered to the gateway after deployment.
-    constructor(address _token, uint64 _epochSeconds) {
+    constructor(
+        address _token,
+        uint64 _epochSeconds,
+        address _recurringPayments
+    ) {
         token = IERC20(_token);
         epochSeconds = _epochSeconds;
         uncollectedEpoch = block.timestamp / _epochSeconds;
+        _setRecurringPayments(_recurringPayments);
 
-        emit Init(_token, _epochSeconds);
+        emit Init(_token, _epochSeconds, _recurringPayments);
     }
 
     /// @notice Create a subscription for the sender.
@@ -221,15 +242,14 @@ contract Subscriptions is Ownable {
 
     /// @notice Create a subscription for the tx origin address.
     /// Will override an active subscription if one exists.
-    /// @dev The function's name and signature, `create`, are used to comply with the `IPayment` 
+    /// @dev The function's name and signature, `create`, are used to comply with the `IPayment`
     /// interface for recurring payments.
     /// @param user Subscription owner. Must match tx.origin.
     /// @param data Encoded start, end and rate for the new subscription.
-    function create(address user, bytes calldata data) public {
-        require(
-            user == tx.origin,
-            'Can only create subscription for calling EOA'
-        );
+    function create(
+        address user,
+        bytes calldata data
+    ) public onlyRecurringPayments {
         (uint64 start, uint64 end, uint128 rate) = abi.decode(
             data,
             (uint64, uint64, uint128)
@@ -238,7 +258,7 @@ contract Subscriptions is Ownable {
     }
 
     /// @notice Extends an active subscription end time.
-    /// The time the subscription will be extended by is calculated as `amount / rate`, where 
+    /// The time the subscription will be extended by is calculated as `amount / rate`, where
     /// `rate` is the existing subscription rate and `amount` is the new amount of tokens provided.
     /// @dev The function's name, `addTo`, is used to comply with the `IPayment` interface for recurring payments.
     /// @param user Subscription owner.
@@ -251,10 +271,14 @@ contract Subscriptions is Ownable {
         require(sub.rate != 0, 'cannot extend a zero rate subscription');
 
         uint64 oldEnd = sub.end;
-        uint64 newEnd =  oldEnd + uint64(amount / sub.rate);
+        uint64 newEnd = oldEnd + uint64(amount / sub.rate);
         _subscribe(user, sub.start, newEnd, sub.rate);
 
         emit Extend(user, oldEnd, newEnd, amount);
+    }
+
+    function setRecurringPayments(address _recurringPayments) public onlyOwner {
+        _setRecurringPayments(_recurringPayments);
     }
 
     /// @param _user Subscription owner.
@@ -341,6 +365,14 @@ contract Subscriptions is Ownable {
     function unlocked(address _user) public view returns (uint128) {
         Subscription storage sub = subscriptions[_user];
         return unlocked(sub.start, sub.end, sub.rate);
+    }
+
+    /// @notice Sets the recurring payments contract address.
+    /// @param _recurringPayments Address of the recurring payments contract.
+    function _setRecurringPayments(address _recurringPayments) private {
+        require(_recurringPayments != address(0), 'recurringPayments cannot be zero address');
+        recurringPayments = _recurringPayments;
+        emit RecurringPaymentsUpdated(_recurringPayments);
     }
 
     /// @notice Create a subscription for a user
