@@ -26,6 +26,7 @@ describe('Subscriptions contract', () => {
   let subscriber1: Account;
   let subscriber2: Account;
   let subscriberNoFunds: Account;
+  let recurringPayments: Account;
 
   // Contracts
   let subscriptions: Subscriptions;
@@ -36,7 +37,7 @@ describe('Subscriptions contract', () => {
 
   before(async function () {
     // eslint-disable-next-line @typescript-eslint/no-extra-semi
-    [deployer, subscriber1, subscriber2, subscriberNoFunds] =
+    [deployer, subscriber1, subscriber2, subscriberNoFunds, recurringPayments] =
       await getAccounts();
 
     setAutoMine(true);
@@ -49,7 +50,7 @@ describe('Subscriptions contract', () => {
       false
     );
     subscriptions = await deployment.deploySubscriptions(
-      [stableToken.address, subscriptionsEpochSeconds],
+      [stableToken.address, subscriptionsEpochSeconds, recurringPayments.address],
       deployer.signer,
       false
     );

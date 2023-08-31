@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.17;
-import 'hardhat/console.sol';
+
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
@@ -210,7 +210,7 @@ contract Subscriptions is Ownable {
         );
 
         // Create the subscription using the pending subscription details
-        _subscribe(_to, pendingSub.start, pendingSub.end, pendingSub.rate);
+        _subscribe(_to, subStart, pendingSub.end, pendingSub.rate);
         delete pendingSubscriptions[_to];
 
         // Send any extra tokens back to the user
