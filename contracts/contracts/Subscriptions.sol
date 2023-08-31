@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.17;
-
+import 'hardhat/console.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
@@ -114,10 +114,14 @@ contract Subscriptions is Ownable {
 
     /// @notice Create a subscription for the sender.
     /// Will override an active subscription if one exists.
+    /// @dev Setting a start time in the past will clamp it to the current block timestamp.
+    /// This protects users from paying for a subscription during a period of time they were
+    /// not able to use it.
     /// @param start Start timestamp for the new subscription.
     /// @param end End timestamp for the new subscription.
     /// @param rate Rate for the new subscription.
     function subscribe(uint64 start, uint64 end, uint128 rate) public {
+        start = uint64(Math.max(start, block.timestamp));
         _subscribe(msg.sender, start, end, rate);
     }
 
@@ -165,6 +169,9 @@ contract Subscriptions is Ownable {
 
     /// @notice Creates a subscription template without requiring funds. Expected to be used with
     /// `fulfil`.
+    /// @dev Setting a start time in the past will clamp it to the current block timestamp when fulfilled.
+    /// This protects users from paying for a subscription during a period of time they were
+    /// not able to use it.
     /// @param start Start timestamp for the pending subscription.
     /// @param end End timestamp for the pending subscription.
     /// @param rate Rate for the pending subscription.
@@ -244,6 +251,7 @@ contract Subscriptions is Ownable {
     /// Will override an active subscription if one exists.
     /// @dev The function's name and signature, `create`, are used to comply with the `IPayment`
     /// interface for recurring payments.
+    /// @dev Note that this function does not protect user against a start time in the past.
     /// @param user Subscription owner. Must match tx.origin.
     /// @param data Encoded start, end and rate for the new subscription.
     function create(
@@ -265,6 +273,7 @@ contract Subscriptions is Ownable {
     /// @param amount Total amount to be added to the subscription.
     function addTo(address user, uint256 amount) public {
         require(amount > 0, 'amount must be positive');
+        require(user != address(0), 'user is null');
 
         Subscription memory sub = subscriptions[user];
         require(sub.start != 0, 'no active subscription');
@@ -272,7 +281,14 @@ contract Subscriptions is Ownable {
 
         uint64 oldEnd = sub.end;
         uint64 newEnd = oldEnd + uint64(amount / sub.rate);
-        _subscribe(user, sub.start, newEnd, sub.rate);
+
+        _setEpochs(sub.start, sub.end, -int128(sub.rate));
+        _setEpochs(sub.start, newEnd, int128(sub.rate));
+
+        subscriptions[user].end = newEnd;
+
+        bool success = token.transferFrom(msg.sender, address(this), amount);
+        require(success, 'IERC20 token transfer failed');
 
         emit Extend(user, oldEnd, newEnd, amount);
     }
@@ -377,6 +393,8 @@ contract Subscriptions is Ownable {
 
     /// @notice Create a subscription for a user
     /// Will override an active subscription if one exists.
+    /// @dev Note that setting a start time in the past is allowed. If this behavior is not desired,
+    /// the caller can clamp the start time to the current block timestamp.
     /// @param user Owner for the new subscription.
     /// @param start Start timestamp for the new subscription.
     /// @param end End timestamp for the new subscription.
@@ -389,7 +407,6 @@ contract Subscriptions is Ownable {
     ) private {
         require(user != address(0), 'user is null');
         require(user != address(this), 'invalid user');
-        start = uint64(Math.max(start, block.timestamp));
         require(start < end, 'start must be less than end');
 
         // This avoids unexpected behavior from truncation, especially in `locked` and `unlocked`.
