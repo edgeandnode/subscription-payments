@@ -268,6 +268,7 @@ contract Subscriptions is Ownable {
     /// @notice Extends a subscription's end time.
     /// The time the subscription will be extended by is calculated as `amount / rate`, where
     /// `rate` is the existing subscription rate and `amount` is the new amount of tokens provided.
+    /// The new end time must be in the future.
     /// @dev The function's name, `addTo`, is used to comply with the `IPayment` interface for recurring payments.
     /// @param user Subscription owner.
     /// @param amount Total amount to be added to the subscription.
