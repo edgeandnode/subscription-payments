@@ -125,7 +125,7 @@ describe('Subscriptions contract', () => {
       );
     });
 
-    it('should prevent unauthorized users to change the recurring payments addressd', async function () {
+    it('should prevent unauthorized users from changing the recurring payments address', async function () {
       const tx = subscriptions
         .connect(subscriber1.signer)
         .setRecurringPayments(newRecurringPayments.address);
