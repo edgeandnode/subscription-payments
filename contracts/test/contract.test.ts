@@ -583,7 +583,7 @@ describe('Subscriptions contract', () => {
       );
     });
 
-    it('should prevent unauthorized users to call create', async function () {
+    it('should prevent unauthorized users from calling create', async function () {
       const now = await latestBlockTimestamp();
       const start = now.sub(10);
       const end = now.add(510);
