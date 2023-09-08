@@ -602,8 +602,6 @@ describe('Subscriptions contract', () => {
     });
   });
 
-  describe('addTo', function () {});
-
   describe('extend', function () {
     it('should revert if the amount to extend is zero', async function () {
       const tx = subscriptions.addTo(
@@ -661,7 +659,7 @@ describe('Subscriptions contract', () => {
       const start = now;
       const end = now.add(1000);
       const rate = BigNumber.from(5);
-      const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/5 = 1000 + 400 = 1400      const user = subscriber2.address;
+      const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/5 = 1000 + 400 = 1400
       
       const subscribeBlockNumber = await subscribe(
         stableToken,
@@ -690,7 +688,7 @@ describe('Subscriptions contract', () => {
       const start = now;
       const end = now.add(1000);
       const rate = BigNumber.from(5);
-      const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/5 = 1000 + 400 = 1400      const user = subscriber2.address;
+      const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/5 = 1000 + 400 = 1400
       
       const subscribeBlockNumber = await subscribe(
         stableToken,
