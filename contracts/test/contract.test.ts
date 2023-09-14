@@ -652,14 +652,43 @@ describe('Subscriptions contract', () => {
         subscribeBlockNumber
       );
     });
-   
+
+    it('should allow extending an active subscription with no rounding error', async function () {
+      const now = await latestBlockTimestamp();
+      const start = now;
+      const end = now.add(1000);
+      const rate = BigNumber.from(7);
+      const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/7 = 1000 + 286 = 1286
+
+      const subscribeBlockNumber = await subscribe(
+        stableToken,
+        subscriptions,
+        subscriber1,
+        start,
+        end,
+        rate
+      );
+
+      // mine past the start of the subscription
+      await mineNBlocks(150);
+
+      await addToSubscription(
+        stableToken,
+        subscriptions,
+        recurringPayments,
+        subscriber1.address,
+        amountToExtend,
+        subscribeBlockNumber
+      );
+    });
+
     it('should allow extending an active subscription', async function () {
       const now = await latestBlockTimestamp();
       const start = now;
       const end = now.add(1000);
       const rate = BigNumber.from(5);
       const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/5 = 1000 + 400 = 1400
-      
+
       const subscribeBlockNumber = await subscribe(
         stableToken,
         subscriptions,
@@ -688,7 +717,7 @@ describe('Subscriptions contract', () => {
       const end = now.add(1000);
       const rate = BigNumber.from(5);
       const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/5 = 1000 + 400 = 1400
-      
+
       const subscribeBlockNumber = await subscribe(
         stableToken,
         subscriptions,
@@ -1409,10 +1438,14 @@ async function addToSubscription(
   // * Tx
   const tx = subscriptions.connect(signer.signer).addTo(user, amount);
   const receipt = await (await tx).wait();
-  const txTimestamp = (await subscriptions.provider.getBlock(receipt.blockNumber!)).timestamp;
+  const txTimestamp = (
+    await subscriptions.provider.getBlock(receipt.blockNumber!)
+  ).timestamp;
 
   // * Check events
-  const newEnd = BigNumber.from(Math.max(beforeSub.end.toNumber(), txTimestamp)).add(amount.div(beforeSub.rate));
+  const newEnd = BigNumber.from(
+    Math.max(beforeSub.end.toNumber(), txTimestamp)
+  ).add(Math.ceil(amount.toNumber() / beforeSub.rate.toNumber()));
   await expect(tx)
     .to.emit(subscriptions, 'Extend')
     .withArgs(user, beforeSub.end, newEnd, amount);
@@ -1423,9 +1456,7 @@ async function addToSubscription(
     subscriptions.address
   );
   expect(afterBalance).to.eq(beforeBalance.sub(amount));
-  expect(afterContractBalance).to.eq(
-    beforeContractBalance.add(amount)
-  );
+  expect(afterContractBalance).to.eq(beforeContractBalance.add(amount));
 
   // * Check state
   const afterSub = await subscriptions.subscriptions(user);
