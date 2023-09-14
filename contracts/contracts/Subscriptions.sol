@@ -280,9 +280,8 @@ contract Subscriptions is Ownable {
         require(sub.start != 0, 'no subscription found');
         require(sub.rate != 0, 'cannot extend a zero rate subscription');
 
-        uint64 oldEnd = uint64(Math.max(sub.end, block.timestamp));
-        uint64 newEnd = oldEnd + uint64(amount / sub.rate);
-        require(block.timestamp < newEnd, 'new end cannot be in the past');
+        uint64 newEnd = uint64(Math.max(sub.end, block.timestamp)) +
+            uint64(amount / sub.rate);
 
         _setEpochs(sub.start, sub.end, -int128(sub.rate));
         _setEpochs(sub.start, newEnd, int128(sub.rate));
@@ -292,7 +291,7 @@ contract Subscriptions is Ownable {
         bool success = token.transferFrom(msg.sender, address(this), amount);
         require(success, 'IERC20 token transfer failed');
 
-        emit Extend(user, oldEnd, newEnd, amount);
+        emit Extend(user, sub.end, newEnd, amount);
     }
 
     function setRecurringPayments(address _recurringPayments) public onlyOwner {

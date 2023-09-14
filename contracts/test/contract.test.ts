@@ -3,7 +3,7 @@ import {time} from '@nomicfoundation/hardhat-network-helpers';
 
 import {expect} from 'chai';
 import * as deployment from '../utils/deploy';
-import {getAccounts, Account, toGRT} from '../utils/helpers';
+import {getAccounts, Account, toGRT, provider} from '../utils/helpers';
 
 import {Subscriptions} from '../types/contracts/Subscriptions';
 import {StableToken} from '../types/contracts/test/StableMock.sol/StableToken';
@@ -624,7 +624,7 @@ describe('Subscriptions contract', () => {
       await expect(tx).revertedWith('no subscription found');
     });
 
-    it('should revert when the new end time is in the past', async function () {
+    it('should allow extending an expired subscription', async function () {
       const now = await latestBlockTimestamp();
       const start = now.add(500);
       const end = now.add(1000);
@@ -643,7 +643,7 @@ describe('Subscriptions contract', () => {
       // mine past the newEnd
       await mineNBlocks(1500);
 
-      const tx = addToSubscription(
+      await addToSubscription(
         stableToken,
         subscriptions,
         recurringPayments,
@@ -651,7 +651,6 @@ describe('Subscriptions contract', () => {
         amountToExtend,
         subscribeBlockNumber
       );
-      await expect(tx).revertedWith('new end cannot be in the past');
     });
    
     it('should allow extending an active subscription', async function () {
@@ -1406,13 +1405,14 @@ async function addToSubscription(
   const beforeContractBalance = await stableToken.balanceOf(
     subscriptions.address
   );
-  const newEnd = beforeSub.end.add(amount.div(beforeSub.rate));
-  // const additionalTokens = beforeSub.rate.mul(newEnd.sub(beforeSub.end));
 
   // * Tx
   const tx = subscriptions.connect(signer.signer).addTo(user, amount);
+  const receipt = await (await tx).wait();
+  const txTimestamp = (await subscriptions.provider.getBlock(receipt.blockNumber!)).timestamp;
 
   // * Check events
+  const newEnd = BigNumber.from(Math.max(beforeSub.end.toNumber(), txTimestamp)).add(amount.div(beforeSub.rate));
   await expect(tx)
     .to.emit(subscriptions, 'Extend')
     .withArgs(user, beforeSub.end, newEnd, amount);
