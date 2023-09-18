@@ -653,33 +653,18 @@ describe('Subscriptions contract', () => {
       );
     });
 
-    it('should allow extending an active subscription with no rounding error', async function () {
+    it('should not allow extending an active subscription if amount is not multiple of rate', async function () {
       const now = await latestBlockTimestamp();
       const start = now;
       const end = now.add(1000);
       const rate = BigNumber.from(7);
       const amountToExtend = BigNumber.from(2000); // newEnd: end + 2000/7 = 1000 + 286 = 1286
 
-      const subscribeBlockNumber = await subscribe(
-        stableToken,
-        subscriptions,
-        subscriber1,
-        start,
-        end,
-        rate
-      );
-
       // mine past the start of the subscription
       await mineNBlocks(150);
 
-      await addToSubscription(
-        stableToken,
-        subscriptions,
-        recurringPayments,
-        subscriber1.address,
-        amountToExtend,
-        subscribeBlockNumber
-      );
+      const tx = subscriptions.addTo(subscriber1.address, amountToExtend);
+      await expect(tx).revertedWith('amount not multiple of rate');
     });
 
     it('should allow extending an active subscription', async function () {
