@@ -268,7 +268,7 @@ contract Subscriptions is Ownable {
     /// @notice Extends a subscription's end time.
     /// The time the subscription will be extended by is calculated as `amount / rate`, where
     /// `rate` is the existing subscription rate and `amount` is the new amount of tokens provided.
-    /// The new end time must be in the future.
+    /// If the subscription was expired the extension will start from the current block timestamp.
     /// @dev The function's name, `addTo`, is used to comply with the `IPayment` interface for recurring payments.
     /// @param user Subscription owner.
     /// @param amount Total amount to be added to the subscription.
@@ -279,10 +279,10 @@ contract Subscriptions is Ownable {
         Subscription memory sub = subscriptions[user];
         require(sub.start != 0, 'no subscription found');
         require(sub.rate != 0, 'cannot extend a zero rate subscription');
+        require(amount % sub.rate == 0, "amount not multiple of rate");
 
-        uint64 oldEnd = sub.end;
-        uint64 newEnd = oldEnd + uint64(amount / sub.rate);
-        require(block.timestamp < newEnd, 'new end cannot be in the past');
+        uint64 newEnd = uint64(Math.max(sub.end, block.timestamp)) +
+            uint64(amount / sub.rate);
 
         _setEpochs(sub.start, sub.end, -int128(sub.rate));
         _setEpochs(sub.start, newEnd, int128(sub.rate));
@@ -292,7 +292,7 @@ contract Subscriptions is Ownable {
         bool success = token.transferFrom(msg.sender, address(this), amount);
         require(success, 'IERC20 token transfer failed');
 
-        emit Extend(user, oldEnd, newEnd, amount);
+        emit Extend(user, sub.end, newEnd, amount);
     }
 
     function setRecurringPayments(address _recurringPayments) public onlyOwner {
