@@ -279,6 +279,7 @@ contract Subscriptions is Ownable {
         Subscription memory sub = subscriptions[user];
         require(sub.start != 0, 'no subscription found');
         require(sub.rate != 0, 'cannot extend a zero rate subscription');
+        require(amount % sub.rate == 0, "amount not multiple of rate");
 
         uint64 newEnd = uint64(Math.max(sub.end, block.timestamp)) +
             uint64(amount / sub.rate);
