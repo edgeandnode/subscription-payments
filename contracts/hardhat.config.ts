@@ -1,7 +1,7 @@
 import {HardhatUserConfig, task} from 'hardhat/config';
 import '@nomiclabs/hardhat-ethers';
 import '@typechain/hardhat';
-import "@nomiclabs/hardhat-etherscan";
+import '@nomiclabs/hardhat-etherscan';
 import './tasks/deploy';
 
 task('accounts', 'Print a list of accounts', async (_, hre) => {
