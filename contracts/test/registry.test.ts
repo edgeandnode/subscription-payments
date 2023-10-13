@@ -5,7 +5,7 @@ import * as deployment from '../utils/deploy';
 import {getAccounts, Account} from '../utils/helpers';
 
 import {Registry} from '../types/contracts/Registry';
-import {BigNumber} from 'ethers';
+import {BigNumber, ethers} from 'ethers';
 import {setAutoMine} from './helpers';
 
 describe('Registry contract', () => {
@@ -47,9 +47,7 @@ describe('Registry contract', () => {
           '0x0000000000000000000000000000000000000001',
           '0x0000000000000000000000000000000000000002',
         ],
-        metadataHash: BigNumber.from(
-          '0x0000000000000000000000000000000000000000000000000000000000000001'
-        ),
+        metadataHash: '0x0000000000000000000000000000000000000000000000000000000000000001',
       };
       await registry.insertEntry(entryID, entry);
       const result = await registry.getEntry(entryID);
@@ -61,15 +59,11 @@ describe('Registry contract', () => {
       const entryID = BigNumber.from(1);
       const entry1 = {
         subscriptions: ['0x0000000000000000000000000000000000000001'],
-        metadataHash: BigNumber.from(
-          '0x0000000000000000000000000000000000000000000000000000000000000001'
-        ),
+        metadataHash: '0x0000000000000000000000000000000000000000000000000000000000000001',
       };
       const entry2 = {
         subscriptions: ['0x0000000000000000000000000000000000000002'],
-        metadataHash: BigNumber.from(
-          '0x0000000000000000000000000000000000000000000000000000000000000002'
-        ),
+        metadataHash: '0x0000000000000000000000000000000000000000000000000000000000000002',
       };
       await registry.insertEntry(entryID, entry1);
       await registry.insertEntry(entryID, entry2);
@@ -89,7 +83,7 @@ describe('Registry contract', () => {
       await registry.removeEntry(entryID);
       const result = await registry.getEntry(entryID);
       expect(result[0]).to.eql([]);
-      expect(result[1]).to.eql(BigNumber.from(0));
+      expect(result[1]).to.eql(ethers.constants.HashZero);
     });
   });
 });
