@@ -3,6 +3,7 @@ import '@nomiclabs/hardhat-ethers';
 import '@typechain/hardhat';
 import '@nomiclabs/hardhat-etherscan';
 import './tasks/deploy';
+import './tasks/registry';
 
 task('accounts', 'Print a list of accounts', async (_, hre) => {
   const accounts = await hre.ethers.getSigners();
