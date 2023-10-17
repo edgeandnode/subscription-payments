@@ -178,7 +178,7 @@ impl TryFrom<(u64, u64, u128)> for Subscription {
         let to_datetime = |t: u64| {
             NaiveDateTime::from_timestamp_opt(t.try_into()?, 0)
                 .ok_or_else(|| anyhow!("invalid timestamp"))
-                .map(|t| DateTime::<Utc>::from_utc(t, Utc))
+                .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
         };
         let start = to_datetime(start)?;
         let end = to_datetime(end)?;
