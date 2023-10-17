@@ -3,7 +3,10 @@ use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use ethers::{abi::Address, prelude::*};
 use graph_subscriptions::{Subscription, Subscriptions, TicketPayload, IERC20};
-use std::{io::stdin, str::FromStr as _, sync::Arc};
+use std::time::Duration;
+use std::{str::FromStr as _, sync::Arc};
+use tokio::io::AsyncReadExt;
+use tokio::time::timeout;
 use toolshed::url::Url;
 
 #[derive(Debug, Parser)]
@@ -69,7 +72,12 @@ async fn main() -> Result<()> {
     let token = IERC20::new(opt.token, provider.clone());
 
     let mut secret_key = String::new();
-    stdin().read_line(&mut secret_key)?;
+    timeout(
+        Duration::from_secs(2),
+        tokio::io::stdin().read_to_string(&mut secret_key),
+    )
+    .await??;
+
     let wallet = Wallet::from_str(secret_key.trim())?.with_chain_id(opt.chain_id);
     drop(secret_key);
     let client = SignerMiddleware::new(provider, wallet.clone());
