@@ -44,9 +44,11 @@ contract Subscriptions is Ownable {
     mapping(address => mapping(address => bool)) public authorizedSigners;
     /// @notice Mapping of user to pending subscription.
     mapping(address => Subscription) public pendingSubscriptions;
+    /// @notice Address of the recurring payments contract.
+    address public recurringPayments;
 
     // -- Events --
-    event Init(address token, uint64 epochSeconds);
+    event Init(address token, uint64 epochSeconds, address recurringPayments);
     event Subscribe(
         address indexed user,
         uint256 indexed epoch,
@@ -55,6 +57,12 @@ contract Subscriptions is Ownable {
         uint128 rate
     );
     event Unsubscribe(address indexed user, uint256 indexed epoch);
+    event Extend(
+        address indexed user,
+        uint64 oldEnd,
+        uint64 newEnd,
+        uint256 amount
+    );
     event PendingSubscriptionCreated(
         address indexed user,
         uint256 indexed epoch,
@@ -76,25 +84,43 @@ contract Subscriptions is Ownable {
         uint256 indexed startEpoch,
         uint256 indexed endEpoch
     );
+    event RecurringPaymentsUpdated(address indexed recurringPayments);
+
+    modifier onlyRecurringPayments() {
+        require(
+            msg.sender == recurringPayments,
+            'caller is not the recurring payments contract'
+        );
+        _;
+    }
 
     // -- Functions --
     /// @param _token The ERC-20 token held by this contract
     /// @param _epochSeconds The Duration of each epoch in seconds.
     /// @dev Contract ownership must be transfered to the gateway after deployment.
-    constructor(address _token, uint64 _epochSeconds) {
+    constructor(
+        address _token,
+        uint64 _epochSeconds,
+        address _recurringPayments
+    ) {
         token = IERC20(_token);
         epochSeconds = _epochSeconds;
         uncollectedEpoch = block.timestamp / _epochSeconds;
+        _setRecurringPayments(_recurringPayments);
 
-        emit Init(_token, _epochSeconds);
+        emit Init(_token, _epochSeconds, _recurringPayments);
     }
 
     /// @notice Create a subscription for the sender.
     /// Will override an active subscription if one exists.
+    /// @dev Setting a start time in the past will clamp it to the current block timestamp.
+    /// This protects users from paying for a subscription during a period of time they were
+    /// not able to use it.
     /// @param start Start timestamp for the new subscription.
     /// @param end End timestamp for the new subscription.
     /// @param rate Rate for the new subscription.
     function subscribe(uint64 start, uint64 end, uint128 rate) public {
+        start = uint64(Math.max(start, block.timestamp));
         _subscribe(msg.sender, start, end, rate);
     }
 
@@ -142,6 +168,9 @@ contract Subscriptions is Ownable {
 
     /// @notice Creates a subscription template without requiring funds. Expected to be used with
     /// `fulfil`.
+    /// @dev Setting a start time in the past will clamp it to the current block timestamp when fulfilled.
+    /// This protects users from paying for a subscription during a period of time they were
+    /// not able to use it.
     /// @param start Start timestamp for the pending subscription.
     /// @param end End timestamp for the pending subscription.
     /// @param rate Rate for the pending subscription.
@@ -180,7 +209,7 @@ contract Subscriptions is Ownable {
         );
 
         // Create the subscription using the pending subscription details
-        _subscribe(_to, pendingSub.start, pendingSub.end, pendingSub.rate);
+        _subscribe(_to, subStart, pendingSub.end, pendingSub.rate);
         delete pendingSubscriptions[_to];
 
         // Send any extra tokens back to the user
@@ -215,6 +244,58 @@ contract Subscriptions is Ownable {
         delete authorizedSigners[user][_signer];
 
         emit AuthorizedSignerRemoved(user, _signer);
+    }
+
+    /// @notice Create a subscription for a user.
+    /// Will override an active subscription if one exists.
+    /// @dev The function's name and signature, `create`, are used to comply with the `IPayment`
+    /// interface for recurring payments.
+    /// @dev Note that this function does not protect user against a start time in the past.
+    /// @param user Subscription owner.
+    /// @param data Encoded start, end and rate for the new subscription.
+    function create(
+        address user,
+        bytes calldata data
+    ) public onlyRecurringPayments {
+        (uint64 start, uint64 end, uint128 rate) = abi.decode(
+            data,
+            (uint64, uint64, uint128)
+        );
+        _subscribe(user, start, end, rate);
+    }
+
+    /// @notice Extends a subscription's end time.
+    /// The time the subscription will be extended by is calculated as `amount / rate`, where
+    /// `rate` is the existing subscription rate and `amount` is the new amount of tokens provided.
+    /// If the subscription was expired the extension will start from the current block timestamp.
+    /// @dev The function's name, `addTo`, is used to comply with the `IPayment` interface for recurring payments.
+    /// @param user Subscription owner.
+    /// @param amount Total amount to be added to the subscription.
+    function addTo(address user, uint256 amount) public {
+        require(amount > 0, 'amount must be positive');
+        require(user != address(0), 'user is null');
+
+        Subscription memory sub = subscriptions[user];
+        require(sub.start != 0, 'no subscription found');
+        require(sub.rate != 0, 'cannot extend a zero rate subscription');
+        require(amount % sub.rate == 0, "amount not multiple of rate");
+
+        uint64 newEnd = uint64(Math.max(sub.end, block.timestamp)) +
+            uint64(amount / sub.rate);
+
+        _setEpochs(sub.start, sub.end, -int128(sub.rate));
+        _setEpochs(sub.start, newEnd, int128(sub.rate));
+
+        subscriptions[user].end = newEnd;
+
+        bool success = token.transferFrom(msg.sender, address(this), amount);
+        require(success, 'IERC20 token transfer failed');
+
+        emit Extend(user, sub.end, newEnd, amount);
+    }
+
+    function setRecurringPayments(address _recurringPayments) public onlyOwner {
+        _setRecurringPayments(_recurringPayments);
     }
 
     /// @param _user Subscription owner.
@@ -303,8 +384,21 @@ contract Subscriptions is Ownable {
         return unlocked(sub.start, sub.end, sub.rate);
     }
 
+    /// @notice Sets the recurring payments contract address.
+    /// @param _recurringPayments Address of the recurring payments contract.
+    function _setRecurringPayments(address _recurringPayments) private {
+        require(
+            _recurringPayments != address(0),
+            'recurringPayments cannot be zero address'
+        );
+        recurringPayments = _recurringPayments;
+        emit RecurringPaymentsUpdated(_recurringPayments);
+    }
+
     /// @notice Create a subscription for a user
     /// Will override an active subscription if one exists.
+    /// @dev Note that setting a start time in the past is allowed. If this behavior is not desired,
+    /// the caller can clamp the start time to the current block timestamp.
     /// @param user Owner for the new subscription.
     /// @param start Start timestamp for the new subscription.
     /// @param end End timestamp for the new subscription.
@@ -317,7 +411,6 @@ contract Subscriptions is Ownable {
     ) private {
         require(user != address(0), 'user is null');
         require(user != address(this), 'invalid user');
-        start = uint64(Math.max(start, block.timestamp));
         require(start < end, 'start must be less than end');
 
         // This avoids unexpected behavior from truncation, especially in `locked` and `unlocked`.

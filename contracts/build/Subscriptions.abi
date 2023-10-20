@@ -10,6 +10,11 @@
         "internalType": "uint64",
         "name": "_epochSeconds",
         "type": "uint64"
+      },
+      {
+        "internalType": "address",
+        "name": "_recurringPayments",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -57,6 +62,37 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "oldEnd",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "newEnd",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Extend",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "address",
         "name": "token",
@@ -67,6 +103,12 @@
         "internalType": "uint64",
         "name": "epochSeconds",
         "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "recurringPayments",
+        "type": "address"
       }
     ],
     "name": "Init",
@@ -126,6 +168,19 @@
       }
     ],
     "name": "PendingSubscriptionCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recurringPayments",
+        "type": "address"
+      }
+    ],
+    "name": "RecurringPaymentsUpdated",
     "type": "event"
   },
   {
@@ -232,6 +287,24 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "addTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "",
         "type": "address"
       },
@@ -307,6 +380,24 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "create",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -468,6 +559,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "recurringPayments",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -506,6 +610,19 @@
       }
     ],
     "name": "setPendingSubscription",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_recurringPayments",
+        "type": "address"
+      }
+    ],
+    "name": "setRecurringPayments",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
