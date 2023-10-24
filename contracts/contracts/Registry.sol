@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice Data for an entry, a set of subscriptions contracts and a metadata hash.
 struct Entry {
     address[] subscriptions;
-    uint256 metadataHash;
+    bytes32 metadataHash;
 }
 
 /// @notice This contract is designed to store an allowlist of entries, where each entry is associated with a set of
@@ -33,7 +33,7 @@ contract Registry is Ownable {
     }
 
     /// @notice Return the entry data, (subscriptions, metadataHash), associated with the given `_id`.
-    function getEntry(uint256 _id) external view returns (address[] memory, uint256) {
+    function getEntry(uint256 _id) external view returns (address[] memory, bytes32) {
         Entry memory _entry = entries[_id];
         return (_entry.subscriptions, _entry.metadataHash);
     }

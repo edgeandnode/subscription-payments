@@ -16,9 +16,9 @@
             "type": "address[]"
           },
           {
-            "internalType": "uint256",
+            "internalType": "bytes32",
             "name": "metadataHash",
-            "type": "uint256"
+            "type": "bytes32"
           }
         ],
         "indexed": false,
@@ -73,9 +73,9 @@
     "name": "entries",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "bytes32",
         "name": "metadataHash",
-        "type": "uint256"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -97,9 +97,9 @@
         "type": "address[]"
       },
       {
-        "internalType": "uint256",
+        "internalType": "bytes32",
         "name": "",
-        "type": "uint256"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -120,9 +120,9 @@
             "type": "address[]"
           },
           {
-            "internalType": "uint256",
+            "internalType": "bytes32",
             "name": "metadataHash",
-            "type": "uint256"
+            "type": "bytes32"
           }
         ],
         "internalType": "struct Entry",
