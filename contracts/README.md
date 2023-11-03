@@ -41,7 +41,7 @@ amount of tokens the user must tranfer to the contract upon calling `subscribe`.
 recover the total value of the subscription via `unsubscribe` up to the start timestamp. The amount
 of tokens recoverable by the user decreases at `rate` tokens per block until the `end` timestamp,
 when the recoverable amount becomes 0. The contract owner may only collect tokens that are no longer
-recoverable by any the user.
+recoverable by any user.
 
 ### Epochs
 
