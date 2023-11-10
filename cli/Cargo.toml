@@ -12,7 +12,7 @@ chrono = { version = "0.4.23", default-features = false, features = [
 clap = { version = "4.1.0", features = ["derive"] }
 ethers = { version = "2.0.0", default-features = false, features = ["rustls"] }
 graph-subscriptions = { path = "../graph-subscriptions-rs" }
-tokio = { version = "1.24", features = ["io-std", "macros", "rt"] }
+tokio = { version = "1.24", features = ["macros", "rt"] }
 toolshed = { git = "https://github.com/edgeandnode/toolshed", tag = "v0.1.3", default-features = false, features = [
     "url",
 ] }
