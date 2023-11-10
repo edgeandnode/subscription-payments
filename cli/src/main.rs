@@ -3,10 +3,7 @@ use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use ethers::{abi::Address, prelude::*};
 use graph_subscriptions::{Subscription, Subscriptions, TicketPayload, IERC20};
-use std::time::Duration;
-use std::{str::FromStr as _, sync::Arc};
-use tokio::io::AsyncReadExt;
-use tokio::time::timeout;
+use std::{io::Read as _, str::FromStr as _, sync::Arc};
 use toolshed::url::Url;
 
 #[derive(Debug, Parser)]
@@ -60,6 +57,10 @@ enum Commands {
         #[arg(long)]
         allowed_domains: Option<String>,
     },
+    Decode {
+        #[arg(long)]
+        ticket: String,
+    },
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -71,13 +72,9 @@ async fn main() -> Result<()> {
     let subscriptions = Subscriptions::new(opt.subscriptions, provider.clone());
     let token = IERC20::new(opt.token, provider.clone());
 
+    eprintln!("reading secret key from stdin...");
     let mut secret_key = String::new();
-    timeout(
-        Duration::from_secs(2),
-        tokio::io::stdin().read_to_string(&mut secret_key),
-    )
-    .await??;
-
+    std::io::stdin().read_to_string(&mut secret_key)?;
     let wallet = Wallet::from_str(secret_key.trim())?.with_chain_id(opt.chain_id);
     drop(secret_key);
     let client = SignerMiddleware::new(provider, wallet.clone());
@@ -202,6 +199,11 @@ async fn main() -> Result<()> {
             TicketPayload::from_ticket_base64(&ticket)?;
 
             println!("{ticket}");
+        }
+
+        Commands::Decode { ticket } => {
+            let (payload, _) = TicketPayload::from_ticket_base64(&ticket)?;
+            println!("\n{}", payload.verification_message());
         }
     }
 
