@@ -5,5 +5,10 @@
   "421613": {
     "Subscriptions": "0x29f49a438c747e7Dd1bfe7926b03783E47f9447B",
     "Registry": "0xb9c4faA67f80e3fB4C4b7b7b2AcA6E0D1d7C711B"
+  },
+  "421614": {
+    "StableToken": "0x4ec3896563A0Ad3A3f054556E6e2D928D751EB36",
+    "Subscriptions": "0xCE7E2C9CC2f39de94E82b9E759DBd8cE1A8a54Ee",
+    "Registry": "0xBF29c01B0B897747C0032Ec4407ee030ed2bB7F7"
   }
 }
