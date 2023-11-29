@@ -4,10 +4,10 @@
       "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     }
   },
-  "arbitrum-goerli": {
+  "arbitrum-sepolia": {
     "Subscriptions": {
-      "address": "0x29f49a438c747e7Dd1bfe7926b03783E47f9447B",
-      "startBlock": 10350834
+      "address": "0xCE7E2C9CC2f39de94E82b9E759DBd8cE1A8a54Ee",
+      "startBlock": 1305165
     }
   },
   "arbitrum-one": {
