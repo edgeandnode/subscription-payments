@@ -146,49 +146,54 @@ export class User extends Entity {
     this.set("id", Value.fromBytes(value));
   }
 
-  get subscribeEvents(): Array<Bytes> {
-    let value = this.get("subscribeEvents");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBytesArray();
-    }
+  get subscribeEvents(): SubscribeLoader {
+    return new SubscribeLoader(
+      "User",
+      this.get("id")!
+        .toBytes()
+        .toHexString(),
+      "subscribeEvents"
+    );
   }
 
-  get unsubscribeEvents(): Array<Bytes> | null {
-    let value = this.get("unsubscribeEvents");
-    if (!value || value.kind == ValueKind.NULL) {
-      return null;
-    } else {
-      return value.toBytesArray();
-    }
+  get unsubscribeEvents(): UnsubscribeLoader {
+    return new UnsubscribeLoader(
+      "User",
+      this.get("id")!
+        .toBytes()
+        .toHexString(),
+      "unsubscribeEvents"
+    );
   }
 
-  get extendEvents(): Array<Bytes> | null {
-    let value = this.get("extendEvents");
-    if (!value || value.kind == ValueKind.NULL) {
-      return null;
-    } else {
-      return value.toBytesArray();
-    }
+  get extendEvents(): UnsubscribeLoader {
+    return new UnsubscribeLoader(
+      "User",
+      this.get("id")!
+        .toBytes()
+        .toHexString(),
+      "extendEvents"
+    );
   }
 
-  get userSubscriptions(): Array<Bytes> | null {
-    let value = this.get("userSubscriptions");
-    if (!value || value.kind == ValueKind.NULL) {
-      return null;
-    } else {
-      return value.toBytesArray();
-    }
+  get userSubscriptions(): UserSubscriptionLoader {
+    return new UserSubscriptionLoader(
+      "User",
+      this.get("id")!
+        .toBytes()
+        .toHexString(),
+      "userSubscriptions"
+    );
   }
 
-  get authorizedSigners(): Array<Bytes> | null {
-    let value = this.get("authorizedSigners");
-    if (!value || value.kind == ValueKind.NULL) {
-      return null;
-    } else {
-      return value.toBytesArray();
-    }
+  get authorizedSigners(): AuthorizedSignerLoader {
+    return new AuthorizedSignerLoader(
+      "User",
+      this.get("id")!
+        .toBytes()
+        .toHexString(),
+      "authorizedSigners"
+    );
   }
 
   get eventCount(): i32 {
@@ -202,15 +207,6 @@ export class User extends Entity {
 
   set eventCount(value: i32) {
     this.set("eventCount", Value.fromI32(value));
-  }
-
-  get events(): Array<Bytes> | null {
-    let value = this.get("events");
-    if (!value || value.kind == ValueKind.NULL) {
-      return null;
-    } else {
-      return value.toBytesArray();
-    }
   }
 }
 
@@ -1568,5 +1564,77 @@ export class UserSubscriptionDowngradeEvent extends Entity {
 
   set currentSubscriptionRate(value: BigInt) {
     this.set("currentSubscriptionRate", Value.fromBigInt(value));
+  }
+}
+
+export class SubscribeLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): Subscribe[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<Subscribe[]>(value);
+  }
+}
+
+export class UnsubscribeLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): Unsubscribe[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<Unsubscribe[]>(value);
+  }
+}
+
+export class UserSubscriptionLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): UserSubscription[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<UserSubscription[]>(value);
+  }
+}
+
+export class AuthorizedSignerLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): AuthorizedSigner[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<AuthorizedSigner[]>(value);
   }
 }
