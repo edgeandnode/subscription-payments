@@ -6,7 +6,7 @@
 To deploy the contract run:
 
 ```bash
-PRIVATE_KEY=<> hh deploy --token <STABLE_COIN_ADDRESS> --network <arbitrum-goerli|arbitrum-one>
+PRIVATE_KEY=<> hh deploy --token <STABLE_COIN_ADDRESS> --network <arbitrum-sepolia|arbitrum-one>
 ```
 
 Alternatively you can use the env var `MNEMONIC` to deploy the contract and it will pick the first derived address.
@@ -15,11 +15,20 @@ Alternatively you can use the env var `MNEMONIC` to deploy the contract and it w
 To deploy the contract run:
 
 ```bash
-PRIVATE_KEY=<> hh deploy:registry --owner <OWNER_ADDRESS> --network <arbitrum-goerli|arbitrum-one>
+PRIVATE_KEY=<> hh deploy:registry --owner <OWNER_ADDRESS> --network <arbitrum-sepolia|arbitrum-one>
 ```
 
 Note that the `--owner` flag is optional, if not passed the deployer address will be set as the contract owner.
 Alternatively you can use the env var `MNEMONIC` to deploy the contract and it will pick the first derived address.
+
+### USDC contract (testnet only)
+To deploy the contract run:
+
+```bash
+PRIVATE_KEY=<> hh deploy:usdc --network <arbitrum-sepolia>
+```
+
+The deployer address will own the USDC contract and be able to mint tokens. There is an initial supply of 1B tokens but if needed more can be minted by calling `configureMinter` and then `mint` on the contract. Bare in mind that USDC uses 6 decimals.
 
 ## Tests
 
