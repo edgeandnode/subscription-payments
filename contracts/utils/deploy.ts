@@ -4,7 +4,7 @@ import { Artifacts } from 'hardhat/internal/artifacts'
 import { LinkReferences } from 'hardhat/types'
 
 import { Subscriptions } from '../types/contracts/Subscriptions'
-import { Registry, StableToken } from '../types'
+import { FiatTokenV2_1, Registry } from '../types'
 
 type Abi = Array<string | utils.FunctionFragment | utils.EventFragment | utils.ParamType>
 
@@ -65,12 +65,12 @@ export async function deploySubscriptions(
 }
 
 // Pass the args in order to this func
-export async function deployStableToken(
+export async function deployFiatToken(
   args: Array<string | BigNumber>,
   sender: Signer,
   logging = true
-): Promise<StableToken> {
-  return deployContract(args, sender, 'StableToken', logging) as unknown as Promise<StableToken>
+): Promise<FiatTokenV2_1> {
+  return deployContract(args, sender, 'FiatTokenV2_1', logging) as unknown as Promise<FiatTokenV2_1>
 }
 
 export async function deployRegistry(
