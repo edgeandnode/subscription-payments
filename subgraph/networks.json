@@ -6,8 +6,8 @@
   },
   "arbitrum-sepolia": {
     "Subscriptions": {
-      "address": "0xCE7E2C9CC2f39de94E82b9E759DBd8cE1A8a54Ee",
-      "startBlock": 1305165
+      "address": "0x7F4965F6CcF06Ca656B58b9c1CF424D6eD2E4064",
+      "startBlock": 2167860
     }
   },
   "arbitrum-one": {
