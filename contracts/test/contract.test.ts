@@ -6,7 +6,6 @@ import * as deployment from '../utils/deploy';
 import {getAccounts, Account, toGRT} from '../utils/helpers';
 
 import {Subscriptions} from '../types/contracts/Subscriptions';
-import {StableToken} from '../types/contracts/test/StableMock.sol/StableToken';
 import {BigNumber, ethers} from 'ethers';
 import {
   latestBlockTimestamp,
@@ -15,6 +14,8 @@ import {
   mineNBlocks,
   setAutoMine,
 } from './helpers';
+import { FiatTokenV2_1 } from '../types';
+import { setupUSDC } from './usdc';
 
 const tenBillion = toGRT('10000000000');
 const oneMillion = toGRT('1000000');
@@ -29,7 +30,7 @@ describe('Subscriptions contract', () => {
 
   // Contracts
   let subscriptions: Subscriptions;
-  let stableToken: StableToken;
+  let stableToken: FiatTokenV2_1;
 
   // Constructor params
   const subscriptionsEpochSeconds = BigNumber.from(100);
@@ -43,11 +44,13 @@ describe('Subscriptions contract', () => {
   });
 
   beforeEach(async function () {
-    stableToken = await deployment.deployStableToken(
-      [tenBillion],
+    stableToken = await deployment.deployFiatToken(
+      [],
       deployer.signer,
       false
     );
+    await setupUSDC(stableToken, deployer);
+
     subscriptions = await deployment.deploySubscriptions(
       [stableToken.address, subscriptionsEpochSeconds],
       deployer.signer,
@@ -745,7 +748,7 @@ describe('Subscriptions contract', () => {
 });
 
 async function subscribe(
-  stableToken: StableToken,
+  stableToken: FiatTokenV2_1,
   subscriptions: Subscriptions,
   user: Account,
   start: BigNumber,
@@ -810,7 +813,7 @@ async function subscribe(
 }
 
 async function unsubscribe(
-  stableToken: StableToken,
+  stableToken: FiatTokenV2_1,
   subscriptions: Subscriptions,
   signer: Account,
   subscribeBlockNumber: number | undefined
@@ -1018,7 +1021,7 @@ async function setPendingSubscription(
 }
 
 async function fulfil(
-  stableToken: StableToken,
+  stableToken: FiatTokenV2_1,
   subscriptions: Subscriptions,
   signer: Account,
   start: BigNumber,
