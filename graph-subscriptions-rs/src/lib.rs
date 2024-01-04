@@ -12,8 +12,6 @@ use std::{
     str::FromStr as _,
 };
 
-pub mod subscription_tier;
-
 abigen!(
     Subscriptions,
     "../contracts/build/Subscriptions.abi",
